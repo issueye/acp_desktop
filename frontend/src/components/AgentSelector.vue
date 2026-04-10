@@ -61,24 +61,33 @@ function handleSelect(event: Event) {
 .agent-selector {
   display: flex;
   flex-direction: column;
-  gap: 0.42rem;
+  gap: 0.55rem;
 }
 
 label {
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   font-weight: 700;
-  letter-spacing: 0.02em;
-  color: var(--text-secondary, #666);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary, #486176);
 }
 
 select {
-  height: 34px;
-  padding: 0 0.55rem;
-  border: 1px solid var(--border-color, #ccc);
-  border-radius: 6px;
+  height: 46px;
+  padding: 0 0.9rem;
+  border: 1px solid rgba(121, 151, 176, 0.2);
+  border-radius: 8px;
   font-size: 0.9rem;
-  background: var(--bg-input, #fff);
-  color: var(--text-primary, #333);
+  font-weight: 500;
+  background: #ffffff;
+  color: var(--text-primary, #102033);
+  box-shadow: none;
+}
+
+select:focus {
+  outline: none;
+  border-color: rgba(37,99,235,.32);
+  box-shadow: 0 0 0 3px rgba(37,99,235,.08);
 }
 
 select:disabled {
@@ -88,18 +97,19 @@ select:disabled {
 
 .config-hint {
   margin-top: 0.5rem;
-  padding: 0.6rem;
-  background: var(--bg-warning, #fff3cd);
-  border-radius: 4px;
+  padding: 0.85rem;
+  background: rgba(210, 153, 34, 0.12);
+  border-radius: 8px;
   font-size: 0.78rem;
+  border: 1px solid rgba(210, 153, 34, 0.16);
 }
 
 .config-hint code {
   display: block;
-  margin-top: 0.25rem;
-  padding: 0.25rem 0.5rem;
-  background: var(--bg-code, #f5f5f5);
-  border-radius: 2px;
+  margin-top: 0.45rem;
+  padding: 0.45rem 0.55rem;
+  background: #ffffff;
+  border-radius: 8px;
   font-family: monospace;
   word-break: break-all;
 }

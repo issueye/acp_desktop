@@ -1,4 +1,10 @@
 import type { AgentsConfig, AgentInstance, AgentMessage, AgentStderr } from "./types";
+import {
+  Quit,
+  WindowIsMaximised,
+  WindowMinimise,
+  WindowToggleMaximise,
+} from "../../wailsjs/runtime/runtime";
 
 export type UnlistenFn = () => void;
 
@@ -173,4 +179,20 @@ export async function onAgentStderr(
   callback: (stderr: AgentStderr) => void
 ): Promise<UnlistenFn> {
   return listenEvent("agent-stderr", normalizeAgentStderr, callback);
+}
+
+export function windowMinimise(): void {
+  WindowMinimise();
+}
+
+export function windowClose(): void {
+  Quit();
+}
+
+export function windowToggleMaximise(): void {
+  WindowToggleMaximise();
+}
+
+export function windowIsMaximised(): Promise<boolean> {
+  return WindowIsMaximised();
 }

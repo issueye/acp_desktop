@@ -154,7 +154,10 @@ function getStatusIcon(status: string): string {
 <template>
   <div class="chat-view">
     <div class="chat-header">
-      <h2>{{ currentSession?.title || t('chat.titleFallback') }}</h2>
+      <div class="chat-title">
+        <h2>{{ currentSession?.title || t('chat.titleFallback') }}</h2>
+        <span class="agent-name">{{ currentSession?.agentName }}</span>
+      </div>
       <div class="header-right">
         <ModelPicker 
           v-if="availableModels.length > 0"
@@ -170,88 +173,94 @@ function getStatusIcon(status: string): string {
           :disabled="isLoading"
           @change="handleModeChange"
         />
-        <span class="agent-name">{{ currentSession?.agentName }}</span>
       </div>
     </div>
     
     <div ref="messagesContainer" class="messages-container">
-      <div 
-        v-for="message in messages" 
-        :key="message.id"
-        :class="['message', `message-${message.role}`]"
-      >
-        <div class="message-header">
-          <span class="role">{{ message.role === 'user' ? t('chat.roleYou') : t('chat.roleAssistant') }}</span>
+      <div class="messages-stack">
+        <div v-if="messages.length === 0 && !isLoading" class="chat-empty-state">
+          <div class="empty-icon">+</div>
+          <h3>{{ t('chat.emptyTitle') }}</h3>
+          <p>{{ t('chat.emptyDesc') }}</p>
         </div>
-        
-        <!-- Agent thinking section (collapsible) - shown first to explain reasoning -->
-        <div v-if="message.thought && message.role === 'assistant'" class="thought-section">
-          <button class="thought-toggle" @click="toggleThought(message.id)">
-            <span class="thought-icon">💭</span>
-            <span class="thought-label">{{ isThoughtExpanded(message.id) ? t('chat.hideThinking') : t('chat.showThinking') }}</span>
-            <span class="thought-chevron">{{ isThoughtExpanded(message.id) ? '▲' : '▼' }}</span>
-          </button>
-          <div v-if="isThoughtExpanded(message.id)" class="thought-content">
-            <div v-html="renderMarkdown(message.thought)" />
-          </div>
-        </div>
-        
-        <!-- Tool calls for this message (shown after thinking) -->
-        <div v-if="message.toolCalls?.length" class="tool-calls-section">
-          <div 
-            v-for="tc in message.toolCalls" 
-            :key="tc.toolCallId"
-            :class="['tool-call-inline', `tool-${tc.status}`]"
-          >
-            <span class="tool-icon">{{ getToolIcon(tc.kind) }}</span>
-            <span class="tool-name">{{ tc.title }}</span>
-            <span v-if="tc.locations?.length" class="tool-location">
-              {{ tc.locations[0].path }}
-            </span>
-            <span :class="['tool-status', `status-${tc.status}`]">
-              {{ getStatusIcon(tc.status) }}
-            </span>
-          </div>
-        </div>
-        
+
         <div 
-          v-if="message.content"
-          class="message-content"
-          v-html="renderMarkdown(message.content)"
-        />
-      </div>
-      
-      <!-- Loading indicator -->
-      <div v-if="isLoading" class="loading-indicator">
-        <span class="spinner"></span>
-        <span>{{ t('chat.thinking') }}</span>
-        <button class="cancel-btn" @click="handleCancel">{{ t('chat.cancel') }}</button>
+          v-for="message in messages" 
+          :key="message.id"
+          :class="['message', `message-${message.role}`]"
+        >
+          <div class="message-header">
+            <span class="role">{{ message.role === 'user' ? t('chat.roleYou') : t('chat.roleAssistant') }}</span>
+          </div>
+
+          <div v-if="message.thought && message.role === 'assistant'" class="thought-section">
+            <button class="thought-toggle" @click="toggleThought(message.id)">
+              <span class="thought-icon">...</span>
+              <span class="thought-label">{{ isThoughtExpanded(message.id) ? t('chat.hideThinking') : t('chat.showThinking') }}</span>
+              <span class="thought-chevron">{{ isThoughtExpanded(message.id) ? '▲' : '▼' }}</span>
+            </button>
+            <div v-if="isThoughtExpanded(message.id)" class="thought-content">
+              <div v-html="renderMarkdown(message.thought)" />
+            </div>
+          </div>
+
+          <div v-if="message.toolCalls?.length" class="tool-calls-section">
+            <div 
+              v-for="tc in message.toolCalls" 
+              :key="tc.toolCallId"
+              :class="['tool-call-inline', `tool-${tc.status}`]"
+            >
+              <span class="tool-icon">{{ getToolIcon(tc.kind) }}</span>
+              <span class="tool-name">{{ tc.title }}</span>
+              <span v-if="tc.locations?.length" class="tool-location">
+                {{ tc.locations[0].path }}
+              </span>
+              <span :class="['tool-status', `status-${tc.status}`]">
+                {{ getStatusIcon(tc.status) }}
+              </span>
+            </div>
+          </div>
+
+          <div 
+            v-if="message.content"
+            class="message-content"
+            v-html="renderMarkdown(message.content)"
+          />
+        </div>
+
+        <div v-if="isLoading" class="loading-indicator">
+          <span class="spinner"></span>
+          <span>{{ t('chat.thinking') }}</span>
+          <button class="cancel-btn" @click="handleCancel">{{ t('chat.cancel') }}</button>
+        </div>
       </div>
     </div>
     
-    <div class="input-container">
-      <CommandPalette
-        ref="commandPaletteRef"
-        :commands="availableCommands"
-        :filter="commandFilter"
-        :visible="showCommandPalette"
-        @select="handleCommandSelect"
-        @close="handleCommandClose"
-      />
-      <textarea
-        v-model="inputText"
-        :placeholder="availableCommands.length > 0 ? t('chat.placeholderCommands') : t('chat.placeholder')"
-        :disabled="isLoading"
-        @keydown="handleKeyDown"
-        rows="3"
-      />
-      <button 
-        class="send-btn"
-        :disabled="!inputText.trim() || isLoading"
-        @click="handleSend"
-      >
-        {{ t('chat.send') }}
-      </button>
+    <div class="input-shell">
+      <div class="input-container">
+        <CommandPalette
+          ref="commandPaletteRef"
+          :commands="availableCommands"
+          :filter="commandFilter"
+          :visible="showCommandPalette"
+          @select="handleCommandSelect"
+          @close="handleCommandClose"
+        />
+        <textarea
+          v-model="inputText"
+          :placeholder="availableCommands.length > 0 ? t('chat.placeholderCommands') : t('chat.placeholder')"
+          :disabled="isLoading"
+          @keydown="handleKeyDown"
+          rows="3"
+        />
+        <button 
+          class="send-btn"
+          :disabled="!inputText.trim() || isLoading"
+          @click="handleSend"
+        >
+          {{ t('chat.send') }}
+        </button>
+      </div>
     </div>
   </div>
 </template>
@@ -264,17 +273,25 @@ function getStatusIcon(status: string): string {
 }
 
 .chat-header {
-  padding: 1rem;
-  border-bottom: 1px solid var(--border-color, #e0e0e0);
+  padding: 0.66rem 1.15rem;
+  border-bottom: 1px solid var(--border-color);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
+  background: #fffdfa;
+}
+
+.chat-title {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.16rem;
 }
 
 .chat-header h2 {
   margin: 0;
-  font-size: 1.1rem;
+  font-size: 0.96rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -283,47 +300,92 @@ function getStatusIcon(status: string): string {
 .header-right {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .agent-name {
-  font-size: 0.875rem;
-  color: var(--text-accent, #0066cc);
+  font-size: 0.73rem;
+  color: var(--text-accent, #2563eb);
+  font-weight: 600;
 }
 
 .messages-container {
   flex: 1;
   overflow-y: auto;
-  padding: 1rem;
+  padding: 1.4rem 1.4rem 1.2rem;
+  background: linear-gradient(180deg, #ffffff 0%, #fcfaf6 100%);
+}
+
+.messages-stack {
+  width: min(920px, 100%);
+  margin: 0 auto;
+}
+
+.chat-empty-state {
+  min-height: 100%;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: 2rem;
+  color: var(--text-secondary, #486176);
+}
+
+.chat-empty-state h3 {
+  margin-top: 0.85rem;
+  font-size: 1.1rem;
+  color: var(--text-primary, #102033);
+}
+
+.chat-empty-state p {
+  max-width: 420px;
+  margin-top: 0.55rem;
+  line-height: 1.7;
+}
+
+.empty-icon {
+  width: 54px;
+  height: 54px;
+  display: grid;
+  place-items: center;
+  margin: 0 auto;
+  border-radius: 8px;
+  background: #eff6ff;
+  border: 1px solid rgba(37, 99, 235, 0.14);
+  color: var(--text-accent, #2563eb);
+  font-size: 1.5rem;
+  font-weight: 700;
 }
 
 .message {
-  margin-bottom: 1rem;
-  padding: 0.75rem;
+  margin-bottom: 0.95rem;
+  padding: 0.95rem 1rem;
   border-radius: 8px;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  box-shadow: none;
 }
 
 .message-user {
-  background: var(--bg-user, #e3f2fd);
-  margin-left: 2rem;
+  background: #edf3ff;
+  margin-left: 4rem;
 }
 
 .message-assistant {
-  background: var(--bg-assistant, #f5f5f5);
-  margin-right: 2rem;
+  background: #ffffff;
+  margin-right: 4rem;
 }
 
 .message-header {
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.55rem;
 }
 
 .role {
   font-weight: 600;
-  font-size: 0.875rem;
-  color: var(--text-secondary, #666);
+  font-size: 0.75rem;
+  color: var(--text-muted, #486176);
 }
 
-/* Tool calls inline styles */
 .tool-calls-section {
   margin-bottom: 0.75rem;
   display: flex;
@@ -335,10 +397,10 @@ function getStatusIcon(status: string): string {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.375rem 0.625rem;
-  border-radius: 4px;
+  padding: 0.45rem 0.7rem;
+  border-radius: 8px;
   font-size: 0.8rem;
-  background: rgba(0, 0, 0, 0.04);
+  background: #faf7f1;
   border-left: 2px solid var(--border-color);
 }
 
@@ -347,18 +409,18 @@ function getStatusIcon(status: string): string {
 }
 
 .tool-in_progress {
-  border-left-color: #3b82f6;
-  background: rgba(59, 130, 246, 0.08);
+  border-left-color: #2563eb;
+  background: rgba(37, 99, 235, 0.08);
 }
 
 .tool-completed {
-  border-left-color: #10b981;
-  background: rgba(16, 185, 129, 0.08);
+  border-left-color: #059669;
+  background: rgba(5, 150, 105, 0.08);
 }
 
 .tool-failed {
-  border-left-color: #ef4444;
-  background: rgba(239, 68, 68, 0.08);
+  border-left-color: #dc2626;
+  background: rgba(220, 38, 38, 0.08);
 }
 
 .tool-icon {
@@ -384,15 +446,16 @@ function getStatusIcon(status: string): string {
   font-weight: 600;
 }
 
-.status-pending { color: #f59e0b; }
-.status-in_progress { color: #3b82f6; }
-.status-completed { color: #10b981; }
-.status-failed { color: #ef4444; }
+.status-pending { color: #b45309; }
+.status-in_progress { color: #2563eb; }
+.status-completed { color: #059669; }
+.status-failed { color: #dc2626; }
 
 .message-content {
-  line-height: 1.5;
+  line-height: 1.7;
   overflow-wrap: break-word;
   word-wrap: break-word;
+  color: var(--text-primary, #102033);
 }
 
 .message-content :deep(p) {
@@ -426,8 +489,11 @@ function getStatusIcon(status: string): string {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.75rem;
-  color: var(--text-muted, #666);
+  padding: 0.95rem 1rem;
+  color: var(--text-muted, #6d8295);
+  border-radius: 8px;
+  background: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.06);
 }
 
 .spinner {
@@ -445,51 +511,68 @@ function getStatusIcon(status: string): string {
 
 .cancel-btn {
   margin-left: auto;
-  padding: 0.25rem 0.5rem;
-  border: 1px solid var(--border-color, #ccc);
-  border-radius: 4px;
-  background: transparent;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--text-secondary);
   font-size: 0.8rem;
   cursor: pointer;
+}
+
+.input-shell {
+  border-top: 1px solid var(--border-color);
+  background: #fffdfa;
+  padding: 1rem 1.2rem 1.15rem;
 }
 
 .input-container {
   position: relative;
   display: flex;
+  align-items: flex-end;
   gap: 0.5rem;
-  padding: 1rem;
-  border-top: 1px solid var(--border-color, #e0e0e0);
+  width: min(920px, 100%);
+  margin: 0 auto;
 }
 
 textarea {
   flex: 1;
-  padding: 0.75rem;
-  border: 1px solid var(--border-color, #ccc);
-  border-radius: 6px;
-  font-size: 1rem;
+  min-height: 88px;
+  padding: 0.95rem 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 0.96rem;
   font-family: inherit;
   resize: none;
+  background: #ffffff;
+  color: var(--text-primary);
 }
 
 textarea:focus {
   outline: none;
-  border-color: var(--text-accent, #0066cc);
+  border-color: rgba(37,99,235,.32);
+  box-shadow: 0 0 0 3px rgba(37,99,235,.08);
 }
 
 .send-btn {
-  padding: 0.75rem 1.5rem;
-  background: var(--bg-primary, #0066cc);
+  min-width: 98px;
+  height: 46px;
+  padding: 0 1.25rem;
+  background: var(--bg-primary);
   color: white;
+  border: 1px solid rgba(37, 99, 235, 0.2);
   border: none;
-  border-radius: 6px;
-  font-size: 1rem;
-  font-weight: 500;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 600;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background 0.15s, transform 0.15s;
 }
 
 .send-btn:hover:not(:disabled) {
-  background: var(--bg-primary-hover, #0052a3);
+  background: var(--bg-primary-hover);
+  color: white;
+  transform: translateY(-1px);
 }
 
 .send-btn:disabled {
@@ -497,10 +580,9 @@ textarea:focus {
   cursor: not-allowed;
 }
 
-/* Agent Thinking Section */
 .thought-section {
   margin-bottom: 0.75rem;
-  border: 1px solid var(--border-color, #e0e0e0);
+  border: 1px solid rgba(15, 23, 42, 0.06);
   border-radius: 8px;
   overflow: hidden;
 }
@@ -510,8 +592,8 @@ textarea:focus {
   align-items: center;
   gap: 0.5rem;
   width: 100%;
-  padding: 0.5rem 0.75rem;
-  background: var(--bg-hover, #f5f5f5);
+  padding: 0.65rem 0.85rem;
+  background: #faf7f1;
   border: none;
   cursor: pointer;
   font-size: 0.85rem;
@@ -521,12 +603,13 @@ textarea:focus {
 }
 
 .thought-toggle:hover {
-  background: var(--bg-user, #e3f2fd);
+  background: #f4efe5;
 }
 
 .thought-icon {
-  font-size: 1rem;
+  font-size: 0.95rem;
   flex-shrink: 0;
+  letter-spacing: 0.08em;
 }
 
 .thought-label {
@@ -540,9 +623,9 @@ textarea:focus {
 }
 
 .thought-content {
-  padding: 0.75rem 1rem 0.75rem 1.25rem;
-  background: var(--bg-main, #fafafa);
-  border-top: 1px solid var(--border-color, #e0e0e0);
+  padding: 0.85rem 1rem 0.85rem 1.15rem;
+  background: #ffffff;
+  border-top: 1px solid var(--border-color);
   font-size: 0.9rem;
   color: var(--text-muted, #666);
   font-style: italic;
@@ -558,9 +641,40 @@ textarea:focus {
 }
 
 .thought-content :deep(code) {
-  background: var(--bg-hover, #f0f0f0);
+  background: #f3f4f6;
   padding: 0.125rem 0.25rem;
   border-radius: 3px;
   font-size: 0.85em;
+}
+
+@media (max-width: 900px) {
+  .chat-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .header-right {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .message-user,
+  .message-assistant {
+    margin-left: 0;
+    margin-right: 0;
+  }
+
+  .messages-container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .input-container {
+    flex-direction: column;
+  }
+
+  .send-btn {
+    width: 100%;
+  }
 }
 </style>

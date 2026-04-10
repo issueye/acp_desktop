@@ -111,52 +111,64 @@ const hasEnvVars = computed(() => envVars.value.length > 0);
 <style scoped>
 .env-var-editor {
   margin-top: 0.5rem;
+  padding: 0.9rem;
+  border-radius: 8px;
+  background: #f8fafc;
+  border: 1px solid var(--border-color);
 }
 
 .env-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.7rem;
 }
 
 .env-label {
-  font-size: 0.875rem;
+  font-size: 0.76rem;
   color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 700;
 }
 
 .add-env-btn {
-  background: transparent;
-  border: 1px solid var(--border-color);
-  color: var(--text-primary);
-  padding: 0.25rem 0.5rem;
-  border-radius: 4px;
+  background: rgba(37, 99, 235, 0.08);
+  border: 1px solid rgba(37, 99, 235, 0.14);
+  color: var(--text-accent);
+  padding: 0.42rem 0.72rem;
+  border-radius: 999px;
   cursor: pointer;
   font-size: 0.75rem;
+  font-weight: 600;
 }
 
 .add-env-btn:hover {
-  background: var(--bg-hover);
+  background: rgba(37, 99, 235, 0.14);
 }
 
 .env-list {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.65rem;
 }
 
 .env-row {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: 0.45rem;
+  padding: 0.65rem;
+  border-radius: 8px;
+  background: #ffffff;
+  border: 1px solid var(--border-color);
 }
 
 .env-key {
   flex: 0 0 120px;
-  padding: 0.375rem 0.5rem;
+  padding: 0.55rem 0.7rem;
   border: 1px solid var(--border-color);
-  border-radius: 4px;
-  background: var(--bg-input);
+  border-radius: 8px;
+  background: #ffffff;
   color: var(--text-primary);
   font-family: monospace;
   font-size: 0.875rem;
@@ -169,37 +181,58 @@ const hasEnvVars = computed(() => envVars.value.length > 0);
 
 .env-value {
   flex: 1;
-  padding: 0.375rem 0.5rem;
+  padding: 0.55rem 0.7rem;
   border: 1px solid var(--border-color);
-  border-radius: 4px;
-  background: var(--bg-input);
+  border-radius: 8px;
+  background: #ffffff;
   color: var(--text-primary);
   font-family: monospace;
   font-size: 0.875rem;
 }
 
 .remove-env-btn {
-  background: transparent;
-  border: none;
+  width: 32px;
+  height: 32px;
+  background: rgba(255, 123, 114, 0.08);
+  border: 1px solid rgba(255, 123, 114, 0.16);
+  border-radius: 8px;
   color: var(--text-secondary);
   cursor: pointer;
-  padding: 0.25rem 0.5rem;
+  padding: 0;
   font-size: 0.875rem;
 }
 
 .remove-env-btn:hover {
   color: #e74c3c;
+  background: rgba(220, 38, 38, 0.1);
 }
 
 .env-empty {
-  font-size: 0.75rem;
+  font-size: 0.78rem;
   color: var(--text-secondary);
   font-style: italic;
+  padding: 0.7rem 0.2rem 0.15rem;
 }
 
 .env-key:focus,
 .env-value:focus {
   outline: none;
-  border-color: var(--accent-color);
+  border-color: rgba(37,99,235,.32);
+  box-shadow: 0 0 0 3px rgba(37,99,235,.08);
+}
+
+@media (max-width: 720px) {
+  .env-row {
+    flex-wrap: wrap;
+  }
+
+  .env-key,
+  .env-value {
+    flex: 1 1 100%;
+  }
+
+  .env-equals {
+    display: none;
+  }
 }
 </style>

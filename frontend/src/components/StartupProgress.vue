@@ -104,10 +104,11 @@ const isLongWait = computed(() => props.elapsedSeconds > 10);
 <style scoped>
 .startup-progress {
   padding: 1rem;
-  background: var(--bg-main);
+  background: #ffffff;
   border: 1px solid var(--border-color);
   border-radius: 8px;
   margin-top: 0.75rem;
+  box-shadow: none;
 }
 
 .progress-header {
@@ -132,9 +133,9 @@ const isLongWait = computed(() => props.elapsedSeconds > 10);
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.5rem;
-  background: var(--bg-hover);
-  border-radius: 4px;
+  padding: 0.75rem 0.8rem;
+  background: #f8fafc;
+  border-radius: 8px;
   margin-bottom: 0.75rem;
 }
 
@@ -152,9 +153,9 @@ const isLongWait = computed(() => props.elapsedSeconds > 10);
   color: var(--text-muted);
   font-style: italic;
   margin-bottom: 0.75rem;
-  padding: 0.5rem;
-  background: var(--bg-warning);
-  border-radius: 4px;
+  padding: 0.65rem 0.75rem;
+  background: rgba(210, 153, 34, 0.14);
+  border-radius: 8px;
 }
 
 .progress-actions {
@@ -164,31 +165,31 @@ const isLongWait = computed(() => props.elapsedSeconds > 10);
 }
 
 .details-btn {
-  padding: 0.375rem 0.75rem;
+  padding: 0.48rem 0.85rem;
   border: 1px solid var(--border-color);
-  border-radius: 4px;
-  background: transparent;
+  border-radius: 999px;
+  background: #ffffff;
   color: var(--text-secondary);
   font-size: 0.8rem;
   cursor: pointer;
 }
 
 .details-btn:hover {
-  background: var(--bg-hover);
+  background: #f8fafc;
 }
 
 .cancel-btn {
-  padding: 0.375rem 0.75rem;
+  padding: 0.48rem 0.85rem;
   border: 1px solid var(--border-color);
-  border-radius: 4px;
-  background: transparent;
+  border-radius: 999px;
+  background: #ffffff;
   color: var(--text-secondary);
   font-size: 0.8rem;
   cursor: pointer;
 }
 
 .cancel-btn:hover {
-  background: var(--bg-hover);
+  background: #f8fafc;
   border-color: var(--bg-danger);
   color: var(--bg-danger);
 }
@@ -196,13 +197,13 @@ const isLongWait = computed(() => props.elapsedSeconds > 10);
 .logs-container {
   margin-top: 0.75rem;
   border: 1px solid var(--border-color);
-  border-radius: 4px;
+  border-radius: 8px;
   overflow: hidden;
 }
 
 .logs-header {
-  padding: 0.375rem 0.5rem;
-  background: var(--bg-hover);
+  padding: 0.5rem 0.65rem;
+  background: #f8fafc;
   font-size: 0.75rem;
   font-weight: 600;
   color: var(--text-secondary);
@@ -212,7 +213,7 @@ const isLongWait = computed(() => props.elapsedSeconds > 10);
 .logs-content {
   max-height: 150px;
   overflow-y: auto;
-  padding: 0.5rem;
+  padding: 0.7rem;
   background: var(--bg-code);
   font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
   font-size: 0.7rem;

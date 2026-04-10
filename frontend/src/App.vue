@@ -1,9 +1,16 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useConfigStore } from './stores/config';
 import { useSessionStore } from './stores/session';
 import { initTelemetry } from './lib/telemetry';
-import { loadStore, saveStore, selectDirectory } from './lib/wails';
+import {
+  loadStore,
+  saveStore,
+  selectDirectory,
+  windowClose,
+  windowMinimise,
+  windowToggleMaximise,
+} from './lib/wails';
 import { useI18n } from './lib/i18n';
 import AgentSelector from './components/AgentSelector.vue';
 import SessionList from './components/SessionList.vue';
@@ -23,19 +30,18 @@ const selectedAgent = ref('');
 const selectedCwd = ref('');
 const showSidebar = ref(true);
 const showSettings = ref(false);
+const showWorkspaceDialog = ref(false);
 const showTrafficMonitor = ref(false);
 const showStartupDetails = ref(false);
-const workspaceCollapsed = ref(false);
-const sessionsCollapsed = ref(false);
 const sessionSearchQuery = ref('');
 const pinnedSessionIds = ref<string[]>([]);
+const openSettingsInAddMode = ref(false);
 const proxyEnabled = ref(false);
 const httpProxy = ref('');
 const httpsProxy = ref('');
 const allProxy = ref('');
 const noProxy = ref('');
 
-// Preferences store for persisting user selections
 let prefsStoreData: Record<string, unknown> = {};
 const prefsStoreName = 'preferences.json';
 
@@ -46,23 +52,30 @@ const error = computed(() => sessionStore.error || configStore.error);
 const hasAgents = computed(() => configStore.hasAgents);
 const savedSessionCount = computed(() => sessionStore.resumableSessions.length);
 const currentSessionId = computed(() => sessionStore.currentSession?.id ?? '');
-
-// Watch for permission requests from session store
+const currentSessionTitle = computed(
+  () => sessionStore.currentSession?.title || t('chat.titleFallback')
+);
 const pendingPermission = computed(() => sessionStore.pendingPermission);
-
-// Watch for auth method selection requests
 const pendingAuthMethods = computed(() => sessionStore.pendingAuthMethods);
 const pendingAuthAgentName = computed(() => sessionStore.pendingAuthAgentName);
+const selectedCwdLabel = computed(() => {
+  if (!selectedCwd.value) return '.';
+  const normalized = selectedCwd.value.replace(/\\/g, '/');
+  const parts = normalized.split('/').filter(Boolean);
+  return parts.length > 0 ? parts[parts.length - 1] : '.';
+});
+const activeStatusLabel = computed(() => {
+  if (isConnecting.value) return t('app.statusConnecting');
+  if (isConnected.value) return t('app.statusConnected');
+  return t('app.statusIdle');
+});
 
 async function persistPreferences() {
   await saveStore(prefsStoreName, prefsStoreData);
 }
 
 onMounted(async () => {
-  // Load persisted preferences first
   prefsStoreData = await loadStore(prefsStoreName);
-  workspaceCollapsed.value = (prefsStoreData.workspaceCollapsed as boolean | undefined) ?? false;
-  sessionsCollapsed.value = (prefsStoreData.sessionsCollapsed as boolean | undefined) ?? false;
   pinnedSessionIds.value = Array.isArray(prefsStoreData.pinnedSessionIds)
     ? (prefsStoreData.pinnedSessionIds as string[])
     : [];
@@ -71,20 +84,22 @@ onMounted(async () => {
   httpsProxy.value = (prefsStoreData.httpsProxy as string | undefined) ?? '';
   allProxy.value = (prefsStoreData.allProxy as string | undefined) ?? '';
   noProxy.value = (prefsStoreData.noProxy as string | undefined) ?? '';
-  
-  // Initialize telemetry (check user preference)
+
   const telemetryEnabled = (prefsStoreData.telemetryEnabled as boolean | undefined) ?? true;
   await initTelemetry(telemetryEnabled);
-  
-  // Initialize stores
+
   await configStore.loadConfig();
   await configStore.setupHotReload();
   await sessionStore.initStore();
-  
+
   const savedCwd = prefsStoreData.lastCwd as string | undefined;
-  if (savedCwd) {
-    selectedCwd.value = savedCwd;
-  }
+  if (savedCwd) selectedCwd.value = savedCwd;
+
+  window.addEventListener('keydown', handleGlobalKeydown);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', handleGlobalKeydown);
 });
 
 async function handleAgentSelect(agentName: string) {
@@ -93,26 +108,61 @@ async function handleAgentSelect(agentName: string) {
 
 async function handleSelectFolder() {
   const folder = await selectDirectory();
-  if (folder) {
-    selectedCwd.value = folder;
-    // Persist the selection
-    prefsStoreData.lastCwd = folder;
-    await persistPreferences();
-  }
+  if (!folder) return;
+  selectedCwd.value = folder;
+  prefsStoreData.lastCwd = folder;
+  await persistPreferences();
 }
 
-async function handleNewSession() {
-  if (!selectedAgent.value) return;
-  
+function openWorkspaceDialog() {
+  if (isConnected.value) return;
+  showWorkspaceDialog.value = true;
+}
+
+function closeWorkspaceDialog() {
+  if (isConnecting.value) return;
+  showWorkspaceDialog.value = false;
+  showStartupDetails.value = false;
+}
+
+function buildSessionProxyConfig(): SessionProxyConfig {
+  return {
+    enabled: proxyEnabled.value,
+    httpProxy: httpProxy.value.trim() || undefined,
+    httpsProxy: httpsProxy.value.trim() || undefined,
+    allProxy: allProxy.value.trim() || undefined,
+    noProxy: noProxy.value.trim() || undefined,
+  };
+}
+
+function applyProxyConfig(proxy?: SessionProxyConfig) {
+  proxyEnabled.value = !!proxy?.enabled;
+  httpProxy.value = proxy?.httpProxy ?? '';
+  httpsProxy.value = proxy?.httpsProxy ?? '';
+  allProxy.value = proxy?.allProxy ?? '';
+  noProxy.value = proxy?.noProxy ?? '';
+}
+
+async function persistProxyPreferences() {
+  prefsStoreData.proxyEnabled = proxyEnabled.value;
+  prefsStoreData.httpProxy = httpProxy.value;
+  prefsStoreData.httpsProxy = httpsProxy.value;
+  prefsStoreData.allProxy = allProxy.value;
+  prefsStoreData.noProxy = noProxy.value;
+  await persistPreferences();
+}
+
+async function handleCreateSession() {
+  if (!selectedAgent.value || isConnecting.value) return;
   try {
-    const cwd = selectedCwd.value || '.';
-    prefsStoreData.proxyEnabled = proxyEnabled.value;
-    prefsStoreData.httpProxy = httpProxy.value;
-    prefsStoreData.httpsProxy = httpsProxy.value;
-    prefsStoreData.allProxy = allProxy.value;
-    prefsStoreData.noProxy = noProxy.value;
-    await persistPreferences();
-    await sessionStore.createSession(selectedAgent.value, cwd, buildSessionProxyConfig());
+    await persistProxyPreferences();
+    await sessionStore.createSession(
+      selectedAgent.value,
+      selectedCwd.value || '.',
+      buildSessionProxyConfig()
+    );
+    showWorkspaceDialog.value = false;
+    showStartupDetails.value = false;
   } catch (e) {
     console.error('Failed to create session:', e);
   }
@@ -120,13 +170,10 @@ async function handleNewSession() {
 
 async function handleResumeSession(session: SavedSession) {
   selectedAgent.value = session.agentName;
+  selectedCwd.value = session.cwd;
   applyProxyConfig(session.proxy);
-  prefsStoreData.proxyEnabled = proxyEnabled.value;
-  prefsStoreData.httpProxy = httpProxy.value;
-  prefsStoreData.httpsProxy = httpsProxy.value;
-  prefsStoreData.allProxy = allProxy.value;
-  prefsStoreData.noProxy = noProxy.value;
-  await persistPreferences();
+  prefsStoreData.lastCwd = session.cwd;
+  await persistProxyPreferences();
   try {
     await sessionStore.resumeSession(session);
   } catch (e) {
@@ -166,18 +213,6 @@ function toggleSidebar() {
   showSidebar.value = !showSidebar.value;
 }
 
-async function toggleWorkspaceSection() {
-  workspaceCollapsed.value = !workspaceCollapsed.value;
-  prefsStoreData.workspaceCollapsed = workspaceCollapsed.value;
-  await persistPreferences();
-}
-
-async function toggleSessionsSection() {
-  sessionsCollapsed.value = !sessionsCollapsed.value;
-  prefsStoreData.sessionsCollapsed = sessionsCollapsed.value;
-  await persistPreferences();
-}
-
 async function handleToggleSessionPin(sessionId: string) {
   if (pinnedSessionIds.value.includes(sessionId)) {
     pinnedSessionIds.value = pinnedSessionIds.value.filter((id) => id !== sessionId);
@@ -188,160 +223,310 @@ async function handleToggleSessionPin(sessionId: string) {
   await persistPreferences();
 }
 
-function buildSessionProxyConfig(): SessionProxyConfig {
-  return {
-    enabled: proxyEnabled.value,
-    httpProxy: httpProxy.value.trim() || undefined,
-    httpsProxy: httpsProxy.value.trim() || undefined,
-    allProxy: allProxy.value.trim() || undefined,
-    noProxy: noProxy.value.trim() || undefined,
-  };
-}
-
-function applyProxyConfig(proxy?: SessionProxyConfig) {
-  proxyEnabled.value = !!proxy?.enabled;
-  httpProxy.value = proxy?.httpProxy ?? '';
-  httpsProxy.value = proxy?.httpsProxy ?? '';
-  allProxy.value = proxy?.allProxy ?? '';
-  noProxy.value = proxy?.noProxy ?? '';
-}
-
 function clearError() {
   sessionStore.clearError();
   configStore.clearError();
 }
+
+function formatCompactPath(path: string): string {
+  const normalized = path.replace(/\\/g, '/');
+  const parts = normalized.split('/').filter(Boolean);
+  if (parts.length === 0) return '.';
+  if (parts.length === 1) return parts[0];
+  return `${parts[parts.length - 2]}/${parts[parts.length - 1]}`;
+}
+
+function openSettings(startInAddMode = false) {
+  openSettingsInAddMode.value = startInAddMode;
+  showSettings.value = true;
+}
+
+function closeSettings() {
+  showSettings.value = false;
+  openSettingsInAddMode.value = false;
+}
+
+function handleOpenAddAgent() {
+  showWorkspaceDialog.value = false;
+  openSettings(true);
+}
+
+function handleHeaderDoubleClick() {
+  windowToggleMaximise();
+}
+
+function handleGlobalKeydown(event: KeyboardEvent) {
+  if (event.key !== 'Escape') return;
+  if (showWorkspaceDialog.value && !isConnecting.value) {
+    closeWorkspaceDialog();
+    return;
+  }
+  if (showSettings.value) {
+    closeSettings();
+    return;
+  }
+  if (showTrafficMonitor.value) {
+    showTrafficMonitor.value = false;
+  }
+}
 </script>
 
 <template>
-  <div class="app-container">
-    <!-- Sidebar -->
-    <aside v-if="showSidebar" class="sidebar">
-      <div class="sidebar-header">
-        <div class="title-group">
-          <h1>ACP UI</h1>
-          <p>{{ t('app.desktopClient') }}</p>
-        </div>
-        <div class="header-actions">
+  <div class="app-shell">
+    <div class="window-frame">
+      <header class="window-header drag-region" @dblclick="handleHeaderDoubleClick">
+        <div class="window-brand">
           <button
-            class="settings-btn lang-btn"
-            @click="toggleLocale"
-            :title="t('app.language')"
+            class="icon-button no-drag"
+            :title="showSidebar ? t('app.collapseSidebar') : t('app.expandSidebar')"
+            @click="toggleSidebar"
           >
+            {{ showSidebar ? '◀' : '▶' }}
+          </button>
+          <div class="brand-mark" aria-hidden="true"></div>
+          <div class="brand-copy">
+            <strong>ACP UI</strong>
+            <span>{{ t('app.desktopClient') }}</span>
+          </div>
+        </div>
+
+        <div class="window-status">
+          <span class="status-dot" :class="{ live: isConnected || isConnecting }"></span>
+          <div class="status-copy">
+            <strong>{{ currentSessionTitle }}</strong>
+            <span>
+              {{ activeStatusLabel }}
+              <template v-if="selectedCwd">
+                · {{ formatCompactPath(selectedCwd) }}
+              </template>
+            </span>
+          </div>
+        </div>
+
+        <div class="window-actions no-drag">
+          <button class="header-chip" :title="t('app.language')" @click="toggleLocale">
             {{ locale === 'zh-CN' ? t('app.langLabelZh') : t('app.langLabelEn') }}
           </button>
-          <button 
-            class="settings-btn" 
-            :class="{ active: showTrafficMonitor }"
-            @click="showTrafficMonitor = !showTrafficMonitor" 
-            :title="t('app.trafficMonitor')"
-          >📡</button>
-          <button class="settings-btn" @click="showSettings = true" :title="t('app.settings')">⚙</button>
-          <button class="toggle-btn" @click="toggleSidebar">◀</button>
+          <button class="icon-button" :title="t('app.settings')" @click="openSettings()">⚙</button>
+          <button class="icon-button" :title="t('app.minimise')" @click="windowMinimise">_</button>
+          <button class="icon-button close-button" :title="t('app.close')" @click="windowClose">×</button>
         </div>
-      </div>
-      
-      <div class="sidebar-content">
-        <!-- Agent Selection -->
-        <div class="section workspace-section" :class="{ 'section-collapsed': workspaceCollapsed }">
-          <div class="section-head">
-            <h2>{{ t('app.workspace') }}</h2>
-            <button class="section-toggle" @click="toggleWorkspaceSection">
-              {{ workspaceCollapsed ? '▸' : '▾' }}
+      </header>
+
+      <div class="window-body">
+        <aside v-if="showSidebar" class="sidebar-panel">
+          <div class="sidebar-top">
+            <button
+              class="sidebar-create"
+              :disabled="isConnected || isConnecting"
+              @click="openWorkspaceDialog"
+            >
+              <span class="create-icon">+</span>
+              <span class="create-copy">
+                <strong>{{ t('app.newSession') }}</strong>
+                <span>{{ t('app.openWorkspace') }}</span>
+              </span>
             </button>
           </div>
 
-          <div v-show="!workspaceCollapsed" class="section-body">
-            <AgentSelector 
-              v-model:selected="selectedAgent"
-              @select="handleAgentSelect"
+          <nav class="sidebar-nav">
+            <div class="nav-row active">
+              <span class="nav-icon">#</span>
+              <span class="nav-label">{{ t('app.savedSessions') }}</span>
+              <strong>{{ savedSessionCount }}</strong>
+            </div>
+            <button
+              class="nav-row nav-button"
+              :class="{ active: showTrafficMonitor }"
+              @click="showTrafficMonitor = !showTrafficMonitor"
+            >
+              <span class="nav-icon">~</span>
+              <span class="nav-label">{{ t('app.trafficMonitor') }}</span>
+            </button>
+          </nav>
+
+          <div class="sidebar-context">
+            <div class="context-row">
+              <span>{{ t('agent.label') }}</span>
+              <strong>{{ selectedAgent || t('agent.noneConfigured') }}</strong>
+            </div>
+            <div class="context-row">
+              <span>{{ t('app.workingDirectory') }}</span>
+              <strong :title="selectedCwd || t('app.currentDirectory')">
+                {{ selectedCwd ? formatCompactPath(selectedCwd) : '.' }}
+              </strong>
+            </div>
+          </div>
+
+          <div class="sidebar-search">
+            <input
+              v-model="sessionSearchQuery"
+              type="text"
+              class="session-search"
+              :placeholder="t('app.searchSessions')"
             />
-            
-            <!-- Working Directory Picker -->
-            <div class="cwd-picker">
-              <label>{{ t('app.workingDirectory') }}:</label>
-              <div class="cwd-row">
-                <span class="cwd-path" :title="selectedCwd || t('app.currentDirectory')">
-                  {{ selectedCwd ? selectedCwd.split(/[\\/]/).pop() : '.' }}
-                </span>
-                <button 
-                  class="cwd-btn" 
-                  @click="handleSelectFolder"
-                  :title="t('app.selectFolder')"
-                  :disabled="isConnecting || isConnected"
-                >
-                  📁
-                </button>
-              </div>
+          </div>
+
+          <div class="session-list-wrap">
+            <SessionList
+              :query="sessionSearchQuery"
+              :pinned-session-ids="pinnedSessionIds"
+              :active-session-id="currentSessionId"
+              @resume="handleResumeSession"
+              @delete="handleDeleteSession"
+              @toggle-pin="handleToggleSessionPin"
+            />
+          </div>
+
+          <div class="sidebar-footer">
+            <button class="footer-button" @click="openSettings()">
+              {{ t('app.settings') }}
+            </button>
+            <button v-if="isConnected" class="footer-danger" @click="handleDisconnect">
+              {{ t('app.disconnect') }}
+            </button>
+          </div>
+        </aside>
+
+        <button v-else class="sidebar-rail no-drag" :title="t('app.expandSidebar')" @click="toggleSidebar">
+          <span>▶</span>
+          <span>{{ savedSessionCount }}</span>
+        </button>
+
+        <div class="content-stage">
+          <main class="main-content">
+            <div v-if="error" class="error-banner">
+              <span class="error-icon">!</span>
+              <span class="error-text">{{ error }}</span>
+              <button class="error-close" @click="clearError">×</button>
             </div>
 
-            <div class="proxy-config">
-              <div class="proxy-header">
-                <label>{{ t('app.proxy') }}</label>
-                <label class="proxy-enable">
-                  <input
-                    v-model="proxyEnabled"
-                    type="checkbox"
-                    :disabled="isConnecting || isConnected"
-                  />
-                  <span>{{ t('app.proxyEnable') }}</span>
-                </label>
-              </div>
-              <div class="proxy-fields" :class="{ disabled: !proxyEnabled }">
-                <div class="proxy-row">
-                  <span class="proxy-label">{{ t('app.proxyHttp') }}</span>
-                  <input
-                    v-model="httpProxy"
-                    class="proxy-input"
-                    type="text"
-                    :placeholder="t('app.proxySampleHost')"
-                    :disabled="!proxyEnabled || isConnecting || isConnected"
-                  />
+            <ChatView v-if="isConnected" />
+
+            <div v-else class="welcome-screen">
+              <div class="welcome-card">
+                <p class="eyebrow">{{ t('app.welcomeEyebrow') }}</p>
+                <h2>{{ t('app.welcomeTitle') }}</h2>
+                <p class="welcome-text">{{ t('app.welcomeDesc') }}</p>
+
+                <div class="welcome-actions">
+                  <button class="primary-button" :disabled="isConnecting" @click="openWorkspaceDialog">
+                    {{ t('app.newSession') }}
+                  </button>
+                  <button class="secondary-button" @click="openSettings(true)">
+                    {{ t('settings.addAgent') }}
+                  </button>
                 </div>
-                <div class="proxy-row">
-                  <span class="proxy-label">{{ t('app.proxyHttps') }}</span>
-                  <input
-                    v-model="httpsProxy"
-                    class="proxy-input"
-                    type="text"
-                    :placeholder="t('app.proxySampleHost')"
-                    :disabled="!proxyEnabled || isConnecting || isConnected"
-                  />
+
+                <div class="welcome-grid">
+                  <div class="welcome-stat">
+                    <span>{{ t('agent.label') }}</span>
+                    <strong>{{ hasAgents ? selectedAgent || configStore.agentNames[0] : '0' }}</strong>
+                  </div>
+                  <div class="welcome-stat">
+                    <span>{{ t('app.workspace') }}</span>
+                    <strong>{{ selectedCwd ? selectedCwdLabel : '.' }}</strong>
+                  </div>
+                  <div class="welcome-stat">
+                    <span>{{ t('app.savedSessions') }}</span>
+                    <strong>{{ savedSessionCount }}</strong>
+                  </div>
                 </div>
-                <div class="proxy-row">
-                  <span class="proxy-label">{{ t('app.proxyAll') }}</span>
-                  <input
-                    v-model="allProxy"
-                    class="proxy-input"
-                    type="text"
-                    :placeholder="t('app.proxySampleHost')"
-                    :disabled="!proxyEnabled || isConnecting || isConnected"
-                  />
-                </div>
-                <div class="proxy-row">
-                  <span class="proxy-label">{{ t('app.proxyNo') }}</span>
-                  <input
-                    v-model="noProxy"
-                    class="proxy-input"
-                    type="text"
-                    :placeholder="t('app.proxySampleNo')"
-                    :disabled="!proxyEnabled || isConnecting || isConnected"
-                  />
-                </div>
+
+                <p v-if="!hasAgents" class="hint-text">{{ t('app.configureAgentsHint') }}</p>
               </div>
             </div>
-            
-            <div class="session-actions">
-              <button 
-                v-if="hasAgents && !isConnected && !isConnecting"
-                class="new-session-btn"
-                :disabled="!selectedAgent || isLoading"
-                @click="handleNewSession"
-              >
-                {{ isLoading ? t('app.connecting') : t('app.newSession') }}
-              </button>
-              
-              <!-- Startup Progress -->
-              <StartupProgress 
+          </main>
+
+          <div v-if="showTrafficMonitor" class="traffic-panel">
+            <TrafficMonitor @close="showTrafficMonitor = false" />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="showWorkspaceDialog" class="modal-overlay" @click.self="closeWorkspaceDialog">
+      <div class="workspace-dialog">
+        <div class="dialog-header">
+          <div>
+            <p class="eyebrow">{{ t('app.workspace') }}</p>
+            <h2>{{ t('app.sessionSetupTitle') }}</h2>
+            <p class="dialog-subtitle">{{ t('app.sessionSetupDesc') }}</p>
+          </div>
+          <button class="icon-button" :disabled="isConnecting" @click="closeWorkspaceDialog">×</button>
+        </div>
+
+        <div v-if="!hasAgents" class="empty-workspace panel-card">
+          <h3>{{ t('app.noAgentTitle') }}</h3>
+          <p>{{ t('app.noAgentDesc') }}</p>
+          <button class="primary-button" @click="handleOpenAddAgent">{{ t('settings.addAgent') }}</button>
+        </div>
+
+        <template v-else>
+          <div class="dialog-grid">
+            <div class="dialog-main">
+              <section class="panel-card">
+                <AgentSelector v-model:selected="selectedAgent" @select="handleAgentSelect" />
+              </section>
+
+              <section class="panel-card">
+                <div class="section-headline">
+                  <span>{{ t('app.workingDirectory') }}</span>
+                  <button class="ghost-button" @click="handleSelectFolder">{{ t('app.selectFolder') }}</button>
+                </div>
+                <div class="cwd-card" :title="selectedCwd || t('app.currentDirectory')">
+                  <strong>{{ selectedCwdLabel }}</strong>
+                  <span>{{ selectedCwd || '.' }}</span>
+                </div>
+              </section>
+
+              <section class="panel-card">
+                <div class="section-headline">
+                  <span>{{ t('app.proxy') }}</span>
+                  <label class="proxy-switch">
+                    <input v-model="proxyEnabled" type="checkbox" :disabled="isConnecting" />
+                    <span>{{ t('app.proxyEnable') }}</span>
+                  </label>
+                </div>
+                <div class="proxy-grid" :class="{ disabled: !proxyEnabled }">
+                  <label class="proxy-field">
+                    <span>{{ t('app.proxyHttp') }}</span>
+                    <input v-model="httpProxy" type="text" :placeholder="t('app.proxySampleHost')" :disabled="!proxyEnabled || isConnecting" />
+                  </label>
+                  <label class="proxy-field">
+                    <span>{{ t('app.proxyHttps') }}</span>
+                    <input v-model="httpsProxy" type="text" :placeholder="t('app.proxySampleHost')" :disabled="!proxyEnabled || isConnecting" />
+                  </label>
+                  <label class="proxy-field">
+                    <span>{{ t('app.proxyAll') }}</span>
+                    <input v-model="allProxy" type="text" :placeholder="t('app.proxySampleHost')" :disabled="!proxyEnabled || isConnecting" />
+                  </label>
+                  <label class="proxy-field">
+                    <span>{{ t('app.proxyNo') }}</span>
+                    <input v-model="noProxy" type="text" :placeholder="t('app.proxySampleNo')" :disabled="!proxyEnabled || isConnecting" />
+                  </label>
+                </div>
+              </section>
+            </div>
+
+            <aside class="dialog-side">
+              <div class="panel-card summary-card">
+                <p class="eyebrow">{{ t('app.workspaceSummary') }}</p>
+                <div class="summary-line">
+                  <span>{{ t('agent.label') }}</span>
+                  <strong>{{ selectedAgent }}</strong>
+                </div>
+                <div class="summary-line">
+                  <span>{{ t('app.workspace') }}</span>
+                  <strong :title="selectedCwd || '.'">{{ selectedCwdLabel }}</strong>
+                </div>
+                <div class="summary-line">
+                  <span>{{ t('app.proxy') }}</span>
+                  <strong>{{ proxyEnabled ? t('app.proxyEnable') : t('app.proxyDisabled') }}</strong>
+                </div>
+              </div>
+
+              <StartupProgress
                 v-if="isConnecting"
                 :agent-name="selectedAgent"
                 :phase="sessionStore.startupPhase"
@@ -351,99 +536,27 @@ function clearError() {
                 @cancel="handleCancelConnection"
                 @toggle-details="showStartupDetails = !showStartupDetails"
               />
-              
-              <button 
-                v-if="isConnected"
-                class="disconnect-btn"
-                @click="handleDisconnect"
-              >
-                {{ t('app.disconnect') }}
-              </button>
-            </div>
+
+              <div v-else class="dialog-actions">
+                <button class="primary-button" :disabled="!selectedAgent || isLoading" @click="handleCreateSession">
+                  {{ isLoading ? t('app.connecting') : t('app.newSession') }}
+                </button>
+                <button class="secondary-button" @click="closeWorkspaceDialog">{{ t('common.cancel') }}</button>
+              </div>
+            </aside>
           </div>
-        </div>
-        
-        <!-- Session List -->
-        <div class="section sessions-section" :class="{ 'section-collapsed': sessionsCollapsed }">
-          <div class="section-head">
-            <h2>{{ t('app.savedSessions') }}</h2>
-            <div class="section-head-right">
-              <span class="session-count">{{ savedSessionCount }}</span>
-              <button class="section-toggle" @click="toggleSessionsSection">
-                {{ sessionsCollapsed ? '▸' : '▾' }}
-              </button>
-            </div>
-          </div>
-          <div v-show="!sessionsCollapsed" class="section-body sessions-body">
-            <div class="session-search-wrap">
-              <input
-                v-model="sessionSearchQuery"
-                type="text"
-                class="session-search"
-                :placeholder="t('app.searchSessions')"
-              />
-            </div>
-            <SessionList 
-              :query="sessionSearchQuery"
-              :pinned-session-ids="pinnedSessionIds"
-              :active-session-id="currentSessionId"
-              @resume="handleResumeSession"
-              @delete="handleDeleteSession"
-              @toggle-pin="handleToggleSessionPin"
-            />
-          </div>
-        </div>
-      </div>
-    </aside>
-    
-    <!-- Collapsed sidebar toggle -->
-    <button 
-      v-if="!showSidebar" 
-      class="sidebar-toggle-collapsed"
-      @click="toggleSidebar"
-    >
-      ▶
-    </button>
-    
-    <!-- Main Content Area -->
-    <div class="main-area">
-      <main class="main-content">
-        <!-- Error display -->
-        <div v-if="error" class="error-banner">
-          <span class="error-icon">⚠</span>
-          <span class="error-text">{{ error }}</span>
-          <button class="error-close" @click="clearError" title="Dismiss">×</button>
-        </div>
-        
-        <!-- Chat View when connected -->
-        <ChatView v-if="isConnected" />
-        
-        <!-- Welcome screen when not connected -->
-        <div v-else class="welcome-screen">
-          <h2>{{ t('app.welcomeTitle') }}</h2>
-          <p>{{ t('app.welcomeDesc') }}</p>
-          <p v-if="!hasAgents" class="hint">
-            {{ t('app.configureAgentsHint') }}
-          </p>
-        </div>
-      </main>
-      
-      <!-- Traffic Monitor Panel -->
-      <div v-if="showTrafficMonitor" class="traffic-panel">
-        <TrafficMonitor @close="showTrafficMonitor = false" />
+        </template>
       </div>
     </div>
-    
-    <!-- Permission Dialog -->
-    <PermissionDialog 
+
+    <PermissionDialog
       v-if="pendingPermission"
       :request="pendingPermission"
       @select="handlePermissionSelect"
       @cancel="handlePermissionCancel"
     />
 
-    <!-- Auth Method Dialog -->
-    <AuthMethodDialog 
+    <AuthMethodDialog
       v-if="pendingAuthMethods.length > 0"
       :auth-methods="pendingAuthMethods"
       :agent-name="pendingAuthAgentName"
@@ -451,512 +564,163 @@ function clearError() {
       @cancel="handleAuthMethodCancel"
     />
 
-    <!-- Settings -->
-    <SettingsView 
+    <SettingsView
       v-if="showSettings"
-      @close="showSettings = false"
+      :start-in-add-mode="openSettingsInAddMode"
+      @close="closeSettings"
     />
   </div>
 </template>
 
 <style>
 :root {
-  --bg-primary: #0066cc;
-  --bg-primary-hover: #0052a3;
-  --bg-sidebar: #f8f9fa;
-  --bg-main: #ffffff;
-  --bg-hover: #f0f0f0;
-  --bg-user: #e3f2fd;
-  --bg-assistant: #f5f5f5;
-  --bg-code: #282c34;
-  --bg-success: #28a745;
-  --bg-danger: #dc3545;
-  --bg-warning: #fff3cd;
-  --text-primary: #333;
-  --text-secondary: #666;
-  --text-muted: #999;
-  --text-accent: #0066cc;
-  --text-code: #abb2bf;
-  --border-color: #e0e0e0;
-  
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-  font-size: 16px;
-  line-height: 1.5;
-  color: var(--text-primary);
-  background-color: #ffffff;
+  --bg-primary: #2563eb;
+  --bg-primary-hover: #1d4ed8;
+  --bg-danger: #dc2626;
+  --bg-warning: #fff4ce;
+  --bg-main: #f6f4ef;
+  --bg-sidebar: #f2ede3;
+  --bg-hover: rgba(37, 99, 235, 0.08);
+  --bg-user: #eef4ff;
+  --bg-assistant: #ffffff;
+  --bg-card: #fffdfa;
+  --bg-code: #f3f4f6;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #748091;
+  --text-accent: #2563eb;
+  --text-code: #1f2937;
+  --border-color: rgba(15, 23, 42, 0.08);
+  --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.04);
+  --shadow-md: 0 12px 30px rgba(15, 23, 42, 0.08);
+  --shadow-lg: 0 20px 44px rgba(15, 23, 42, 0.12);
+  --surface-blur: none;
+  font-family: 'Segoe UI Variable Text', 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg-primary: #4da6ff;
-    --bg-primary-hover: #3399ff;
-    --bg-sidebar: #1e1e1e;
-    --bg-main: #252525;
-    --bg-hover: #333;
-    --bg-user: #1a3a5c;
-    --bg-assistant: #2d2d2d;
-    --text-primary: #e0e0e0;
-    --text-secondary: #a0a0a0;
-    --text-muted: #707070;
-    --text-accent: #4da6ff;
-    --border-color: #404040;
-    background-color: #252525;
-  }
-}
-
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-
-html, body, #app {
-  height: 100%;
-}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body, #app { height: 100%; overflow: hidden; }
+body { background: var(--bg-main); color: var(--text-primary); }
+input, textarea, select, button { font: inherit; }
+input, textarea, select { user-select: text; }
+.drag-region { --wails-draggable: drag; }
+.no-drag { --wails-draggable: no-drag; }
 </style>
 
 <style scoped>
-.app-container {
-  display: flex;
-  height: 100vh;
-  overflow: hidden;
+.app-shell { height: 100vh; padding: 0; }
+.window-frame { height: 100%; display: flex; flex-direction: column; overflow: hidden; border-radius: 0; background: var(--bg-main); border: none; box-shadow: none; }
+.window-header { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: .75rem; align-items: center; min-height: 46px; padding: .38rem .72rem; background: rgba(248, 246, 240, 0.96); color: var(--text-primary); border-bottom: 1px solid rgba(15,23,42,.06); }
+.window-brand, .window-actions, .window-status, .section-title-row, .section-headline, .summary-line, .dialog-header, .welcome-actions, .proxy-switch { display: flex; align-items: center; }
+.window-brand { gap: .55rem; min-width: 0; }
+.brand-mark { width: 28px; height: 28px; border-radius: 8px; background: linear-gradient(180deg, #ffffff, #eef4ff); border: 1px solid rgba(37, 99, 235, 0.12); position: relative; }
+.brand-mark::before { content: ''; position: absolute; inset: 8px; border-radius: 50%; background: var(--text-accent); opacity: .9; }
+.brand-copy { display: flex; flex-direction: column; min-width: 0; }
+.brand-copy strong { font-size: .88rem; font-weight: 600; line-height: 1.1; }
+.brand-copy span { font-size: .62rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: .08em; line-height: 1.1; }
+.window-status { gap: .55rem; min-width: 0; justify-content: center; }
+.status-dot { width: 8px; height: 8px; border-radius: 999px; background: #cbd5e1; flex-shrink: 0; }
+.status-dot.live { background: var(--text-accent); box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1); }
+.status-copy { min-width: 0; display: flex; flex-direction: column; gap: .08rem; }
+.status-copy strong,
+.status-copy span { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.status-copy strong { font-size: .82rem; font-weight: 600; color: var(--text-primary); }
+.status-copy span { font-size: .72rem; color: var(--text-muted); }
+.window-actions { gap: .4rem; }
+.header-chip, .icon-button, .ghost-button, .secondary-button, .primary-button, .danger-button, .session-search, .cwd-card, .proxy-field input { transition: background .2s ease, border-color .2s ease, color .2s ease, transform .2s ease; }
+.header-chip, .icon-button { height: 28px; border-radius: 8px; background: #fffdfa; color: var(--text-secondary); border: 1px solid rgba(15,23,42,.06); cursor: pointer; }
+.header-chip { min-width: 46px; padding: 0 .65rem; font-size: .74rem; font-weight: 700; }
+.icon-button { width: 30px; display: grid; place-items: center; font-size: .88rem; }
+.header-chip:hover, .icon-button:hover { background: #ffffff; color: var(--text-primary); border-color: rgba(15,23,42,.1); }
+.close-button:hover { background: rgba(220,38,38,.08); border-color: rgba(220,38,38,.16); color: var(--bg-danger); }
+.window-body { flex: 1; min-height: 0; display: flex; gap: 0; padding: 0; background: var(--bg-main); }
+.sidebar-panel { width: 320px; min-width: 320px; display: flex; flex-direction: column; gap: .8rem; padding: .9rem .8rem; background: var(--bg-sidebar); border-right: 1px solid rgba(15, 23, 42, 0.06); }
+.panel-card { padding: .95rem; border-radius: 8px; background: var(--bg-card); border: 1px solid rgba(15,23,42,.06); box-shadow: var(--shadow-sm); }
+.sidebar-summary, .section-title-row, .section-headline, .dialog-header, .summary-line { justify-content: space-between; gap: .75rem; }
+.workspace-preview, .preview-item, .welcome-stat, .dialog-actions, .dialog-main, .dialog-side, .proxy-field { display: flex; flex-direction: column; }
+.workspace-preview, .dialog-main, .dialog-side { gap: .75rem; }
+.eyebrow { font-size: .72rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--text-muted); }
+.sidebar-summary h2, .dialog-header h2, .welcome-card h2, .section-title-row h3 { margin-top: .35rem; font-size: 1.15rem; color: var(--text-primary); }
+.primary-button, .secondary-button, .ghost-button, .danger-button { border-radius: 8px; border: 1px solid transparent; cursor: pointer; }
+.primary-button { padding: .72rem 1rem; background: var(--bg-primary); color: white; border-color: rgba(37,99,235,.18); box-shadow: 0 1px 2px rgba(37,99,235,.16); }
+.primary-button:hover:not(:disabled) { transform: translateY(-1px); background: var(--bg-primary-hover); border-color: rgba(37,99,235,.22); color: white; }
+.secondary-button, .ghost-button { padding: .68rem .95rem; background: #fffdfa; color: var(--text-secondary); border-color: rgba(15,23,42,.08); }
+.secondary-button:hover, .ghost-button:hover, .ghost-button.active { color: var(--text-accent); border-color: rgba(37,99,235,.14); background: #ffffff; }
+.danger-button { margin-top: auto; padding: .75rem 1rem; background: #fffdfa; color: var(--bg-danger); border-color: rgba(220,38,38,.12); }
+.preview-label, .welcome-stat span, .proxy-field span { font-size: .76rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: .08em; }
+.preview-item strong, .welcome-stat strong { font-size: .98rem; color: var(--text-primary); }
+.session-search, .proxy-field input { width: 100%; height: 40px; border-radius: 8px; border: 1px solid var(--border-color); background: #fffdfa; color: var(--text-primary); padding: 0 .9rem; }
+.session-search:focus, .proxy-field input:focus { outline: none; border-color: rgba(37,99,235,.32); box-shadow: 0 0 0 3px rgba(37,99,235,.08); }
+.sidebar-top,
+.sidebar-nav,
+.sidebar-context,
+.sidebar-footer { display: flex; flex-direction: column; gap: .35rem; }
+.sidebar-create { width: 100%; display: flex; align-items: center; gap: .8rem; padding: .8rem .9rem; border-radius: 8px; border: 1px solid rgba(37,99,235,.12); background: #fffdfa; cursor: pointer; text-align: left; }
+.sidebar-create:hover:not(:disabled) { background: #ffffff; border-color: rgba(37,99,235,.22); }
+.sidebar-create:disabled { opacity: .55; cursor: not-allowed; }
+.create-icon { width: 34px; height: 34px; border-radius: 8px; display: grid; place-items: center; background: rgba(37,99,235,.1); color: var(--text-accent); font-size: 1rem; font-weight: 700; flex-shrink: 0; }
+.create-copy { display: flex; flex-direction: column; gap: .12rem; min-width: 0; }
+.create-copy strong { font-size: .88rem; color: var(--text-primary); }
+.create-copy span { font-size: .73rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sidebar-nav { padding: .2rem 0 .1rem; }
+.nav-row { width: 100%; display: flex; align-items: center; gap: .72rem; min-height: 38px; padding: 0 .8rem; border-radius: 8px; border: 1px solid transparent; color: var(--text-secondary); }
+.nav-row strong { margin-left: auto; font-size: .74rem; color: var(--text-muted); }
+.nav-button { background: transparent; cursor: pointer; text-align: left; }
+.nav-row.active { background: rgba(255, 255, 255, 0.72); border-color: rgba(15,23,42,.05); color: var(--text-primary); }
+.nav-icon { width: 18px; text-align: center; color: var(--text-muted); }
+.nav-label { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: .82rem; font-weight: 600; }
+.sidebar-context { gap: .2rem; padding: .55rem .25rem .2rem; border-top: 1px solid rgba(15,23,42,.06); }
+.context-row { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .35rem .55rem; }
+.context-row span { font-size: .72rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: .08em; }
+.context-row strong { font-size: .78rem; color: var(--text-primary); min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: right; }
+.sidebar-search { padding: .15rem 0 0; }
+.session-list-wrap { flex: 1; min-height: 0; padding: 0; overflow: hidden; }
+.sidebar-footer { padding-top: .4rem; border-top: 1px solid rgba(15,23,42,.06); }
+.footer-button,
+.footer-danger { width: 100%; min-height: 38px; padding: 0 .8rem; border-radius: 8px; border: 1px solid transparent; background: transparent; color: var(--text-secondary); text-align: left; cursor: pointer; }
+.footer-button:hover { background: rgba(255,255,255,.72); border-color: rgba(15,23,42,.05); color: var(--text-primary); }
+.footer-danger { color: var(--bg-danger); }
+.footer-danger:hover { background: rgba(220,38,38,.06); border-color: rgba(220,38,38,.12); }
+.sidebar-rail { width: 54px; border-right: 1px solid rgba(15, 23, 42, 0.06); background: var(--bg-sidebar); color: var(--text-secondary); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .4rem; cursor: pointer; }
+.content-stage { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 0; background: #ffffff; }
+.main-content { flex: 1; min-height: 0; overflow: hidden; background: #ffffff; }
+.traffic-panel { overflow: hidden; border-top: 1px solid rgba(15,23,42,.06); background: #fffdfa; }
+.error-banner { display: flex; align-items: center; gap: .75rem; padding: .9rem 1rem; background: rgba(220,38,38,.06); color: var(--bg-danger); border-bottom: 1px solid rgba(220,38,38,.12); }
+.error-icon { width: 26px; height: 26px; display: grid; place-items: center; border-radius: 50%; background: rgba(220,38,38,.1); font-weight: 700; }
+.error-text { flex: 1; }
+.error-close { border: none; background: transparent; color: inherit; font-size: 1.1rem; cursor: pointer; }
+.welcome-screen { height: 100%; display: grid; place-items: center; padding: 2rem; background: linear-gradient(180deg, #ffffff 0%, #fcfaf6 100%); }
+.welcome-card { width: min(760px, 100%); padding: 2rem; border-radius: 8px; background: #fffdfa; border: 1px solid rgba(15,23,42,.06); box-shadow: var(--shadow-md); }
+.welcome-text, .dialog-subtitle, .hint-text { margin-top: .65rem; line-height: 1.7; color: var(--text-secondary); }
+.welcome-actions, .dialog-actions { gap: .75rem; margin-top: 1.4rem; }
+.welcome-grid, .proxy-grid, .dialog-grid { display: grid; gap: .85rem; }
+.welcome-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 1.6rem; }
+.welcome-stat { gap: .35rem; padding: 1rem; border-radius: 8px; background: #ffffff; border: 1px solid rgba(15,23,42,.06); }
+.modal-overlay { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 2rem; background: rgba(15,23,42,.16); backdrop-filter: blur(10px); }
+.workspace-dialog { width: min(1080px, 100%); max-height: calc(100vh - 64px); overflow: auto; padding: 1.5rem; border-radius: 8px; background: #fffdfa; border: 1px solid rgba(15,23,42,.06); box-shadow: var(--shadow-lg); }
+.empty-workspace { display: grid; place-items: center; gap: .75rem; padding: 3rem 1.5rem; text-align: center; }
+.dialog-grid { grid-template-columns: minmax(0, 1.65fr) minmax(280px, .95fr); }
+.dialog-header .icon-button { background: #ffffff; color: var(--text-secondary); border-color: rgba(15,23,42,.06); }
+.dialog-header .icon-button:hover { background: #ffffff; border-color: rgba(15,23,42,.1); color: var(--text-primary); }
+.cwd-card { gap: .35rem; padding: .95rem 1rem; border-radius: 8px; border: 1px solid rgba(15,23,42,.06); background: #ffffff; }
+.cwd-card strong { font-size: 1rem; color: var(--text-primary); }
+.cwd-card span, .summary-line, .proxy-switch { color: var(--text-secondary); }
+.proxy-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: .9rem; }
+.proxy-grid.disabled { opacity: .58; }
+.summary-card { background: #ffffff; }
+.summary-line { margin-top: .85rem; }
+.summary-line strong { color: var(--text-primary); text-align: right; }
+.primary-button:disabled, .secondary-button:disabled, .header-chip:disabled, .icon-button:disabled { opacity: .55; cursor: not-allowed; transform: none; }
+@media (max-width: 1180px) {
+  .window-header { grid-template-columns: auto 1fr; }
+  .window-actions { grid-column: 1 / -1; justify-content: flex-end; }
+  .dialog-grid { grid-template-columns: 1fr; }
 }
-
-.sidebar {
-  width: clamp(300px, 27vw, 360px);
-  min-width: 300px;
-  background: var(--bg-sidebar);
-  border-right: 1px solid var(--border-color);
-  display: flex;
-  flex-direction: column;
-}
-
-.sidebar-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.9rem 1rem 0.8rem;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.title-group h1 {
-  font-size: 1.15rem;
-  margin: 0;
-}
-
-.title-group p {
-  margin: 0;
-  font-size: 0.72rem;
-  color: var(--text-muted);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.header-actions {
-  display: flex;
-  gap: 0.4rem;
-}
-
-.settings-btn,
-.toggle-btn {
-  width: 30px;
-  height: 30px;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  background: var(--bg-main);
-  cursor: pointer;
-  font-size: 0.8rem;
-  color: var(--text-muted);
-}
-
-.lang-btn {
-  width: auto;
-  min-width: 42px;
-  padding: 0 0.45rem;
-  font-size: 0.72rem;
-  font-weight: 700;
-}
-
-.settings-btn:hover,
-.toggle-btn:hover {
-  color: var(--text-primary);
-  border-color: var(--text-accent);
-}
-
-.settings-btn.active {
-  color: var(--text-accent);
-  background: rgba(0, 102, 204, 0.08);
-  border-color: rgba(0, 102, 204, 0.35);
-}
-
-.sidebar-content {
-  flex: 1;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  padding: 0.75rem;
-}
-
-.section {
-  padding: 0.85rem;
-  border: 1px solid var(--border-color);
-  border-radius: 10px;
-  background: var(--bg-main);
-}
-
-.section-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 0.65rem;
-}
-
-.section-head-right {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-}
-
-.section-head h2 {
-  font-size: 0.82rem;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-  color: var(--text-secondary);
-}
-
-.session-count {
-  min-width: 1.75rem;
-  text-align: center;
-  padding: 0.05rem 0.45rem;
-  border-radius: 999px;
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: var(--text-accent);
-  background: rgba(0, 102, 204, 0.11);
-}
-
-.workspace-section {
-  flex-shrink: 0;
-}
-
-.sessions-section {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.section-body {
-  min-height: 0;
-}
-
-.sessions-body {
-  display: flex;
-  flex-direction: column;
-  gap: 0.55rem;
-  min-height: 0;
-  flex: 1;
-}
-
-.sessions-section :deep(.session-list) {
-  flex: 1;
-  min-height: 0;
-}
-
-.section-collapsed {
-  padding-bottom: 0.55rem;
-}
-
-.section-toggle {
-  width: 22px;
-  height: 22px;
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  background: var(--bg-main);
-  color: var(--text-secondary);
-  cursor: pointer;
-  font-size: 0.76rem;
-  line-height: 1;
-}
-
-.section-toggle:hover {
-  border-color: var(--text-accent);
-  color: var(--text-accent);
-}
-
-.session-search-wrap {
-  flex-shrink: 0;
-}
-
-.session-search {
-  width: 100%;
-  height: 31px;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  background: var(--bg-main);
-  color: var(--text-primary);
-  font-size: 0.82rem;
-  padding: 0 0.55rem;
-}
-
-.session-search:focus {
-  outline: none;
-  border-color: var(--text-accent);
-}
-
-.new-session-btn,
-.disconnect-btn {
-  width: 100%;
-  margin-top: 0.75rem;
-  padding: 0.625rem 1rem;
-  border: none;
-  border-radius: 6px;
-  font-size: 0.9rem;
-  font-weight: 500;
-  cursor: pointer;
-}
-
-.new-session-btn {
-  background: var(--bg-primary);
-  color: white;
-}
-
-.new-session-btn:hover:not(:disabled) {
-  background: var(--bg-primary-hover);
-}
-
-.new-session-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.cwd-picker {
-  margin-top: 0.65rem;
-}
-
-.cwd-picker label {
-  display: block;
-  font-size: 0.8rem;
-  color: var(--text-secondary);
-  margin-bottom: 0.25rem;
-}
-
-.cwd-row {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-}
-
-.cwd-path {
-  flex: 1;
-  padding: 0.375rem 0.5rem;
-  background: var(--bg-main);
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  font-size: 0.8rem;
-  color: var(--text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.cwd-btn {
-  width: 34px;
-  height: 34px;
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  background: var(--bg-main);
-  cursor: pointer;
-  font-size: 0.95rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.cwd-btn:hover:not(:disabled) {
-  background: var(--bg-hover);
-}
-
-.cwd-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.proxy-config {
-  margin-top: 0.6rem;
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  padding: 0.5rem;
-  background: var(--bg-main);
-}
-
-.proxy-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 0.45rem;
-}
-
-.proxy-header > label {
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: var(--text-secondary);
-}
-
-.proxy-enable {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  font-size: 0.75rem;
-  color: var(--text-secondary);
-}
-
-.proxy-fields {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-}
-
-.proxy-fields.disabled {
-  opacity: 0.65;
-}
-
-.proxy-row {
-  display: grid;
-  grid-template-columns: 68px 1fr;
-  align-items: center;
-  gap: 0.4rem;
-}
-
-.proxy-label {
-  font-size: 0.72rem;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-}
-
-.proxy-input {
-  width: 100%;
-  height: 28px;
-  border: 1px solid var(--border-color);
-  border-radius: 5px;
-  background: var(--bg-main);
-  color: var(--text-primary);
-  font-size: 0.76rem;
-  padding: 0 0.45rem;
-}
-
-.proxy-input:focus {
-  outline: none;
-  border-color: var(--text-accent);
-}
-
-.disconnect-btn {
-  background: var(--bg-danger);
-  color: white;
-}
-
-.disconnect-btn:hover {
-  background: #c82333;
-}
-
-.sidebar-toggle-collapsed {
-  position: fixed;
-  left: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  padding: 0.5rem;
-  border: 1px solid var(--border-color);
-  border-left: none;
-  border-radius: 0 4px 4px 0;
-  background: var(--bg-sidebar);
-  cursor: pointer;
-}
-
-.session-actions {
-  margin-top: 0.7rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.55rem;
-}
-
-.main-area {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.main-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  background: var(--bg-main);
-}
-
-.traffic-panel {
-  flex-shrink: 0;
-  border-top: 2px solid var(--border-color);
-}
-
-.error-banner {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1rem;
-  background: #fee;
-  color: #c00;
-  border-bottom: 1px solid #fcc;
-}
-
-.error-icon {
-  flex-shrink: 0;
-}
-
-.error-text {
-  flex: 1;
-}
-
-.error-close {
-  flex-shrink: 0;
-  padding: 0.25rem 0.5rem;
-  border: none;
-  background: transparent;
-  color: #c00;
-  font-size: 1.25rem;
-  line-height: 1;
-  cursor: pointer;
-  opacity: 0.6;
-  border-radius: 4px;
-}
-
-.error-close:hover {
-  opacity: 1;
-  background: rgba(204, 0, 0, 0.1);
-}
-
-.welcome-screen {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  padding: 2rem;
-  color: var(--text-secondary);
-}
-
-.welcome-screen h2 {
-  margin-bottom: 0.5rem;
-  color: var(--text-primary);
-}
-
-.welcome-screen .hint {
-  margin-top: 1rem;
-  font-size: 0.875rem;
-  color: var(--text-muted);
+@media (max-width: 900px) {
+  .app-shell { padding: 0; }
+  .window-body { padding: 0; }
+  .sidebar-panel { position: absolute; inset: 56px auto 0 0; z-index: 8; width: min(320px, calc(100vw - 24px)); height: calc(100vh - 56px); box-shadow: var(--shadow-md); }
+  .welcome-grid, .proxy-grid { grid-template-columns: 1fr; }
+  .welcome-actions { flex-direction: column; }
 }
 </style>

@@ -66,23 +66,23 @@ function handleCancel() {
 <style scoped>
 .permission-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  inset: 0;
+  background: rgba(15, 23, 42, 0.18);
+  backdrop-filter: blur(12px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
+  padding: 1.5rem;
 }
 
 .permission-dialog {
-  background: var(--bg-dialog, #fff);
+  background: #ffffff;
   border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-  max-width: 480px;
-  width: 90%;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.12);
+  border: 1px solid var(--border-color);
+  max-width: 560px;
+  width: min(560px, 100%);
   overflow: hidden;
 }
 
@@ -90,9 +90,9 @@ function handleCancel() {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 1rem;
-  background: var(--bg-header, #f5f5f5);
-  border-bottom: 1px solid var(--border-color, #e0e0e0);
+  padding: 1.15rem 1.2rem 1rem;
+  background: #ffffff;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .dialog-header .icon {
@@ -105,38 +105,49 @@ function handleCancel() {
 }
 
 .dialog-content {
-  padding: 1rem;
+  padding: 1.1rem 1.2rem;
 }
 
 .tool-info {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.35rem;
+  padding: 0.95rem 1rem;
+  border-radius: 8px;
+  background: #f8fafc;
+  border: 1px solid var(--border-color);
 }
 
 .tool-title {
   font-weight: 600;
   font-size: 1rem;
+  color: var(--text-primary, #102033);
 }
 
 .tool-kind {
-  font-size: 0.875rem;
-  color: var(--text-muted, #666);
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  color: var(--text-muted, #486176);
+  background: rgba(37, 99, 235, 0.08);
   text-transform: capitalize;
 }
 
 .locations {
-  margin-top: 0.75rem;
-  padding: 0.5rem 0.75rem;
-  background: var(--bg-hover, #f5f5f5);
-  border-radius: 4px;
-  border: 1px solid var(--border-color, #e0e0e0);
+  margin-top: 0.9rem;
+  padding: 0.8rem 0.9rem;
+  background: #ffffff;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
 }
 
 .location {
   font-family: monospace;
-  font-size: 0.8rem;
-  padding: 0.125rem 0;
+  font-size: 0.78rem;
+  padding: 0.18rem 0;
   color: var(--text-primary, #333);
   word-break: break-all;
 }
@@ -145,57 +156,62 @@ function handleCancel() {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
-  padding: 1rem;
-  border-top: 1px solid var(--border-color, #e0e0e0);
-  background: var(--bg-footer, #fafafa);
+  padding: 1rem 1.2rem 1.2rem;
+  border-top: 1px solid var(--border-color);
+  background: #ffffff;
 }
 
 .option-btn {
   flex: 1;
   min-width: 120px;
-  padding: 0.625rem 1rem;
+  padding: 0.75rem 1rem;
   border: none;
-  border-radius: 4px;
+  border-radius: 8px;
   font-size: 0.9rem;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background 0.15s, transform 0.15s;
 }
 
 .option-allow_once,
 .option-allow_always {
-  background: var(--bg-success, #28a745);
+  background: var(--bg-primary);
   color: white;
 }
 
 .option-allow_once:hover,
 .option-allow_always:hover {
-  background: var(--bg-success-hover, #218838);
+  background: var(--bg-primary-hover);
 }
 
 .option-reject_once,
 .option-reject_always {
-  background: var(--bg-danger, #dc3545);
+  background: var(--bg-danger);
   color: white;
 }
 
 .option-reject_once:hover,
 .option-reject_always:hover {
-  background: var(--bg-danger-hover, #c82333);
+  background: #b91c1c;
 }
 
 .cancel-btn {
   flex: 1;
   min-width: 120px;
-  padding: 0.625rem 1rem;
-  border: 1px solid var(--border-color, #ccc);
-  border-radius: 4px;
-  background: var(--bg-button, #fff);
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: #ffffff;
   font-size: 0.9rem;
   cursor: pointer;
 }
 
 .cancel-btn:hover {
-  background: var(--bg-hover, #f0f0f0);
+  background: #f8fafc;
+}
+
+.option-btn:hover,
+.cancel-btn:hover {
+  transform: translateY(-1px);
 }
 </style>

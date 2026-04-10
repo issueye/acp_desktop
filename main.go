@@ -9,6 +9,7 @@ import (
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
+	"github.com/wailsapp/wails/v2/pkg/options/windows"
 )
 
 //go:embed all:frontend/dist
@@ -23,12 +24,21 @@ func main() {
 	}
 
 	err = wails.Run(&options.App{
-		Title:       "ACP UI",
-		Width:       1200,
-		Height:      800,
-		AssetServer: &assetserver.Options{Assets: assets},
-		OnStartup:   app.Startup,
-		OnShutdown:  app.Shutdown,
+		Title:             "ACP UI",
+		Width:             1280,
+		Height:            860,
+		MinWidth:          1080,
+		MinHeight:         720,
+		Frameless:         true,
+		BackgroundColour:  options.NewRGB(8, 12, 18),
+		AssetServer:       &assetserver.Options{Assets: assets},
+		OnStartup:         app.Startup,
+		OnShutdown:        app.Shutdown,
+		EnableDefaultContextMenu: true,
+		Windows: &windows.Options{
+			Theme:                              windows.SystemDefault,
+			DisableFramelessWindowDecorations: false,
+		},
 		Bind: []interface{}{
 			app,
 		},

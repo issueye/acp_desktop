@@ -63,79 +63,89 @@ function handleSelect(methodId: string) {
 .auth-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(15, 23, 42, 0.18);
+  backdrop-filter: blur(12px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
+  padding: 1.5rem;
 }
 
 .auth-dialog {
-  background: var(--bg-main);
+  background: #ffffff;
   border-radius: 8px;
-  width: 90%;
-  max-width: 420px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  width: min(520px, 100%);
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.12);
+  border: 1px solid var(--border-color);
 }
 
 .dialog-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  padding: 1rem 1.25rem;
+  padding: 1.2rem 1.25rem 1rem;
   border-bottom: 1px solid var(--border-color);
 }
 
 .dialog-header h3 {
   margin: 0;
-  font-size: 1.125rem;
+  font-size: 1.2rem;
 }
 
 .close-btn {
-  border: none;
-  background: transparent;
-  font-size: 1.25rem;
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--border-color);
+  background: #ffffff;
+  border-radius: 8px;
+  font-size: 1.15rem;
   cursor: pointer;
   color: var(--text-secondary);
-  padding: 0.25rem;
 }
 
 .close-btn:hover {
   color: var(--text-primary);
+  background: #f8fafc;
+  border-color: rgba(148,163,184,.34);
 }
 
 .dialog-content {
-  padding: 1.25rem;
+  padding: 1.15rem 1.25rem;
 }
 
 .description {
   margin: 0 0 1rem 0;
   color: var(--text-secondary);
-  font-size: 0.9rem;
+  font-size: 0.92rem;
+  line-height: 1.7;
 }
 
 .auth-methods {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.7rem;
 }
 
 .auth-method-btn {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.875rem 1rem;
+  gap: 0.85rem;
+  padding: 1rem;
   border: 1px solid var(--border-color);
-  border-radius: 6px;
-  background: var(--bg-sidebar);
+  border-radius: 8px;
+  background: #ffffff;
   cursor: pointer;
   text-align: left;
   transition: all 0.15s ease;
+  box-shadow: none;
 }
 
 .auth-method-btn:hover {
-  border-color: var(--bg-primary);
-  background: var(--bg-hover);
+  border-color: rgba(37,99,235,.18);
+  background: #f8fafc;
+  transform: translateY(-1px);
 }
 
 .method-info {
@@ -145,42 +155,44 @@ function handleSelect(methodId: string) {
 }
 
 .method-name {
-  font-weight: 500;
+  font-weight: 600;
   color: var(--text-primary);
 }
 
 .method-desc {
   font-size: 0.8rem;
   color: var(--text-muted);
+  line-height: 1.5;
 }
 
 .arrow {
   font-size: 1.25rem;
   color: var(--text-muted);
+  flex-shrink: 0;
 }
 
 .auth-method-btn:hover .arrow {
-  color: var(--bg-primary);
+  color: var(--text-accent);
 }
 
 .dialog-footer {
-  padding: 0.75rem 1.25rem;
+  padding: 1rem 1.25rem 1.2rem;
   border-top: 1px solid var(--border-color);
   display: flex;
   justify-content: flex-end;
 }
 
 .cancel-btn {
-  padding: 0.5rem 1rem;
+  padding: 0.72rem 1rem;
   border: 1px solid var(--border-color);
-  border-radius: 4px;
-  background: transparent;
+  border-radius: 8px;
+  background: #ffffff;
   color: var(--text-secondary);
   cursor: pointer;
   font-size: 0.9rem;
 }
 
 .cancel-btn:hover {
-  background: var(--bg-hover);
+  background: #f8fafc;
 }
 </style>

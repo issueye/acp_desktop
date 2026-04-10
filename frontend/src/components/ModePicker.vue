@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import type { SessionMode } from '../lib/types';
 
 const props = defineProps<{
@@ -51,10 +51,13 @@ function handleClickOutside(event: MouseEvent) {
   }
 }
 
-// Close dropdown when clicking outside
-if (typeof window !== 'undefined') {
+onMounted(() => {
   window.addEventListener('click', handleClickOutside);
-}
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener('click', handleClickOutside);
+});
 </script>
 
 <template>
@@ -94,7 +97,8 @@ if (typeof window !== 'undefined') {
 <style scoped>
 .mode-picker {
   position: relative;
-  display: inline-block;
+  display: inline-flex;
+  min-width: 172px;
 }
 
 .mode-picker.disabled {
@@ -105,20 +109,23 @@ if (typeof window !== 'undefined') {
 .mode-button {
   display: flex;
   align-items: center;
-  gap: 0.375rem;
-  padding: 0.375rem 0.625rem;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 38px;
+  padding: 0.44rem 0.72rem;
   border: 1px solid var(--border-color);
-  border-radius: 6px;
-  background: var(--bg-main);
+  border-radius: 8px;
+  background: #fffdfa;
   color: var(--text-primary);
-  font-size: 0.8rem;
+  font-size: 0.79rem;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  box-shadow: none;
 }
 
 .mode-button:hover:not(:disabled) {
-  background: var(--bg-hover);
-  border-color: var(--text-accent);
+  background: #ffffff;
+  border-color: rgba(37, 99, 235, 0.18);
 }
 
 .mode-button:disabled {
@@ -126,63 +133,76 @@ if (typeof window !== 'undefined') {
 }
 
 .mode-icon {
-  font-size: 0.9rem;
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  font-size: 0.82rem;
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.08);
 }
 
 .mode-name {
-  font-weight: 500;
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .dropdown-arrow {
-  font-size: 0.6rem;
+  font-size: 0.58rem;
   color: var(--text-muted);
-  margin-left: 0.25rem;
+  margin-left: auto;
+  flex-shrink: 0;
 }
 
 .dropdown-menu {
   position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  min-width: 240px;
-  background: var(--bg-main);
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 292px;
+  max-width: 336px;
+  background: #fffdfa;
   border: 1px solid var(--border-color);
   border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.12);
   z-index: 100;
   overflow: hidden;
 }
 
-@media (prefers-color-scheme: dark) {
-  .dropdown-menu {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-  }
-}
-
 .dropdown-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.5rem;
-  padding: 0.625rem 0.75rem;
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) 18px;
+  align-items: start;
+  column-gap: 0.7rem;
+  padding: 0.82rem 0.9rem;
   cursor: pointer;
-  transition: background 0.1s ease;
+  transition: background 0.12s ease;
 }
 
 .dropdown-item:hover {
-  background: var(--bg-hover);
+  background: #f7f3ea;
 }
 
 .dropdown-item.selected {
-  background: var(--bg-user);
+  background: rgba(37, 99, 235, 0.08);
 }
 
 .dropdown-item + .dropdown-item {
-  border-top: 1px solid var(--border-color);
+  border-top: 1px solid rgba(121, 151, 176, 0.14);
 }
 
 .item-icon {
-  font-size: 1rem;
-  flex-shrink: 0;
-  margin-top: 0.125rem;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  font-size: 0.9rem;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.12);
 }
 
 .item-content {
@@ -192,24 +212,26 @@ if (typeof window !== 'undefined') {
 
 .item-name {
   display: block;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--text-primary);
   font-size: 0.85rem;
+  line-height: 1.25;
 }
 
 .item-description {
   display: block;
   font-size: 0.75rem;
   color: var(--text-muted);
-  margin-top: 0.125rem;
-  line-height: 1.3;
+  margin-top: 0.2rem;
+  line-height: 1.42;
+  word-break: break-word;
 }
 
 .check-mark {
   color: var(--text-accent);
-  font-weight: bold;
-  margin-left: auto;
-  flex-shrink: 0;
+  font-weight: 700;
+  align-self: center;
+  justify-self: end;
 }
 
 /* Dropdown animation */

@@ -1,9 +1,18 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useConfigStore } from '../stores/config';
 import { addAgent, removeAgent, updateAgent } from '../lib/wails';
 import { useI18n } from '../lib/i18n';
 import EnvVarEditor from './EnvVarEditor.vue';
+
+const props = withDefaults(
+  defineProps<{
+    startInAddMode?: boolean;
+  }>(),
+  {
+    startInAddMode: false,
+  }
+);
 
 const emit = defineEmits<{
   (e: 'close'): void;
@@ -45,6 +54,21 @@ function startAdd() {
   resetForm();
   showAddForm.value = true;
 }
+
+onMounted(() => {
+  if (props.startInAddMode) {
+    startAdd();
+  }
+});
+
+watch(
+  () => props.startInAddMode,
+  (enabled) => {
+    if (enabled) {
+      startAdd();
+    }
+  }
+);
 
 function startEdit(agent: { name: string; command: string; args: string; env: Record<string, string> }) {
   resetForm();
@@ -143,7 +167,10 @@ async function handleDelete(name: string) {
   <div class="settings-overlay" @click.self="emit('close')">
     <div class="settings-panel">
       <div class="settings-header">
-        <h2>{{ t('settings.title') }}</h2>
+        <div>
+          <p class="eyebrow">{{ t('app.settings') }}</p>
+          <h2>{{ t('settings.title') }}</h2>
+        </div>
         <button class="close-btn" @click="emit('close')">✕</button>
       </div>
 
@@ -219,7 +246,10 @@ async function handleDelete(name: string) {
               class="agent-item"
             >
               <div class="agent-info">
-                <div class="agent-name">{{ agent.name }}</div>
+                <div class="agent-name-row">
+                  <div class="agent-name">{{ agent.name }}</div>
+                  <span class="agent-badge">ACP</span>
+                </div>
                 <div class="agent-command">
                   <code>{{ agent.command }} {{ agent.args }}</code>
                 </div>
@@ -254,53 +284,71 @@ async function handleDelete(name: string) {
 .settings-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(15, 23, 42, 0.18);
+  backdrop-filter: blur(12px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
+  padding: 1.5rem;
 }
 
 .settings-panel {
-  background: var(--bg-main);
+  background: #ffffff;
   border-radius: 8px;
-  width: 90%;
-  max-width: 600px;
-  max-height: 80vh;
+  width: min(880px, 100%);
+  max-height: calc(100vh - 48px);
   display: flex;
   flex-direction: column;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.12);
+  border: 1px solid var(--border-color);
 }
 
 .settings-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  padding: 1rem 1.25rem;
+  padding: 1.35rem 1.5rem 1rem;
   border-bottom: 1px solid var(--border-color);
 }
 
 .settings-header h2 {
-  margin: 0;
-  font-size: 1.25rem;
+  margin: 0.3rem 0 0;
+  font-size: 1.35rem;
+  color: var(--text-primary);
+}
+
+.eyebrow {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
 }
 
 .close-btn {
-  border: none;
-  background: transparent;
-  font-size: 1.25rem;
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--border-color);
+  background: #ffffff;
+  border-radius: 8px;
+  font-size: 1.15rem;
   cursor: pointer;
   color: var(--text-secondary);
-  padding: 0.25rem;
 }
 
 .close-btn:hover {
   color: var(--text-primary);
+  background: #f8fafc;
+  border-color: rgba(148,163,184,.34);
 }
 
 .settings-content {
-  padding: 1.25rem;
+  padding: 1.25rem 1.5rem 1.5rem;
   overflow-y: auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 260px;
+  gap: 1rem;
 }
 
 .section-header {
@@ -312,21 +360,22 @@ async function handleDelete(name: string) {
 
 .section-header h3 {
   margin: 0;
+  color: var(--text-primary);
 }
 
 .add-btn {
-  padding: 0.375rem 0.75rem;
-  border: 1px solid var(--bg-primary);
-  background: transparent;
+  padding: 0.55rem 0.9rem;
+  border: 1px solid rgba(37, 99, 235, 0.16);
+  background: rgba(37, 99, 235, 0.08);
   color: var(--bg-primary);
-  border-radius: 4px;
+  border-radius: 999px;
   cursor: pointer;
   font-size: 0.875rem;
+  font-weight: 600;
 }
 
 .add-btn:hover:not(:disabled) {
-  background: var(--bg-primary);
-  color: white;
+  background: rgba(37, 99, 235, 0.14);
 }
 
 .add-btn:disabled {
@@ -335,10 +384,12 @@ async function handleDelete(name: string) {
 }
 
 .agent-form {
-  background: var(--bg-sidebar);
+  background: #f8fafc;
   padding: 1rem;
-  border-radius: 6px;
+  border-radius: 8px;
   margin-bottom: 1rem;
+  border: 1px solid var(--border-color);
+  box-shadow: none;
 }
 
 .agent-form h4 {
@@ -359,17 +410,18 @@ async function handleDelete(name: string) {
 
 .form-group input {
   width: 100%;
-  padding: 0.5rem;
+  padding: 0.75rem 0.85rem;
   border: 1px solid var(--border-color);
-  border-radius: 4px;
+  border-radius: 8px;
   font-size: 0.9rem;
-  background: var(--bg-main);
+  background: #ffffff;
   color: var(--text-primary);
 }
 
 .form-group input:focus {
   outline: none;
-  border-color: var(--bg-primary);
+  border-color: rgba(37,99,235,.32);
+  box-shadow: 0 0 0 3px rgba(37,99,235,.08);
 }
 
 .form-group small {
@@ -391,16 +443,18 @@ async function handleDelete(name: string) {
 }
 
 .save-btn {
-  padding: 0.5rem 1rem;
+  padding: 0.7rem 1rem;
   background: var(--bg-primary);
   color: white;
   border: none;
-  border-radius: 4px;
+  border-radius: 8px;
   cursor: pointer;
+  font-weight: 600;
 }
 
 .save-btn:hover:not(:disabled) {
   background: var(--bg-primary-hover);
+  color: white;
 }
 
 .save-btn:disabled {
@@ -409,31 +463,34 @@ async function handleDelete(name: string) {
 }
 
 .cancel-btn {
-  padding: 0.5rem 1rem;
-  background: transparent;
+  padding: 0.7rem 1rem;
+  background: #ffffff;
   color: var(--text-secondary);
   border: 1px solid var(--border-color);
-  border-radius: 4px;
+  border-radius: 8px;
   cursor: pointer;
 }
 
 .cancel-btn:hover {
-  background: var(--bg-hover);
+  background: #f8fafc;
 }
 
 .agents-list {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.7rem;
 }
 
 .agent-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.75rem;
-  background: var(--bg-sidebar);
-  border-radius: 6px;
+  gap: 1rem;
+  padding: 0.95rem 1rem;
+  background: #ffffff;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  box-shadow: none;
 }
 
 .agent-info {
@@ -441,9 +498,26 @@ async function handleDelete(name: string) {
   min-width: 0;
 }
 
+.agent-name-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
 .agent-name {
-  font-weight: 500;
-  margin-bottom: 0.25rem;
+  font-weight: 600;
+}
+
+.agent-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.18rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: var(--text-accent);
+  background: rgba(37, 99, 235, 0.1);
 }
 
 .agent-command {
@@ -452,9 +526,10 @@ async function handleDelete(name: string) {
 }
 
 .agent-command code {
-  background: var(--bg-main);
-  padding: 0.125rem 0.375rem;
-  border-radius: 3px;
+  display: inline-block;
+  background: #f8fafc;
+  padding: 0.22rem 0.45rem;
+  border-radius: 8px;
   word-break: break-all;
 }
 
@@ -466,31 +541,30 @@ async function handleDelete(name: string) {
 
 .edit-btn,
 .delete-btn {
-  padding: 0.25rem 0.5rem;
-  border-radius: 4px;
+  padding: 0.45rem 0.7rem;
+  border-radius: 8px;
   font-size: 0.8rem;
   cursor: pointer;
 }
 
 .edit-btn {
-  background: transparent;
+  background: #ffffff;
   border: 1px solid var(--border-color);
   color: var(--text-secondary);
 }
 
 .edit-btn:hover {
-  background: var(--bg-hover);
+  background: #f8fafc;
 }
 
 .delete-btn {
-  background: transparent;
-  border: 1px solid var(--bg-danger);
+  background: rgba(220, 38, 38, 0.06);
+  border: 1px solid rgba(220, 38, 38, 0.14);
   color: var(--bg-danger);
 }
 
 .delete-btn:hover {
-  background: var(--bg-danger);
-  color: white;
+  background: rgba(220, 38, 38, 0.1);
 }
 
 .no-agents {
@@ -500,9 +574,11 @@ async function handleDelete(name: string) {
 }
 
 .config-section {
-  margin-top: 1.5rem;
-  padding-top: 1.5rem;
-  border-top: 1px solid var(--border-color);
+  padding: 1rem;
+  border-radius: 8px;
+  background: #f8fafc;
+  border: 1px solid var(--border-color);
+  align-self: start;
 }
 
 .config-section h3 {
@@ -513,15 +589,30 @@ async function handleDelete(name: string) {
   font-family: monospace;
   font-size: 0.8rem;
   color: var(--text-secondary);
-  background: var(--bg-sidebar);
-  padding: 0.5rem;
-  border-radius: 4px;
+  background: #ffffff;
+  padding: 0.75rem;
+  border-radius: 8px;
   word-break: break-all;
-  margin-bottom: 0.25rem;
+  margin: 0.75rem 0 0.35rem;
 }
 
 .config-section small {
   font-size: 0.75rem;
   color: var(--text-muted);
+}
+
+@media (max-width: 900px) {
+  .settings-content {
+    grid-template-columns: 1fr;
+  }
+
+  .agent-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .agent-actions {
+    margin-left: 0;
+  }
 }
 </style>

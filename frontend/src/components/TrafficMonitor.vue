@@ -228,7 +228,7 @@ function handleCopy(entry: TrafficEntry) {
 .traffic-monitor {
   display: flex;
   flex-direction: column;
-  background: var(--bg-sidebar);
+  background: #ffffff;
   border-top: 1px solid var(--border-color);
   font-size: 0.8rem;
   position: relative;
@@ -247,7 +247,7 @@ function handleCopy(entry: TrafficEntry) {
 
 .resize-handle:hover,
 .resize-handle:active {
-  background: var(--bg-primary);
+  background: rgba(37, 99, 235, 0.3);
   opacity: 0.5;
 }
 
@@ -255,8 +255,8 @@ function handleCopy(entry: TrafficEntry) {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.5rem 0.75rem;
-  background: var(--bg-main);
+  padding: 0.65rem 0.8rem;
+  background: #ffffff;
   border-bottom: 1px solid var(--border-color);
 }
 
@@ -272,16 +272,16 @@ function handleCopy(entry: TrafficEntry) {
 }
 
 .control-btn {
-  padding: 0.25rem 0.5rem;
+  padding: 0.35rem 0.65rem;
   border: 1px solid var(--border-color);
-  border-radius: 4px;
-  background: transparent;
+  border-radius: 999px;
+  background: #ffffff;
   cursor: pointer;
   font-size: 0.75rem;
 }
 
 .control-btn:hover {
-  background: var(--bg-hover);
+  background: #f8fafc;
 }
 
 .control-btn.active {
@@ -292,10 +292,10 @@ function handleCopy(entry: TrafficEntry) {
   display: flex;
   align-items: center;
   position: relative;
-  background: var(--bg-main);
+  background: #ffffff;
   border: 1px solid var(--border-color);
-  border-radius: 4px;
-  padding: 0 0.25rem;
+  border-radius: 999px;
+  padding: 0 0.35rem;
 }
 
 .search-icon {
@@ -305,7 +305,7 @@ function handleCopy(entry: TrafficEntry) {
 
 .search-input {
   width: 120px;
-  padding: 0.25rem 0.4rem;
+  padding: 0.35rem 0.45rem;
   border: none;
   background: transparent;
   color: var(--text-primary);
@@ -338,19 +338,21 @@ function handleCopy(entry: TrafficEntry) {
 }
 
 .filter-select {
-  padding: 0.25rem 0.5rem;
+  padding: 0.35rem 0.65rem;
   border: 1px solid var(--border-color);
-  border-radius: 4px;
-  background: var(--bg-main);
+  border-radius: 999px;
+  background: #ffffff;
   color: var(--text-primary);
   font-size: 0.75rem;
   cursor: pointer;
 }
 
 .close-btn {
-  padding: 0.25rem 0.5rem;
-  border: none;
-  background: transparent;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border-color);
+  background: #ffffff;
+  border-radius: 8px;
   cursor: pointer;
   font-size: 1rem;
   color: var(--text-muted);
@@ -358,6 +360,7 @@ function handleCopy(entry: TrafficEntry) {
 
 .close-btn:hover {
   color: var(--text-primary);
+  background: #f8fafc;
 }
 
 .log-container {
@@ -380,12 +383,12 @@ function handleCopy(entry: TrafficEntry) {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.375rem 0.75rem;
+  padding: 0.5rem 0.8rem;
   cursor: pointer;
 }
 
 .entry-header:hover {
-  background: var(--bg-hover);
+  background: #f8fafc;
 }
 
 .expand-icon {
@@ -403,33 +406,10 @@ function handleCopy(entry: TrafficEntry) {
   width: 1em;
 }
 
-.entry.out .direction-icon {
-  color: #0066cc;
-}
-
-.entry.in .direction-icon {
-  color: #28a745;
-}
-
+.entry.out .direction-icon { color: #2563eb; }
+.entry.in .direction-icon { color: #059669; }
 .entry.error .direction-icon,
-.entry.error .method {
-  color: #dc3545;
-}
-
-@media (prefers-color-scheme: dark) {
-  .entry.out .direction-icon {
-    color: #4da6ff;
-  }
-  
-  .entry.in .direction-icon {
-    color: #5cb85c;
-  }
-  
-  .entry.error .direction-icon,
-  .entry.error .method {
-    color: #ff6b6b;
-  }
-}
+.entry.error .method { color: #dc2626; }
 
 .method {
   font-weight: 600;
@@ -448,9 +428,10 @@ function handleCopy(entry: TrafficEntry) {
 }
 
 .copy-btn {
-  padding: 0.125rem 0.25rem;
-  border: none;
-  background: transparent;
+  padding: 0.18rem 0.35rem;
+  border: 1px solid var(--border-color);
+  background: #ffffff;
+  border-radius: 8px;
   cursor: pointer;
   font-size: 0.7rem;
   opacity: 0;
@@ -462,7 +443,7 @@ function handleCopy(entry: TrafficEntry) {
 }
 
 .entry-payload {
-  padding: 0.5rem 0.75rem 0.75rem 2rem;
+  padding: 0.65rem 0.85rem 0.85rem 2rem;
   background: var(--bg-code);
   overflow-x: auto;
 }
@@ -479,10 +460,22 @@ function handleCopy(entry: TrafficEntry) {
   position: absolute;
   bottom: 0.5rem;
   right: 0.5rem;
-  padding: 0.25rem 0.5rem;
+  padding: 0.35rem 0.65rem;
   background: var(--bg-warning);
-  border-radius: 4px;
+  border-radius: 999px;
   font-size: 0.7rem;
   color: #856404;
+}
+
+@media (max-width: 900px) {
+  .monitor-header {
+    flex-wrap: wrap;
+  }
+
+  .controls {
+    order: 3;
+    width: 100%;
+    flex-wrap: wrap;
+  }
 }
 </style>

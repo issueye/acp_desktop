@@ -105,12 +105,12 @@ function selectCommand(cmd: SlashCommand) {
   position: absolute;
   bottom: 100%;
   left: 0;
-  width: 400px;
-  margin-bottom: 6px;
-  background: #fff;
-  border: 1px solid #e0e0e0;
+  width: min(460px, calc(100vw - 48px));
+  margin-bottom: 10px;
+  background: #ffffff;
+  border: 1px solid var(--border-color);
   border-radius: 8px;
-  box-shadow: 0 4px 24px rgba(0,0,0,0.10);
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.1);
   max-height: 320px;
   overflow: visible;
   z-index: 100;
@@ -122,10 +122,10 @@ function selectCommand(cmd: SlashCommand) {
 }
 
 .command-item {
-  padding: 8px 16px;
+  padding: 11px 16px;
   cursor: pointer;
-  border-bottom: 1px solid #f0f0f0;
-  background: #fff;
+  border-bottom: 1px solid rgba(121, 151, 176, 0.12);
+  background: transparent;
   display: flex;
   align-items: center;
   transition: background 0.12s;
@@ -135,15 +135,14 @@ function selectCommand(cmd: SlashCommand) {
   border-bottom: none;
 }
 .command-item.selected {
-  background: #2563eb;
-  color: #fff;
-  border-radius: 6px;
+  background: rgba(37, 99, 235, 0.08);
+  color: var(--text-primary);
 }
 .command-item.selected .command-name,
 .command-item.selected .command-hint,
 .command-item.selected .command-description,
 .command-item.selected .command-source {
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .command-tooltip {
@@ -151,19 +150,19 @@ function selectCommand(cmd: SlashCommand) {
   left: calc(100% + 8px);
   top: 0;
   width: 220px;
-  background: #fff;
-  color: #333;
-  border: 1px solid #e0e0e0;
-  border-radius: 6px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
-  padding: 8px 12px;
-  font-size: 0.95em;
+  background: #ffffff;
+  color: var(--text-primary, #0f172a);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.1);
+  padding: 10px 12px;
+  font-size: 0.9em;
   white-space: normal;
   z-index: 200;
   word-break: break-word;
 }
 .command-item:hover:not(.selected) {
-  background: #f3f8fd;
+  background: #f8fafc;
 }
 
 /* Command row: command and description on same line */
@@ -175,7 +174,7 @@ function selectCommand(cmd: SlashCommand) {
 }
 .command-name {
   font-weight: 600;
-  color: #2563eb;
+  color: var(--text-accent, #2563eb);
   font-family: monospace;
   font-size: 1em;
   min-width: 110px;
@@ -186,8 +185,8 @@ function selectCommand(cmd: SlashCommand) {
   text-overflow: ellipsis;
 }
 .command-description {
-  color: #666;
-  font-size: 0.97em;
+  color: var(--text-secondary, #475569);
+  font-size: 0.93em;
   margin-left: 18px;
   flex: 1 1 auto;
   white-space: nowrap;
@@ -196,6 +195,18 @@ function selectCommand(cmd: SlashCommand) {
 }
 .command-item.selected .command-name,
 .command-item.selected .command-description {
-  color: #fff;
+  color: var(--text-primary);
+}
+
+@media (max-width: 900px) {
+  .command-palette {
+    left: 0;
+    right: 0;
+    width: auto;
+  }
+
+  .command-tooltip {
+    display: none;
+  }
 }
 </style>
