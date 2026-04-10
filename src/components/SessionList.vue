@@ -151,33 +151,33 @@ function handleKeyDown(event: KeyboardEvent) {
             <span class="session-title">{{ session.title }}</span>
             <span v-if="isPinned(session.id)" class="pinned-badge">{{ t('session.pinned') }}</span>
             <span v-if="session.proxy?.enabled" class="proxy-badge">{{ t('session.proxy') }}</span>
+            <div class="session-actions">
+              <button
+                class="connect-btn"
+                @click="handleResume(session)"
+              >
+                {{ t('session.connect') }}
+              </button>
+              <button
+                class="pin-btn"
+                :class="{ pinned: isPinned(session.id) }"
+                @click="(e) => handleTogglePin(session.id, e)"
+                :title="isPinned(session.id) ? t('session.unpin') : t('session.pin')"
+              >
+                ★
+              </button>
+              <button
+                class="delete-btn"
+                @click="(e) => handleDelete(session.id, e)"
+                :title="t('session.delete')"
+              >
+                ×
+              </button>
+            </div>
           </div>
           <span class="session-agent">{{ session.agentName }}</span>
           <span class="session-cwd" :title="session.cwd">{{ formatPath(session.cwd) }}</span>
           <span class="session-date">{{ formatDate(session.lastUpdated) }}</span>
-        </div>
-        <div class="session-actions">
-          <button
-            class="connect-btn"
-            @click="handleResume(session)"
-          >
-            {{ t('session.connect') }}
-          </button>
-          <button
-            class="pin-btn"
-            :class="{ pinned: isPinned(session.id) }"
-            @click="(e) => handleTogglePin(session.id, e)"
-            :title="isPinned(session.id) ? t('session.unpin') : t('session.pin')"
-          >
-            ★
-          </button>
-          <button
-            class="delete-btn"
-            @click="(e) => handleDelete(session.id, e)"
-            :title="t('session.delete')"
-          >
-            ×
-          </button>
         </div>
       </li>
     </ul>
@@ -216,9 +216,7 @@ ul {
 }
 
 .session-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  display: block;
   padding: 0.62rem 0.7rem;
   border: 1px solid var(--border-color, #e0e0e0);
   border-radius: 6px;
@@ -242,16 +240,19 @@ ul {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
-  overflow: hidden;
+  min-width: 0;
 }
 
 .session-title-row {
   display: flex;
   align-items: center;
   gap: 0.35rem;
+  min-width: 0;
 }
 
 .session-title {
+  flex: 1;
+  min-width: 0;
   font-weight: 500;
   font-size: 0.86rem;
   white-space: nowrap;
@@ -301,6 +302,8 @@ ul {
   display: flex;
   align-items: center;
   gap: 0.2rem;
+  margin-left: auto;
+  flex-shrink: 0;
 }
 
 .connect-btn {
