@@ -35,6 +35,7 @@ jobs:
         with:
           node-version: lts/*
           cache: npm
+          cache-dependency-path: frontend/package-lock.json
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -49,9 +50,11 @@ jobs:
 
       - name: Install frontend dependencies
         run: npm ci
+        working-directory: frontend
 
       - name: Build frontend
         run: npm run build
+        working-directory: frontend
 
       - name: Build desktop app
         run: go run github.com/wailsapp/wails/v2/cmd/wails@v2.10.1 build -clean

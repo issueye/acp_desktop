@@ -7,8 +7,8 @@
     "dev": "vite",
     "build": "vue-tsc --noEmit && vite build",
     "preview": "vite preview",
-    "wails:dev": "wails dev",
-    "wails:build": "wails build"
+    "wails:dev": "cd .. && wails dev",
+    "wails:build": "cd .. && wails build"
   },
   "dependencies": {
     "@agentclientprotocol/sdk": "^0.13.1",

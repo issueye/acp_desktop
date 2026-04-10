@@ -2,11 +2,12 @@
   "$schema": "https://wails.io/schemas/config.v2.json",
   "name": "acp_go_ui",
   "outputfilename": "acp-ui",
-  "frontend:dir": ".",
+  "frontend:dir": "./frontend",
   "frontend:install": "npm install",
   "frontend:build": "npm run build",
   "frontend:dev:watcher": "npm run dev",
   "frontend:dev:serverUrl": "http://localhost:1420",
+  "frontend:wailsjsdir": "./frontend/wailsjs",
   "author": {
     "name": "issueye"
   }

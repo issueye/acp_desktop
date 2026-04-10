@@ -135,6 +135,11 @@ Agent configurations are stored in:
 - [Go](https://go.dev/) 1.22+
 - [Wails CLI](https://wails.io/docs/gettingstarted/installation)
 
+### Project Structure
+
+- `frontend/` contains the Vue 3 + Vite frontend project
+- the repository root contains the Go/Wails desktop application and backend code
+
 ### Setup
 
 ```bash
@@ -142,8 +147,10 @@ Agent configurations are stored in:
 git clone https://github.com/formulahendry/acp-ui.git
 cd acp-ui
 
-# Install dependencies
+# Install frontend dependencies
+cd frontend
 npm install
+cd ..
 
 # Run in development mode
 wails dev
@@ -153,6 +160,18 @@ wails dev
 
 ```bash
 wails build
+```
+
+### Frontend-only Commands
+
+```bash
+cd frontend
+
+# Run Vite dev server only
+npm run dev
+
+# Build frontend assets only
+npm run build
 ```
 
 ## 🔗 Links
