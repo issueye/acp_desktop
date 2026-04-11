@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, ref } from 'vue';
 import type { SessionMode } from '../lib/types';
+import AppPopover from './AppPopover.vue';
 
 const props = defineProps<{
   modes: SessionMode[];
@@ -43,37 +44,31 @@ function selectMode(modeId: string) {
   }
   isOpen.value = false;
 }
-
-function handleClickOutside(event: MouseEvent) {
-  const target = event.target as HTMLElement;
-  if (!target.closest('.mode-picker')) {
-    isOpen.value = false;
-  }
-}
-
-onMounted(() => {
-  window.addEventListener('click', handleClickOutside);
-});
-
-onBeforeUnmount(() => {
-  window.removeEventListener('click', handleClickOutside);
-});
 </script>
 
 <template>
-  <div class="mode-picker" :class="{ disabled }">
-    <button 
-      class="mode-button"
-      :disabled="disabled"
-      @click.stop="toggleDropdown"
-    >
-      <span class="mode-icon">{{ getModeIcon(currentModeId) }}</span>
-      <span class="mode-name">{{ currentMode?.name || currentModeId }}</span>
-      <span class="dropdown-arrow">{{ isOpen ? '▲' : '▼' }}</span>
-    </button>
-    
-    <Transition name="dropdown">
-      <div v-if="isOpen" class="dropdown-menu" @click.stop>
+  <AppPopover
+    v-model="isOpen"
+    align="right"
+    min-width="292px"
+    max-width="336px"
+  >
+    <template #trigger>
+      <div class="mode-picker" :class="{ disabled }">
+        <button 
+          class="mode-button"
+          :disabled="disabled"
+          @click.stop="toggleDropdown"
+        >
+          <span class="mode-icon">{{ getModeIcon(currentModeId) }}</span>
+          <span class="mode-name">{{ currentMode?.name || currentModeId }}</span>
+          <span class="dropdown-arrow">{{ isOpen ? '▲' : '▼' }}</span>
+        </button>
+      </div>
+    </template>
+
+    <template #default>
+      <div class="dropdown-menu">
         <div 
           v-for="mode in modes"
           :key="mode.id"
@@ -90,8 +85,8 @@ onBeforeUnmount(() => {
           <span v-if="mode.id === currentModeId" class="check-mark">✓</span>
         </div>
       </div>
-    </Transition>
-  </div>
+    </template>
+  </AppPopover>
 </template>
 
 <style scoped>
@@ -160,16 +155,10 @@ onBeforeUnmount(() => {
 }
 
 .dropdown-menu {
-  position: absolute;
-  top: calc(100% + 6px);
-  right: 0;
-  min-width: 292px;
-  max-width: 336px;
   background: #fffdfa;
   border: 1px solid var(--border-color);
   border-radius: 8px;
   box-shadow: 0 16px 36px rgba(15, 23, 42, 0.12);
-  z-index: 100;
   overflow: hidden;
 }
 
@@ -235,14 +224,4 @@ onBeforeUnmount(() => {
 }
 
 /* Dropdown animation */
-.dropdown-enter-active,
-.dropdown-leave-active {
-  transition: opacity 0.15s ease, transform 0.15s ease;
-}
-
-.dropdown-enter-from,
-.dropdown-leave-to {
-  opacity: 0;
-  transform: translateY(-4px);
-}
 </style>

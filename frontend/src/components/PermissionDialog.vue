@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { PermissionRequest } from '../lib/types';
 import { useI18n } from '../lib/i18n';
+import AppModal from './AppModal.vue';
 
 defineProps<{
   request: PermissionRequest;
@@ -22,7 +23,7 @@ function handleCancel() {
 </script>
 
 <template>
-  <div class="permission-overlay">
+  <AppModal :model-value="true" max-width="560px" @close="handleCancel">
     <div class="permission-dialog">
       <div class="dialog-header">
         <span class="icon">🔐</span>
@@ -60,30 +61,12 @@ function handleCancel() {
         </button>
       </div>
     </div>
-  </div>
+  </AppModal>
 </template>
 
 <style scoped>
-.permission-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(15, 23, 42, 0.18);
-  backdrop-filter: blur(12px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  padding: 1.5rem;
-}
-
 .permission-dialog {
-  background: #ffffff;
-  border-radius: 8px;
-  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.12);
-  border: 1px solid var(--border-color);
-  max-width: 560px;
-  width: min(560px, 100%);
-  overflow: hidden;
+  background: #fffdfa;
 }
 
 .dialog-header {

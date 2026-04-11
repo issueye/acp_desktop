@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { AuthMethod } from '@agentclientprotocol/sdk';
 import { useI18n } from '../lib/i18n';
+import AppModal from './AppModal.vue';
 
 defineProps<{
   authMethods: AuthMethod[];
@@ -19,7 +20,7 @@ function handleSelect(methodId: string) {
 </script>
 
 <template>
-  <div class="auth-overlay" @click.self="emit('cancel')">
+  <AppModal :model-value="true" max-width="520px" @close="emit('cancel')">
     <div class="auth-dialog">
       <div class="dialog-header">
         <h3>{{ t('auth.required') }}</h3>
@@ -56,28 +57,12 @@ function handleSelect(methodId: string) {
         </button>
       </div>
     </div>
-  </div>
+  </AppModal>
 </template>
 
 <style scoped>
-.auth-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(15, 23, 42, 0.18);
-  backdrop-filter: blur(12px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  padding: 1.5rem;
-}
-
 .auth-dialog {
-  background: #ffffff;
-  border-radius: 8px;
-  width: min(520px, 100%);
-  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.12);
-  border: 1px solid var(--border-color);
+  background: #fffdfa;
 }
 
 .dialog-header {

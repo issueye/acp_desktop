@@ -3,22 +3,27 @@ import { computed, ref, watch } from 'vue';
 import { useSessionStore } from '../stores/session';
 import type { SavedSession } from '../lib/types';
 import { useI18n } from '../lib/i18n';
+import AppConfirmDialog from './AppConfirmDialog.vue';
 
 const props = withDefaults(
   defineProps<{
     query?: string;
     pinnedSessionIds?: string[];
     activeSessionId?: string;
+    connectedSessionIds?: string[];
   }>(),
   {
     query: '',
     pinnedSessionIds: () => [],
     activeSessionId: '',
+    connectedSessionIds: () => [],
   }
 );
 
 const emit = defineEmits<{
   resume: [session: SavedSession];
+  activate: [sessionId: string];
+  disconnect: [sessionId: string];
   delete: [sessionId: string];
   togglePin: [sessionId: string];
 }>();
@@ -26,6 +31,8 @@ const emit = defineEmits<{
 const sessionStore = useSessionStore();
 const { t } = useI18n();
 const selectedIndex = ref(0);
+const showDeleteConfirm = ref(false);
+const pendingDeleteSessionId = ref('');
 const query = computed(() => props.query ?? '');
 
 const sessions = computed(() => {
@@ -66,32 +73,51 @@ function isPinned(sessionId: string): boolean {
   return props.pinnedSessionIds.includes(sessionId);
 }
 
-function formatDate(timestamp: number): string {
-  return new Intl.DateTimeFormat(undefined, {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(new Date(timestamp));
+function isConnectedSession(sessionId: string): boolean {
+  return props.connectedSessionIds.includes(sessionId);
 }
 
-function formatPath(path: string): string {
-  const normalized = path.replace(/\\/g, '/');
-  const parts = normalized.split('/').filter(Boolean);
-  if (parts.length === 0) return '.';
-  if (parts.length === 1) return parts[0];
-  return `${parts[parts.length - 2]}/${parts[parts.length - 1]}`;
+function getSessionSummary(session: SavedSession): string {
+  return [session.agentName, session.cwd, new Date(session.lastUpdated).toLocaleString()]
+    .filter(Boolean)
+    .join(' · ');
 }
 
 function handleResume(session: SavedSession) {
   emit('resume', session);
 }
 
+function handleActivate(sessionId: string) {
+  emit('activate', sessionId);
+}
+
+function handleConnectAction(session: SavedSession, event: Event) {
+  event.stopPropagation();
+  if (isConnectedSession(session.id)) {
+    emit('disconnect', session.id);
+    return;
+  }
+  handleResume(session);
+}
+
 function handleDelete(sessionId: string, event: Event) {
   event.stopPropagation();
-  if (confirm(t('session.confirmDelete'))) {
-    emit('delete', sessionId);
+  pendingDeleteSessionId.value = sessionId;
+  showDeleteConfirm.value = true;
+}
+
+function confirmDelete() {
+  if (!pendingDeleteSessionId.value) {
+    return;
   }
+  emit('delete', pendingDeleteSessionId.value);
+  pendingDeleteSessionId.value = '';
+  showDeleteConfirm.value = false;
+}
+
+function cancelDelete() {
+  pendingDeleteSessionId.value = '';
+  showDeleteConfirm.value = false;
 }
 
 function handleTogglePin(sessionId: string, event: Event) {
@@ -125,8 +151,8 @@ function handleKeyDown(event: KeyboardEvent) {
   if (event.key === 'Enter') {
     event.preventDefault();
     const session = sessions.value[selectedIndex.value];
-    if (session) {
-      handleResume(session);
+    if (session && isConnectedSession(session.id)) {
+      handleActivate(session.id);
     }
   }
 }
@@ -148,55 +174,68 @@ function handleKeyDown(event: KeyboardEvent) {
           selected: idx === selectedIndex,
           active: activeSessionId === session.id
         }"
-        @click="setSelectedById(session.id)"
+        :title="getSessionSummary(session)"
+        @click="setSelectedById(session.id); if (isConnectedSession(session.id)) handleActivate(session.id)"
         @mouseenter="setSelectedById(session.id)"
-        @dblclick="handleResume(session)"
       >
         <div class="session-info">
+          <span class="session-leading">
+            <span class="folder-icon" aria-hidden="true"></span>
+            <span
+              v-if="activeSessionId === session.id || isConnectedSession(session.id)"
+              class="session-dot"
+              :class="{ active: activeSessionId === session.id }"
+            ></span>
+          </span>
+
           <div class="session-main">
-            <div class="title-stack">
-              <div class="session-title-line">
-                <span class="session-title">{{ session.title }}</span>
-                <span v-if="activeSessionId === session.id" class="live-badge">{{ t('session.activeNow') }}</span>
-                <span v-if="isPinned(session.id)" class="pinned-badge">{{ t('session.pinned') }}</span>
-                <span v-if="session.proxy?.enabled" class="proxy-badge">{{ t('session.proxy') }}</span>
-              </div>
-              <div class="session-meta-row">
-                <span class="session-agent">{{ session.agentName }}</span>
-                <span class="meta-separator">/</span>
-                <span class="session-cwd" :title="session.cwd">{{ formatPath(session.cwd) }}</span>
-              </div>
-            </div>
-            <div class="session-side">
-              <span class="session-date">{{ formatDate(session.lastUpdated) }}</span>
-              <div class="session-actions">
-                <button
-                  class="connect-btn"
-                  @click="handleResume(session)"
-                >
-                  {{ t('session.connect') }}
-                </button>
-                <button
-                  class="pin-btn"
-                  :class="{ pinned: isPinned(session.id) }"
-                  @click="(e) => handleTogglePin(session.id, e)"
-                  :title="isPinned(session.id) ? t('session.unpin') : t('session.pin')"
-                >
-                  ★
-                </button>
-                <button
-                  class="delete-btn"
-                  @click="(e) => handleDelete(session.id, e)"
-                  :title="t('session.delete')"
-                >
-                  ×
-                </button>
-              </div>
-            </div>
+            <span class="session-title">{{ session.title }}</span>
+          </div>
+
+          <div class="session-actions">
+            <button
+              class="connect-btn"
+              :class="{ disconnect: isConnectedSession(session.id) }"
+              :title="
+                isConnectedSession(session.id)
+                  ? t('session.disconnect')
+                  : t('session.connect')
+              "
+              @click="(event) => handleConnectAction(session, event)"
+            >
+              {{ isConnectedSession(session.id) ? t('session.disconnect') : t('session.connect') }}
+            </button>
+            <button
+              class="row-icon-button"
+              :class="{ pinned: isPinned(session.id) }"
+              @click.stop="(e) => handleTogglePin(session.id, e)"
+              :title="isPinned(session.id) ? t('session.unpin') : t('session.pin')"
+            >
+              ★
+            </button>
+            <button
+              class="row-icon-button danger"
+              @click.stop="(e) => handleDelete(session.id, e)"
+              :title="t('session.delete')"
+            >
+              ×
+            </button>
           </div>
         </div>
       </li>
     </ul>
+
+    <AppConfirmDialog
+      :model-value="showDeleteConfirm"
+      :title="t('session.delete')"
+      :message="t('session.confirmDelete')"
+      :confirm-label="t('session.delete')"
+      :cancel-label="t('common.cancel')"
+      tone="danger"
+      @update:modelValue="(value) => { if (!value) cancelDelete(); }"
+      @confirm="confirmDelete"
+      @cancel="cancelDelete"
+    />
   </div>
 </template>
 
@@ -214,14 +253,14 @@ function handleKeyDown(event: KeyboardEvent) {
 }
 
 .empty-state {
-  text-align: center;
-  padding: 1.6rem 0.85rem;
+  text-align: left;
+  padding: 0.85rem 0.6rem;
   color: var(--text-muted, #999);
 }
 
 .empty-state .hint {
-  font-size: 0.82rem;
-  margin-top: 0.5rem;
+  font-size: 0.78rem;
+  margin-top: 0.32rem;
 }
 
 ul {
@@ -231,199 +270,193 @@ ul {
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
+  gap: 0.1rem;
 }
 
 .session-item {
   display: block;
-  padding: 0.72rem 0.78rem;
+  padding: 0;
   border: 1px solid transparent;
   border-radius: 8px;
   margin-bottom: 0;
-  cursor: default;
+  cursor: pointer;
   background: transparent;
   box-shadow: none;
-  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+  transition: background 0.15s ease, border-color 0.15s ease;
 }
 
 .session-item:hover,
 .session-item.selected {
-  background: rgba(255, 255, 255, 0.76);
-  border-color: rgba(15, 23, 42, 0.06);
+  background: rgba(255, 255, 255, 0.74);
+  border-color: rgba(15, 23, 42, 0.04);
 }
 
 .session-item.active {
-  background: #ffffff;
-  border-color: rgba(37, 99, 235, 0.18);
-  box-shadow: inset 3px 0 0 rgba(37, 99, 235, 0.95);
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(15, 23, 42, 0.04);
 }
 
 .session-info {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  gap: 0.55rem;
   min-width: 0;
+  padding: 0.62rem 0.72rem;
 }
 
 .session-main {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  min-width: 0;
-}
-
-.title-stack {
   flex: 1;
   min-width: 0;
 }
 
-.session-title-line {
+.session-leading {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 0.36rem;
-  min-width: 0;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
 }
 
 .session-title {
+  display: block;
   min-width: 0;
-  font-weight: 600;
-  font-size: 0.88rem;
-  color: var(--text-primary, #102033);
+  font-weight: 500;
+  font-size: 0.92rem;
+  color: #5a6472;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.session-meta-row {
-  display: flex;
-  align-items: center;
-  gap: 0.36rem;
-  margin-top: 0.22rem;
-  flex-wrap: wrap;
+.session-item.active .session-title,
+.session-item:hover .session-title,
+.session-item.selected .session-title {
+  color: #2d3748;
 }
 
-.pinned-badge {
-  flex-shrink: 0;
-  font-size: 0.59rem;
-  font-weight: 700;
+.folder-icon {
+  position: relative;
+  width: 14px;
+  height: 10px;
+  border: 1.4px solid rgba(112, 120, 132, 0.9);
+  border-radius: 2px;
+  background: transparent;
+}
+
+.folder-icon::before {
+  content: '';
+  position: absolute;
+  left: 1px;
+  top: -4px;
+  width: 6px;
+  height: 4px;
+  border: 1.4px solid rgba(112, 120, 132, 0.9);
+  border-bottom: none;
+  border-radius: 2px 2px 0 0;
+  background: transparent;
+}
+
+.session-dot {
+  position: absolute;
+  right: -2px;
+  bottom: -1px;
+  width: 6px;
+  height: 6px;
   border-radius: 999px;
-  padding: 0.12rem 0.34rem;
-  color: #b45309;
-  background: rgba(245, 158, 11, 0.12);
+  background: #10b981;
+  box-shadow: 0 0 0 2px var(--bg-sidebar, #f2ede3);
 }
 
-.proxy-badge {
-  flex-shrink: 0;
-  font-size: 0.59rem;
-  font-weight: 700;
-  border-radius: 999px;
-  padding: 0.12rem 0.34rem;
-  color: #0369a1;
-  background: rgba(14, 165, 233, 0.12);
-}
-
-.live-badge {
-  flex-shrink: 0;
-  font-size: 0.59rem;
-  font-weight: 700;
-  border-radius: 999px;
-  padding: 0.12rem 0.34rem;
-  color: #2563eb;
-  background: rgba(37, 99, 235, 0.1);
-}
-
-.session-agent {
-  font-size: 0.72rem;
-  color: var(--text-accent, #2563eb);
-  font-weight: 600;
-}
-
-.session-cwd {
-  max-width: 100%;
-  font-size: 0.72rem;
-  color: var(--text-secondary, #486176);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.meta-separator {
-  color: var(--text-muted, #94a3b8);
-  font-size: 0.7rem;
-}
-
-.session-date {
-  font-size: 0.67rem;
-  color: var(--text-muted, #6d8295);
-  white-space: nowrap;
-}
-
-.session-side {
-  display: flex;
-  align-items: center;
-  gap: 0.65rem;
-  margin-left: auto;
-  flex-shrink: 0;
+.session-dot.active {
+  background: #2563eb;
 }
 
 .session-actions {
   display: flex;
   align-items: center;
-  gap: 0.18rem;
+  gap: 0.3rem;
+  margin-left: auto;
+  flex-shrink: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+.session-item:hover .session-actions,
+.session-item.active .session-actions,
+.session-item.selected .session-actions {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .connect-btn {
+  min-width: 56px;
   height: 28px;
-  padding: 0 0.62rem;
-  border: 1px solid rgba(37, 99, 235, 0.12);
+  padding: 0 0.72rem;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.92);
-  color: var(--text-accent, #2563eb);
-  font-size: 0.7rem;
+  border: 1px solid rgba(37, 99, 235, 0.12);
+  background: rgba(37, 99, 235, 0.08);
+  color: #2563eb;
+  font-size: 0.72rem;
   font-weight: 600;
   cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
 .connect-btn:hover {
-  border-color: rgba(37, 99, 235, 0.24);
-  background: #ffffff;
+  background: rgba(37, 99, 235, 0.14);
+  border-color: rgba(37, 99, 235, 0.2);
 }
 
-.pin-btn,
-.delete-btn {
-  width: 28px;
-  height: 28px;
+.connect-btn.disconnect {
+  border-color: rgba(220, 38, 38, 0.12);
+  background: rgba(220, 38, 38, 0.08);
+  color: #dc2626;
+}
+
+.connect-btn.disconnect:hover {
+  background: rgba(220, 38, 38, 0.14);
+  border-color: rgba(220, 38, 38, 0.2);
+}
+
+.row-icon-button {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
   border: none;
+  border-radius: 6px;
   background: transparent;
-  color: var(--text-muted, #999);
-  font-size: 0.92rem;
+  color: #7b8694;
+  font-size: 0.86rem;
   cursor: pointer;
-  border-radius: 999px;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
-.pin-btn.pinned {
-  color: #c68400;
+.row-icon-button:hover {
+  background: rgba(15, 23, 42, 0.06);
+  color: #374151;
 }
 
-.pin-btn:hover {
-  background: rgba(245, 158, 11, 0.12);
+.row-icon-button.active {
+  color: #2563eb;
+}
+
+.row-icon-button.pinned {
   color: #b45309;
 }
 
-.delete-btn:hover {
+.row-icon-button.danger:hover {
   background: rgba(220, 38, 38, 0.08);
-  color: var(--bg-danger, #dc2626);
+  color: #dc2626;
 }
 
 @media (max-width: 900px) {
-  .session-main {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .session-side {
-    width: 100%;
-    justify-content: space-between;
-    margin-left: 0;
+  .session-actions {
+    opacity: 1;
+    pointer-events: auto;
   }
 }
 </style>

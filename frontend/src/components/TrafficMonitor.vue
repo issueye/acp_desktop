@@ -228,10 +228,13 @@ function handleCopy(entry: TrafficEntry) {
 .traffic-monitor {
   display: flex;
   flex-direction: column;
-  background: #ffffff;
-  border-top: 1px solid var(--border-color);
+  background: #fffdfa;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 10px;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.14);
   font-size: 0.8rem;
   position: relative;
+  overflow: hidden;
 }
 
 .resize-handle {
@@ -239,7 +242,7 @@ function handleCopy(entry: TrafficEntry) {
   top: 0;
   left: 0;
   right: 0;
-  height: 6px;
+  height: 8px;
   cursor: ns-resize;
   background: transparent;
   z-index: 10;
@@ -255,8 +258,8 @@ function handleCopy(entry: TrafficEntry) {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.65rem 0.8rem;
-  background: #ffffff;
+  padding: 0.7rem 0.85rem;
+  background: #fffdfa;
   border-bottom: 1px solid var(--border-color);
 }
 
@@ -367,6 +370,7 @@ function handleCopy(entry: TrafficEntry) {
   flex: 1;
   overflow-y: auto;
   font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+  background: #ffffff;
 }
 
 .empty-state {
@@ -468,6 +472,10 @@ function handleCopy(entry: TrafficEntry) {
 }
 
 @media (max-width: 900px) {
+  .traffic-monitor {
+    height: min(55vh, 360px) !important;
+  }
+
   .monitor-header {
     flex-wrap: wrap;
   }

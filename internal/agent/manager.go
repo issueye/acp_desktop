@@ -9,7 +9,6 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"runtime"
 	"sync"
 
 	"acp_go_ui/internal/config"
@@ -212,11 +211,15 @@ func (m *Manager) waitAgentExit(agentID string, cmd *exec.Cmd) {
 }
 
 func buildCommand(cfg config.AgentConfig) *exec.Cmd {
-	if runtime.GOOS == "windows" {
+	var cmd *exec.Cmd
+	if isWindows() {
 		args := append([]string{"/C", cfg.Command}, cfg.Args...)
-		return exec.Command("cmd", args...)
+		cmd = exec.Command("cmd.exe", args...)
+	} else {
+		cmd = exec.Command(cfg.Command, cfg.Args...)
 	}
-	return exec.Command(cfg.Command, cfg.Args...)
+	applyPlatformCmdAttrs(cmd)
+	return cmd
 }
 
 func newAgentID() (string, error) {

@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, ref } from 'vue';
 import type { ModelInfo } from '../lib/types';
+import AppPopover from './AppPopover.vue';
 
 const props = defineProps<{
   models: ModelInfo[];
@@ -41,38 +42,32 @@ function selectModel(modelId: string) {
   }
   isOpen.value = false;
 }
-
-function handleClickOutside(event: MouseEvent) {
-  const target = event.target as HTMLElement;
-  if (!target.closest('.model-picker')) {
-    isOpen.value = false;
-  }
-}
-
-onMounted(() => {
-  window.addEventListener('click', handleClickOutside);
-});
-
-onBeforeUnmount(() => {
-  window.removeEventListener('click', handleClickOutside);
-});
 </script>
 
 <template>
-  <div class="model-picker" :class="{ disabled }">
-    <button 
-      class="model-button"
-      :disabled="disabled"
-      @click.stop="toggleDropdown"
-      :title="currentModel?.name || currentModelId"
-    >
-      <span class="model-icon">{{ getModelIcon(currentModelId) }}</span>
-      <span class="model-name">{{ currentModel?.name || currentModelId }}</span>
-      <span class="dropdown-arrow">{{ isOpen ? '▲' : '▼' }}</span>
-    </button>
-    
-    <Transition name="dropdown">
-      <div v-if="isOpen" class="dropdown-menu" @click.stop>
+  <AppPopover
+    v-model="isOpen"
+    align="right"
+    min-width="348px"
+    max-width="420px"
+  >
+    <template #trigger>
+      <div class="model-picker" :class="{ disabled }">
+        <button 
+          class="model-button"
+          :disabled="disabled"
+          @click.stop="toggleDropdown"
+          :title="currentModel?.name || currentModelId"
+        >
+          <span class="model-icon">{{ getModelIcon(currentModelId) }}</span>
+          <span class="model-name">{{ currentModel?.name || currentModelId }}</span>
+          <span class="dropdown-arrow">{{ isOpen ? '▲' : '▼' }}</span>
+        </button>
+      </div>
+    </template>
+
+    <template #default>
+      <div class="dropdown-menu">
         <div 
           v-for="model in models"
           :key="model.modelId"
@@ -89,8 +84,8 @@ onBeforeUnmount(() => {
           <span v-if="model.modelId === currentModelId" class="check-mark">✓</span>
         </div>
       </div>
-    </Transition>
-  </div>
+    </template>
+  </AppPopover>
 </template>
 
 <style scoped>
@@ -159,18 +154,12 @@ onBeforeUnmount(() => {
 }
 
 .dropdown-menu {
-  position: absolute;
-  top: calc(100% + 6px);
-  right: 0;
-  min-width: 348px;
-  max-width: 420px;
   max-height: 360px;
   overflow-y: auto;
   background: #fffdfa;
   border: 1px solid var(--border-color);
   border-radius: 8px;
   box-shadow: 0 16px 36px rgba(15, 23, 42, 0.12);
-  z-index: 100;
 }
 
 .dropdown-item {
@@ -235,14 +224,4 @@ onBeforeUnmount(() => {
 }
 
 /* Dropdown animation */
-.dropdown-enter-active,
-.dropdown-leave-active {
-  transition: opacity 0.15s ease, transform 0.15s ease;
-}
-
-.dropdown-enter-from,
-.dropdown-leave-to {
-  opacity: 0;
-  transform: translateY(-4px);
-}
 </style>

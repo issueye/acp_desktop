@@ -61,25 +61,25 @@ function handleSelect(event: Event) {
 .agent-selector {
   display: flex;
   flex-direction: column;
-  gap: 0.55rem;
+  gap: 0.6rem;
 }
 
 label {
-  font-size: 0.76rem;
+  font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--text-secondary, #486176);
+  color: var(--text-muted, #486176);
 }
 
 select {
-  height: 46px;
-  padding: 0 0.9rem;
-  border: 1px solid rgba(121, 151, 176, 0.2);
+  height: 44px;
+  padding: 0 0.95rem;
+  border: 1px solid rgba(15, 23, 42, 0.08);
   border-radius: 8px;
   font-size: 0.9rem;
   font-weight: 500;
-  background: #ffffff;
+  background: #fbfbfc;
   color: var(--text-primary, #102033);
   box-shadow: none;
 }
@@ -96,12 +96,12 @@ select:disabled {
 }
 
 .config-hint {
-  margin-top: 0.5rem;
-  padding: 0.85rem;
-  background: rgba(210, 153, 34, 0.12);
+  margin-top: 0.3rem;
+  padding: 0.9rem;
+  background: #fff8e8;
   border-radius: 8px;
   font-size: 0.78rem;
-  border: 1px solid rgba(210, 153, 34, 0.16);
+  border: 1px solid rgba(210, 153, 34, 0.18);
 }
 
 .config-hint code {

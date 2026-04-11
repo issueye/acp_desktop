@@ -20,6 +20,8 @@ import SettingsView from './components/SettingsView.vue';
 import AuthMethodDialog from './components/AuthMethodDialog.vue';
 import TrafficMonitor from './components/TrafficMonitor.vue';
 import StartupProgress from './components/StartupProgress.vue';
+import AppModal from './components/AppModal.vue';
+import AppFloatingPanel from './components/AppFloatingPanel.vue';
 import type { SavedSession, SessionProxyConfig } from './lib/types';
 
 const configStore = useConfigStore();
@@ -51,6 +53,7 @@ const isConnecting = computed(() => sessionStore.isConnecting);
 const error = computed(() => sessionStore.error || configStore.error);
 const hasAgents = computed(() => configStore.hasAgents);
 const savedSessionCount = computed(() => sessionStore.resumableSessions.length);
+const connectedSessionIds = computed(() => sessionStore.connectedSessionIds);
 const currentSessionId = computed(() => sessionStore.currentSession?.id ?? '');
 const currentSessionTitle = computed(
   () => sessionStore.currentSession?.title || t('chat.titleFallback')
@@ -115,7 +118,6 @@ async function handleSelectFolder() {
 }
 
 function openWorkspaceDialog() {
-  if (isConnected.value) return;
   showWorkspaceDialog.value = true;
 }
 
@@ -181,12 +183,30 @@ async function handleResumeSession(session: SavedSession) {
   }
 }
 
+function handleActivateSession(sessionId: string) {
+  const session = sessionStore.savedSessions.find((item) => item.id === sessionId);
+  sessionStore.setActiveSession(sessionId);
+  if (!session) {
+    return;
+  }
+  selectedAgent.value = session.agentName;
+  selectedCwd.value = session.cwd;
+  applyProxyConfig(session.proxy);
+}
+
 async function handleDeleteSession(sessionId: string) {
   await sessionStore.deleteSession(sessionId);
 }
 
-async function handleDisconnect() {
-  await sessionStore.disconnect();
+async function handleDisconnect(sessionId?: string) {
+  await sessionStore.disconnect(sessionId);
+  const current = sessionStore.currentSession;
+  if (!current) {
+    return;
+  }
+  selectedAgent.value = current.agentName;
+  selectedCwd.value = current.cwd;
+  applyProxyConfig(current.proxy);
 }
 
 async function handleCancelConnection() {
@@ -304,6 +324,14 @@ function handleGlobalKeydown(event: KeyboardEvent) {
         </div>
 
         <div class="window-actions no-drag">
+          <button
+            class="icon-button"
+            :class="{ active: showTrafficMonitor }"
+            :title="t('app.trafficMonitor')"
+            @click="showTrafficMonitor = !showTrafficMonitor"
+          >
+            ~
+          </button>
           <button class="header-chip" :title="t('app.language')" @click="toggleLocale">
             {{ locale === 'zh-CN' ? t('app.langLabelZh') : t('app.langLabelEn') }}
           </button>
@@ -318,7 +346,7 @@ function handleGlobalKeydown(event: KeyboardEvent) {
           <div class="sidebar-top">
             <button
               class="sidebar-create"
-              :disabled="isConnected || isConnecting"
+              :disabled="isConnecting"
               @click="openWorkspaceDialog"
             >
               <span class="create-icon">+</span>
@@ -335,14 +363,6 @@ function handleGlobalKeydown(event: KeyboardEvent) {
               <span class="nav-label">{{ t('app.savedSessions') }}</span>
               <strong>{{ savedSessionCount }}</strong>
             </div>
-            <button
-              class="nav-row nav-button"
-              :class="{ active: showTrafficMonitor }"
-              @click="showTrafficMonitor = !showTrafficMonitor"
-            >
-              <span class="nav-icon">~</span>
-              <span class="nav-label">{{ t('app.trafficMonitor') }}</span>
-            </button>
           </nav>
 
           <div class="sidebar-context">
@@ -372,7 +392,10 @@ function handleGlobalKeydown(event: KeyboardEvent) {
               :query="sessionSearchQuery"
               :pinned-session-ids="pinnedSessionIds"
               :active-session-id="currentSessionId"
+              :connected-session-ids="connectedSessionIds"
               @resume="handleResumeSession"
+              @activate="handleActivateSession"
+              @disconnect="handleDisconnect"
               @delete="handleDeleteSession"
               @toggle-pin="handleToggleSessionPin"
             />
@@ -382,7 +405,7 @@ function handleGlobalKeydown(event: KeyboardEvent) {
             <button class="footer-button" @click="openSettings()">
               {{ t('app.settings') }}
             </button>
-            <button v-if="isConnected" class="footer-danger" @click="handleDisconnect">
+            <button v-if="isConnected" class="footer-danger" @click="() => handleDisconnect()">
               {{ t('app.disconnect') }}
             </button>
           </div>
@@ -437,21 +460,31 @@ function handleGlobalKeydown(event: KeyboardEvent) {
               </div>
             </div>
           </main>
-
-          <div v-if="showTrafficMonitor" class="traffic-panel">
-            <TrafficMonitor @close="showTrafficMonitor = false" />
-          </div>
         </div>
       </div>
     </div>
 
-    <div v-if="showWorkspaceDialog" class="modal-overlay" @click.self="closeWorkspaceDialog">
+    <AppFloatingPanel
+      :model-value="showTrafficMonitor"
+      width="min(960px, calc(100vw - 332px))"
+      max-width="calc(100vw - 20px)"
+      bottom="16px"
+      right="16px"
+    >
+      <TrafficMonitor @close="showTrafficMonitor = false" />
+    </AppFloatingPanel>
+
+    <AppModal
+      :model-value="showWorkspaceDialog"
+      max-width="1080px"
+      :close-on-backdrop="!isConnecting"
+      @close="closeWorkspaceDialog"
+    >
       <div class="workspace-dialog">
-        <div class="dialog-header">
-          <div>
+        <div class="dialog-header workspace-header">
+          <div class="header-copy">
             <p class="eyebrow">{{ t('app.workspace') }}</p>
             <h2>{{ t('app.sessionSetupTitle') }}</h2>
-            <p class="dialog-subtitle">{{ t('app.sessionSetupDesc') }}</p>
           </div>
           <button class="icon-button" :disabled="isConnecting" @click="closeWorkspaceDialog">×</button>
         </div>
@@ -463,15 +496,45 @@ function handleGlobalKeydown(event: KeyboardEvent) {
         </div>
 
         <template v-else>
+          <section class="workspace-hero">
+            <div class="hero-copy">
+              <p class="eyebrow">{{ t('app.sessionLauncher') }}</p>
+              <h3>{{ t('app.sessionSetupDesc') }}</h3>
+            </div>
+            <div class="hero-metrics">
+              <div class="hero-metric">
+                <span>{{ t('agent.label') }}</span>
+                <strong>{{ selectedAgent || t('agent.select') }}</strong>
+              </div>
+              <div class="hero-metric">
+                <span>{{ t('app.workspace') }}</span>
+                <strong :title="selectedCwd || '.'">{{ selectedCwdLabel }}</strong>
+              </div>
+              <div class="hero-metric">
+                <span>{{ t('app.proxy') }}</span>
+                <strong>{{ proxyEnabled ? t('app.proxyEnable') : t('app.proxyDisabled') }}</strong>
+              </div>
+            </div>
+          </section>
+
           <div class="dialog-grid">
             <div class="dialog-main">
-              <section class="panel-card">
+              <section class="dialog-section">
+                <div class="dialog-section-head">
+                  <div>
+                    <p class="eyebrow">{{ t('agent.label') }}</p>
+                    <h3>{{ t('agent.label') }}</h3>
+                  </div>
+                </div>
                 <AgentSelector v-model:selected="selectedAgent" @select="handleAgentSelect" />
               </section>
 
-              <section class="panel-card">
+              <section class="dialog-section">
                 <div class="section-headline">
-                  <span>{{ t('app.workingDirectory') }}</span>
+                  <div>
+                    <p class="eyebrow">{{ t('app.workspace') }}</p>
+                    <h3>{{ t('app.workingDirectory') }}</h3>
+                  </div>
                   <button class="ghost-button" @click="handleSelectFolder">{{ t('app.selectFolder') }}</button>
                 </div>
                 <div class="cwd-card" :title="selectedCwd || t('app.currentDirectory')">
@@ -480,9 +543,12 @@ function handleGlobalKeydown(event: KeyboardEvent) {
                 </div>
               </section>
 
-              <section class="panel-card">
+              <section class="dialog-section">
                 <div class="section-headline">
-                  <span>{{ t('app.proxy') }}</span>
+                  <div>
+                    <p class="eyebrow">{{ t('app.proxy') }}</p>
+                    <h3>{{ t('app.proxy') }}</h3>
+                  </div>
                   <label class="proxy-switch">
                     <input v-model="proxyEnabled" type="checkbox" :disabled="isConnecting" />
                     <span>{{ t('app.proxyEnable') }}</span>
@@ -510,19 +576,31 @@ function handleGlobalKeydown(event: KeyboardEvent) {
             </div>
 
             <aside class="dialog-side">
-              <div class="panel-card summary-card">
-                <p class="eyebrow">{{ t('app.workspaceSummary') }}</p>
-                <div class="summary-line">
-                  <span>{{ t('agent.label') }}</span>
-                  <strong>{{ selectedAgent }}</strong>
+              <div class="launch-card">
+                <div class="launch-copy">
+                  <p class="eyebrow">{{ t('app.workspaceSummary') }}</p>
+                  <h3>{{ t('app.newSession') }}</h3>
+                  <p class="launch-text">{{ t('app.sessionSetupDesc') }}</p>
                 </div>
-                <div class="summary-line">
-                  <span>{{ t('app.workspace') }}</span>
-                  <strong :title="selectedCwd || '.'">{{ selectedCwdLabel }}</strong>
+                <div class="summary-card">
+                  <div class="summary-line">
+                    <span>{{ t('agent.label') }}</span>
+                    <strong>{{ selectedAgent || '--' }}</strong>
+                  </div>
+                  <div class="summary-line">
+                    <span>{{ t('app.workspace') }}</span>
+                    <strong :title="selectedCwd || '.'">{{ selectedCwdLabel }}</strong>
+                  </div>
+                  <div class="summary-line">
+                    <span>{{ t('app.proxy') }}</span>
+                    <strong>{{ proxyEnabled ? t('app.proxyEnable') : t('app.proxyDisabled') }}</strong>
+                  </div>
                 </div>
-                <div class="summary-line">
-                  <span>{{ t('app.proxy') }}</span>
-                  <strong>{{ proxyEnabled ? t('app.proxyEnable') : t('app.proxyDisabled') }}</strong>
+                <div v-if="!isConnecting" class="dialog-actions launch-actions">
+                  <button class="primary-button" :disabled="!selectedAgent || isLoading" @click="handleCreateSession">
+                    {{ isLoading ? t('app.connecting') : t('app.newSession') }}
+                  </button>
+                  <button class="secondary-button" @click="closeWorkspaceDialog">{{ t('common.cancel') }}</button>
                 </div>
               </div>
 
@@ -536,18 +614,11 @@ function handleGlobalKeydown(event: KeyboardEvent) {
                 @cancel="handleCancelConnection"
                 @toggle-details="showStartupDetails = !showStartupDetails"
               />
-
-              <div v-else class="dialog-actions">
-                <button class="primary-button" :disabled="!selectedAgent || isLoading" @click="handleCreateSession">
-                  {{ isLoading ? t('app.connecting') : t('app.newSession') }}
-                </button>
-                <button class="secondary-button" @click="closeWorkspaceDialog">{{ t('common.cancel') }}</button>
-              </div>
             </aside>
           </div>
         </template>
       </div>
-    </div>
+    </AppModal>
 
     <PermissionDialog
       v-if="pendingPermission"
@@ -611,7 +682,7 @@ input, textarea, select { user-select: text; }
 .app-shell { height: 100vh; padding: 0; }
 .window-frame { height: 100%; display: flex; flex-direction: column; overflow: hidden; border-radius: 0; background: var(--bg-main); border: none; box-shadow: none; }
 .window-header { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: .75rem; align-items: center; min-height: 46px; padding: .38rem .72rem; background: rgba(248, 246, 240, 0.96); color: var(--text-primary); border-bottom: 1px solid rgba(15,23,42,.06); }
-.window-brand, .window-actions, .window-status, .section-title-row, .section-headline, .summary-line, .dialog-header, .welcome-actions, .proxy-switch { display: flex; align-items: center; }
+.window-brand, .window-actions, .window-status, .section-title-row, .section-headline, .summary-line, .dialog-header, .welcome-actions, .proxy-switch, .dialog-section-head { display: flex; align-items: center; }
 .window-brand { gap: .55rem; min-width: 0; }
 .brand-mark { width: 28px; height: 28px; border-radius: 8px; background: linear-gradient(180deg, #ffffff, #eef4ff); border: 1px solid rgba(37, 99, 235, 0.12); position: relative; }
 .brand-mark::before { content: ''; position: absolute; inset: 8px; border-radius: 50%; background: var(--text-accent); opacity: .9; }
@@ -632,13 +703,14 @@ input, textarea, select { user-select: text; }
 .header-chip { min-width: 46px; padding: 0 .65rem; font-size: .74rem; font-weight: 700; }
 .icon-button { width: 30px; display: grid; place-items: center; font-size: .88rem; }
 .header-chip:hover, .icon-button:hover { background: #ffffff; color: var(--text-primary); border-color: rgba(15,23,42,.1); }
+.icon-button.active { background: rgba(37,99,235,.08); color: var(--text-accent); border-color: rgba(37,99,235,.14); }
 .close-button:hover { background: rgba(220,38,38,.08); border-color: rgba(220,38,38,.16); color: var(--bg-danger); }
 .window-body { flex: 1; min-height: 0; display: flex; gap: 0; padding: 0; background: var(--bg-main); }
 .sidebar-panel { width: 320px; min-width: 320px; display: flex; flex-direction: column; gap: .8rem; padding: .9rem .8rem; background: var(--bg-sidebar); border-right: 1px solid rgba(15, 23, 42, 0.06); }
 .panel-card { padding: .95rem; border-radius: 8px; background: var(--bg-card); border: 1px solid rgba(15,23,42,.06); box-shadow: var(--shadow-sm); }
-.sidebar-summary, .section-title-row, .section-headline, .dialog-header, .summary-line { justify-content: space-between; gap: .75rem; }
-.workspace-preview, .preview-item, .welcome-stat, .dialog-actions, .dialog-main, .dialog-side, .proxy-field { display: flex; flex-direction: column; }
-.workspace-preview, .dialog-main, .dialog-side { gap: .75rem; }
+.sidebar-summary, .section-title-row, .section-headline, .dialog-header, .summary-line, .dialog-section-head { justify-content: space-between; gap: .75rem; }
+.workspace-preview, .preview-item, .welcome-stat, .dialog-actions, .dialog-main, .dialog-side, .proxy-field, .launch-card, .launch-copy { display: flex; flex-direction: column; }
+.workspace-preview, .dialog-main, .dialog-side, .launch-card { gap: .75rem; }
 .eyebrow { font-size: .72rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--text-muted); }
 .sidebar-summary h2, .dialog-header h2, .welcome-card h2, .section-title-row h3 { margin-top: .35rem; font-size: 1.15rem; color: var(--text-primary); }
 .primary-button, .secondary-button, .ghost-button, .danger-button { border-radius: 8px; border: 1px solid transparent; cursor: pointer; }
@@ -684,7 +756,6 @@ input, textarea, select { user-select: text; }
 .sidebar-rail { width: 54px; border-right: 1px solid rgba(15, 23, 42, 0.06); background: var(--bg-sidebar); color: var(--text-secondary); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .4rem; cursor: pointer; }
 .content-stage { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 0; background: #ffffff; }
 .main-content { flex: 1; min-height: 0; overflow: hidden; background: #ffffff; }
-.traffic-panel { overflow: hidden; border-top: 1px solid rgba(15,23,42,.06); background: #fffdfa; }
 .error-banner { display: flex; align-items: center; gap: .75rem; padding: .9rem 1rem; background: rgba(220,38,38,.06); color: var(--bg-danger); border-bottom: 1px solid rgba(220,38,38,.12); }
 .error-icon { width: 26px; height: 26px; display: grid; place-items: center; border-radius: 50%; background: rgba(220,38,38,.1); font-weight: 700; }
 .error-text { flex: 1; }
@@ -696,31 +767,50 @@ input, textarea, select { user-select: text; }
 .welcome-grid, .proxy-grid, .dialog-grid { display: grid; gap: .85rem; }
 .welcome-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 1.6rem; }
 .welcome-stat { gap: .35rem; padding: 1rem; border-radius: 8px; background: #ffffff; border: 1px solid rgba(15,23,42,.06); }
-.modal-overlay { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 2rem; background: rgba(15,23,42,.16); backdrop-filter: blur(10px); }
-.workspace-dialog { width: min(1080px, 100%); max-height: calc(100vh - 64px); overflow: auto; padding: 1.5rem; border-radius: 8px; background: #fffdfa; border: 1px solid rgba(15,23,42,.06); box-shadow: var(--shadow-lg); }
+.workspace-dialog { width: min(1080px, 100%); max-height: calc(100vh - 64px); overflow: auto; padding: 1.25rem; background: #f9f7f2; }
 .empty-workspace { display: grid; place-items: center; gap: .75rem; padding: 3rem 1.5rem; text-align: center; }
-.dialog-grid { grid-template-columns: minmax(0, 1.65fr) minmax(280px, .95fr); }
+.workspace-header { margin-bottom: .8rem; padding: 0 0 .5rem; border-bottom: 1px solid rgba(15,23,42,.06); min-height: 0; }
+.header-copy h2 { margin-top: .12rem; font-size: 1.16rem; line-height: 1.2; }
+.workspace-hero { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(360px, .95fr); gap: .9rem; padding: 1rem 1.05rem; margin-bottom: .95rem; border-radius: 8px; border: 1px solid rgba(15,23,42,.06); background: linear-gradient(180deg, #ffffff 0%, #fcfbf8 100%); }
+.hero-copy h3 { font-size: 1.03rem; font-weight: 600; color: var(--text-primary); line-height: 1.55; }
+.hero-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .7rem; }
+.hero-metric { padding: .9rem .95rem; border-radius: 8px; border: 1px solid rgba(15,23,42,.06); background: #ffffff; }
+.hero-metric span { display: block; font-size: .72rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: .08em; }
+.hero-metric strong { display: block; margin-top: .32rem; font-size: .95rem; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dialog-grid { grid-template-columns: minmax(0, 1.55fr) minmax(300px, .92fr); align-items: start; }
+.dialog-section { padding: 1rem 1.05rem; border-radius: 8px; border: 1px solid rgba(15,23,42,.06); background: #ffffff; }
+.dialog-section-head { margin-bottom: .7rem; }
+.dialog-section h3,
+.section-headline h3,
+.launch-copy h3 { font-size: .98rem; font-weight: 600; color: var(--text-primary); }
 .dialog-header .icon-button { background: #ffffff; color: var(--text-secondary); border-color: rgba(15,23,42,.06); }
 .dialog-header .icon-button:hover { background: #ffffff; border-color: rgba(15,23,42,.1); color: var(--text-primary); }
-.cwd-card { gap: .35rem; padding: .95rem 1rem; border-radius: 8px; border: 1px solid rgba(15,23,42,.06); background: #ffffff; }
+.cwd-card { gap: .35rem; padding: 1rem; border-radius: 8px; border: 1px solid rgba(15,23,42,.06); background: #f9fbff; }
 .cwd-card strong { font-size: 1rem; color: var(--text-primary); }
 .cwd-card span, .summary-line, .proxy-switch { color: var(--text-secondary); }
-.proxy-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: .9rem; }
+.proxy-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: .9rem; gap: .75rem; }
 .proxy-grid.disabled { opacity: .58; }
-.summary-card { background: #ffffff; }
-.summary-line { margin-top: .85rem; }
+.launch-card { padding: 1rem 1.05rem; border-radius: 8px; border: 1px solid rgba(15,23,42,.06); background: #ffffff; position: sticky; top: 0; }
+.launch-text { font-size: .88rem; line-height: 1.65; color: var(--text-secondary); }
+.summary-card { padding: .15rem 0; background: transparent; }
+.summary-line { margin-top: .8rem; }
+.summary-line:first-child { margin-top: 0; }
 .summary-line strong { color: var(--text-primary); text-align: right; }
+.launch-actions { margin-top: .35rem; }
 .primary-button:disabled, .secondary-button:disabled, .header-chip:disabled, .icon-button:disabled { opacity: .55; cursor: not-allowed; transform: none; }
 @media (max-width: 1180px) {
   .window-header { grid-template-columns: auto 1fr; }
   .window-actions { grid-column: 1 / -1; justify-content: flex-end; }
+  .workspace-hero,
   .dialog-grid { grid-template-columns: 1fr; }
+  .launch-card { position: static; }
 }
 @media (max-width: 900px) {
   .app-shell { padding: 0; }
   .window-body { padding: 0; }
   .sidebar-panel { position: absolute; inset: 56px auto 0 0; z-index: 8; width: min(320px, calc(100vw - 24px)); height: calc(100vh - 56px); box-shadow: var(--shadow-md); }
-  .welcome-grid, .proxy-grid { grid-template-columns: 1fr; }
+  .welcome-grid, .proxy-grid, .hero-metrics { grid-template-columns: 1fr; }
   .welcome-actions { flex-direction: column; }
+  .workspace-dialog { padding: 1rem; }
 }
 </style>

@@ -104,11 +104,9 @@ const isLongWait = computed(() => props.elapsedSeconds > 10);
 <style scoped>
 .startup-progress {
   padding: 1rem;
-  background: #ffffff;
-  border: 1px solid var(--border-color);
+  background: #fbfbfc;
+  border: 1px solid rgba(15, 23, 42, 0.08);
   border-radius: 8px;
-  margin-top: 0.75rem;
-  box-shadow: none;
 }
 
 .progress-header {
@@ -134,9 +132,10 @@ const isLongWait = computed(() => props.elapsedSeconds > 10);
   align-items: center;
   gap: 0.5rem;
   padding: 0.75rem 0.8rem;
-  background: #f8fafc;
+  background: #ffffff;
   border-radius: 8px;
   margin-bottom: 0.75rem;
+  border: 1px solid rgba(15, 23, 42, 0.06);
 }
 
 .phase-icon {
@@ -151,10 +150,9 @@ const isLongWait = computed(() => props.elapsedSeconds > 10);
 .first-run-hint {
   font-size: 0.8rem;
   color: var(--text-muted);
-  font-style: italic;
   margin-bottom: 0.75rem;
   padding: 0.65rem 0.75rem;
-  background: rgba(210, 153, 34, 0.14);
+  background: #fff8e8;
   border-radius: 8px;
 }
 
@@ -196,25 +194,25 @@ const isLongWait = computed(() => props.elapsedSeconds > 10);
 
 .logs-container {
   margin-top: 0.75rem;
-  border: 1px solid var(--border-color);
+  border: 1px solid rgba(15, 23, 42, 0.08);
   border-radius: 8px;
   overflow: hidden;
 }
 
 .logs-header {
   padding: 0.5rem 0.65rem;
-  background: #f8fafc;
+  background: #ffffff;
   font-size: 0.75rem;
   font-weight: 600;
   color: var(--text-secondary);
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
 }
 
 .logs-content {
   max-height: 150px;
   overflow-y: auto;
   padding: 0.7rem;
-  background: var(--bg-code);
+  background: #f6f7f9;
   font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
   font-size: 0.7rem;
 }

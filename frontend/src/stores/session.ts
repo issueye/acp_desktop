@@ -1,19 +1,52 @@
 // Session store for managing ACP sessions and persistence
 import { defineStore } from 'pinia';
-import { ref, computed, watch } from 'vue';
-import { trackEvent, trackError } from '../lib/telemetry';
-import type { SavedSession, ChatMessage, ToolCallInfo, PermissionRequest, SessionMode, SlashCommand, ModelInfo, SessionProxyConfig } from '../lib/types';
+import { computed, ref, watch } from 'vue';
+import { trackError, trackEvent } from '../lib/telemetry';
+import type {
+  ChatMessage,
+  ModelInfo,
+  PermissionRequest,
+  SavedSession,
+  SessionMode,
+  SessionProxyConfig,
+  SlashCommand,
+  ToolCallInfo,
+} from '../lib/types';
 import { AcpClientBridge, createAcpClient } from '../lib/acp-bridge';
-import { loadStore, saveStore, getAppVersion, spawnAgent, killAgent, onAgentStderr } from '../lib/wails';
-import type { SessionNotification, AuthMethod } from '@agentclientprotocol/sdk';
+import {
+  getAppVersion,
+  killAgent,
+  loadStore,
+  onAgentStderr,
+  saveStore,
+  spawnAgent,
+} from '../lib/wails';
+import type {
+  AuthMethod,
+  LoadSessionResponse,
+  NewSessionResponse,
+  SessionNotification,
+} from '@agentclientprotocol/sdk';
 
 const STORE_PATH = 'sessions.json';
 const PROTOCOL_VERSION = 1;
 
-// App version (loaded once at startup)
 let appVersion = '0.1.0';
 
-// Startup phase detection patterns
+interface ConnectedSessionState {
+  session: SavedSession;
+  client: AcpClientBridge;
+  isLoading: boolean;
+  messages: ChatMessage[];
+  toolCalls: Map<string, ToolCallInfo>;
+  availableModes: SessionMode[];
+  currentModeId: string;
+  availableCommands: SlashCommand[];
+  availableModels: ModelInfo[];
+  currentModelId: string;
+  stopPermissionWatch?: () => void;
+}
+
 function detectPhase(line: string): string | null {
   const lower = line.toLowerCase();
   if (lower.includes('download') || lower.includes('fetch') || lower.includes('get ')) {
@@ -67,58 +100,113 @@ function buildProxyEnv(proxy?: SessionProxyConfig): Record<string, string> {
   return env;
 }
 
+function normalizeModes(
+  modes?: NewSessionResponse['modes'] | LoadSessionResponse['modes']
+): { availableModes: SessionMode[]; currentModeId: string } {
+  if (!modes) {
+    return {
+      availableModes: [],
+      currentModeId: '',
+    };
+  }
+  return {
+    availableModes: (modes.availableModes || []).map((mode) => ({
+      id: mode.id,
+      name: mode.name,
+      description: mode.description ?? undefined,
+    })),
+    currentModeId: modes.currentModeId || '',
+  };
+}
+
+function normalizeModels(
+  models?: NewSessionResponse['models'] | LoadSessionResponse['models']
+): { availableModels: ModelInfo[]; currentModelId: string } {
+  if (!models) {
+    return {
+      availableModels: [],
+      currentModelId: '',
+    };
+  }
+  return {
+    availableModels: (models.availableModels || []).map((model) => ({
+      modelId: model.modelId,
+      name: model.name,
+      description: model.description ?? undefined,
+    })),
+    currentModelId: models.currentModelId || '',
+  };
+}
+
 export const useSessionStore = defineStore('session', () => {
-  // State
   const savedSessions = ref<SavedSession[]>([]);
-  const currentSession = ref<SavedSession | null>(null);
-  const messages = ref<ChatMessage[]>([]);
-  const toolCalls = ref<Map<string, ToolCallInfo>>(new Map());
-  const isConnected = ref(false);
-  const isLoading = ref(false);
+  const connectedSessions = ref<Record<string, ConnectedSessionState>>({});
+  const activeSessionId = ref('');
+  const isConnected = computed(() => Object.keys(connectedSessions.value).length > 0);
   const isConnecting = ref(false);
   const error = ref<string | null>(null);
   const pendingPermission = ref<PermissionRequest | null>(null);
-  
-  // Authentication state
+  const pendingPermissionSessionId = ref<string | null>(null);
+
   const pendingAuthMethods = ref<AuthMethod[]>([]);
-  const pendingAuthAgentName = ref<string>('');
+  const pendingAuthAgentName = ref('');
   let authMethodResolver: ((methodId: string | null) => void) | null = null;
-  
-  // Session modes
-  const availableModes = ref<SessionMode[]>([]);
-  const currentModeId = ref<string>('');
-  
-  // Slash commands
-  const availableCommands = ref<SlashCommand[]>([]);
-  
-  // Session models
-  const availableModels = ref<ModelInfo[]>([]);
-  const currentModelId = ref<string>('');
-  
-  // Connection cancellation
+
+  const availableCommands = computed(() => {
+    const active = connectedSessions.value[activeSessionId.value];
+    return active?.availableCommands ?? [];
+  });
+
+  const availableModes = computed(() => {
+    const active = connectedSessions.value[activeSessionId.value];
+    return active?.availableModes ?? [];
+  });
+
+  const currentModeId = computed(() => {
+    const active = connectedSessions.value[activeSessionId.value];
+    return active?.currentModeId ?? '';
+  });
+
+  const availableModels = computed(() => {
+    const active = connectedSessions.value[activeSessionId.value];
+    return active?.availableModels ?? [];
+  });
+
+  const currentModelId = computed(() => {
+    const active = connectedSessions.value[activeSessionId.value];
+    return active?.currentModelId ?? '';
+  });
+
   let connectionAborted = false;
-  
-  // Startup progress tracking
-  const startupPhase = ref<string>('starting');
+
+  const startupPhase = ref('starting');
   const startupLogs = ref<string[]>([]);
-  const startupElapsed = ref<number>(0);
+  const startupElapsed = ref(0);
   let startupTimer: ReturnType<typeof setInterval> | null = null;
   let stderrUnlisten: (() => void) | null = null;
-  
-  // Current ACP client
-  let acpClient: AcpClientBridge | null = null;
+
   let storeData: Record<string, unknown> = {};
 
-  // Computed
-  const hasActiveSession = computed(() => currentSession.value !== null);
-  const messageList = computed(() => messages.value);
-  const toolCallList = computed(() => Array.from(toolCalls.value.values()));
-  // Only sessions that support resuming (loadSession capability)
-  const resumableSessions = computed(() => 
-    savedSessions.value.filter(s => s.supportsLoadSession === true)
+  const currentSession = computed(
+    () => connectedSessions.value[activeSessionId.value]?.session ?? null
   );
+  const isLoading = computed(() => {
+    const active = connectedSessions.value[activeSessionId.value];
+    return isConnecting.value || active?.isLoading === true;
+  });
+  const hasActiveSession = computed(() => currentSession.value !== null);
+  const messageList = computed(
+    () => connectedSessions.value[activeSessionId.value]?.messages ?? []
+  );
+  const toolCallList = computed(() => {
+    const active = connectedSessions.value[activeSessionId.value];
+    return active ? Array.from(active.toolCalls.values()) : [];
+  });
+  const resumableSessions = computed(() =>
+    savedSessions.value.filter((session) => session.supportsLoadSession === true)
+  );
+  const connectedSessionIds = computed(() => Object.keys(connectedSessions.value));
 
-  // Initialize store
   async function initStore() {
     storeData = await loadStore(STORE_PATH);
     const saved = storeData.sessions as SavedSession[] | undefined;
@@ -128,8 +216,7 @@ export const useSessionStore = defineStore('session', () => {
         proxy: sanitizeProxyConfig(session.proxy),
       }));
     }
-    
-    // Load app version from backend
+
     try {
       appVersion = await getAppVersion();
     } catch (e) {
@@ -142,20 +229,127 @@ export const useSessionStore = defineStore('session', () => {
     await saveStore(STORE_PATH, storeData);
   }
 
-  // Session update handler
-  function handleSessionUpdate(notification: SessionNotification) {
+  function getConnectedSession(sessionId: string): ConnectedSessionState | null {
+    return connectedSessions.value[sessionId] ?? null;
+  }
+
+  function getConnectedSessionByAcpSessionId(sessionId: string): ConnectedSessionState | null {
+    return (
+      Object.values(connectedSessions.value).find(
+        (connectedSession) => connectedSession.session.sessionId === sessionId
+      ) ?? null
+    );
+  }
+
+  function setActiveSession(sessionId: string): void {
+    if (!connectedSessions.value[sessionId]) {
+      return;
+    }
+    activeSessionId.value = sessionId;
+  }
+
+  function createConnectedSessionState(
+    session: SavedSession,
+    client: AcpClientBridge
+  ): ConnectedSessionState {
+    return {
+      session,
+      client,
+      isLoading: false,
+      messages: [],
+      toolCalls: new Map<string, ToolCallInfo>(),
+      availableModes: [],
+      currentModeId: '',
+      availableCommands: [],
+      availableModels: [],
+      currentModelId: '',
+    };
+  }
+
+  function upsertConnectedSession(runtime: ConnectedSessionState): void {
+    connectedSessions.value = {
+      ...connectedSessions.value,
+      [runtime.session.id]: runtime,
+    };
+    setActiveSession(runtime.session.id);
+  }
+
+  function applySessionCapabilities(
+    runtime: ConnectedSessionState,
+    response?: Pick<NewSessionResponse, 'modes' | 'models'> | Pick<LoadSessionResponse, 'modes' | 'models'>
+  ): void {
+    const normalizedModes = normalizeModes(response?.modes);
+    runtime.availableModes = normalizedModes.availableModes;
+    runtime.currentModeId = normalizedModes.currentModeId;
+
+    const normalizedModels = normalizeModels(response?.models);
+    runtime.availableModels = normalizedModels.availableModels;
+    runtime.currentModelId = normalizedModels.currentModelId;
+  }
+
+  function clearRuntimePermissionState(sessionId: string): void {
+    if (pendingPermissionSessionId.value === sessionId) {
+      pendingPermission.value = null;
+      pendingPermissionSessionId.value = null;
+    }
+  }
+
+  function attachPermissionWatcher(runtime: ConnectedSessionState): void {
+    runtime.stopPermissionWatch = watch(
+      () => runtime.client.pendingPermissionRequest.value,
+      (newValue) => {
+        if (newValue) {
+          pendingPermission.value = newValue ?? null;
+          pendingPermissionSessionId.value = runtime.session.id;
+          setActiveSession(runtime.session.id);
+          return;
+        }
+
+        if (pendingPermissionSessionId.value === runtime.session.id) {
+          pendingPermission.value = null;
+          pendingPermissionSessionId.value = null;
+        }
+      },
+      { immediate: true }
+    );
+  }
+
+  function removeConnectedSession(sessionId: string): void {
+    const runtime = connectedSessions.value[sessionId];
+    if (runtime?.stopPermissionWatch) {
+      runtime.stopPermissionWatch();
+      runtime.stopPermissionWatch = undefined;
+    }
+
+    clearRuntimePermissionState(sessionId);
+
+    const next = { ...connectedSessions.value };
+    delete next[sessionId];
+    connectedSessions.value = next;
+
+    if (activeSessionId.value === sessionId) {
+      activeSessionId.value = Object.keys(next)[0] ?? '';
+    }
+  }
+
+  function touchSavedSession(session: SavedSession): void {
+    session.lastUpdated = Date.now();
+  }
+
+  function handleSessionUpdate(runtime: ConnectedSessionState, notification: SessionNotification) {
     const update = notification.update;
-    
+    const targetMessages = runtime.messages;
+    const targetToolCalls = runtime.toolCalls;
+
     switch (update.sessionUpdate) {
-      case 'user_message_chunk':
-        // Append to last user message or create new (for replay)
-        const lastUserMsg = messages.value[messages.value.length - 1];
+      case 'user_message_chunk': {
+        const lastUserMsg = targetMessages[targetMessages.length - 1];
         if (lastUserMsg && lastUserMsg.role === 'user') {
           if (update.content.type === 'text') {
             lastUserMsg.content += update.content.text;
           }
         } else {
-          messages.value.push({
+          targetMessages.push({
             id: crypto.randomUUID(),
             role: 'user',
             content: update.content.type === 'text' ? update.content.text : '',
@@ -163,16 +357,16 @@ export const useSessionStore = defineStore('session', () => {
           });
         }
         break;
+      }
 
-      case 'agent_message_chunk':
-        // Append to last assistant message or create new
-        const lastMsg = messages.value[messages.value.length - 1];
+      case 'agent_message_chunk': {
+        const lastMsg = targetMessages[targetMessages.length - 1];
         if (lastMsg && lastMsg.role === 'assistant') {
           if (update.content.type === 'text') {
             lastMsg.content += update.content.text;
           }
         } else {
-          messages.value.push({
+          targetMessages.push({
             id: crypto.randomUUID(),
             role: 'assistant',
             content: update.content.type === 'text' ? update.content.text : '',
@@ -181,16 +375,16 @@ export const useSessionStore = defineStore('session', () => {
           });
         }
         break;
+      }
 
-      case 'agent_thought_chunk':
-        // Append to last assistant message's thought field or create new
-        const lastAssistantMsg = messages.value[messages.value.length - 1];
+      case 'agent_thought_chunk': {
+        const lastAssistantMsg = targetMessages[targetMessages.length - 1];
         if (lastAssistantMsg && lastAssistantMsg.role === 'assistant') {
           if (update.content.type === 'text') {
             lastAssistantMsg.thought = (lastAssistantMsg.thought || '') + update.content.text;
           }
         } else {
-          messages.value.push({
+          targetMessages.push({
             id: crypto.randomUUID(),
             role: 'assistant',
             content: '',
@@ -200,10 +394,10 @@ export const useSessionStore = defineStore('session', () => {
           });
         }
         break;
+      }
 
-      case 'tool_call':
-        // Add tool call to the current assistant message
-        const currentAssistantMsg = messages.value[messages.value.length - 1];
+      case 'tool_call': {
+        const currentAssistantMsg = targetMessages[targetMessages.length - 1];
         if (currentAssistantMsg && currentAssistantMsg.role === 'assistant') {
           if (!currentAssistantMsg.toolCalls) {
             currentAssistantMsg.toolCalls = [];
@@ -216,8 +410,7 @@ export const useSessionStore = defineStore('session', () => {
             locations: update.locations,
           });
         }
-        // Also keep in global map for updates
-        toolCalls.value.set(update.toolCallId, {
+        targetToolCalls.set(update.toolCallId, {
           toolCallId: update.toolCallId,
           title: update.title,
           kind: update.kind || 'other',
@@ -225,39 +418,36 @@ export const useSessionStore = defineStore('session', () => {
           locations: update.locations,
         });
         break;
+      }
 
-      case 'tool_call_update':
-        const existing = toolCalls.value.get(update.toolCallId);
+      case 'tool_call_update': {
+        const existing = targetToolCalls.get(update.toolCallId);
         if (existing) {
           if (update.status) existing.status = update.status;
           if (update.title) existing.title = update.title;
-          // Also update in the message's toolCalls array
-          for (const msg of messages.value) {
-            if (msg.toolCalls) {
-              const tc = msg.toolCalls.find(t => t.toolCallId === update.toolCallId);
-              if (tc) {
-                if (update.status) tc.status = update.status;
-                if (update.title) tc.title = update.title;
-              }
-            }
-          }
+        }
+        for (const msg of targetMessages) {
+          if (!msg.toolCalls) continue;
+          const toolCall = msg.toolCalls.find((entry) => entry.toolCallId === update.toolCallId);
+          if (!toolCall) continue;
+          if (update.status) toolCall.status = update.status;
+          if (update.title) toolCall.title = update.title;
         }
         break;
+      }
 
       case 'current_mode_update':
-        // Agent changed the mode
         if ('modeId' in update && update.modeId) {
-          currentModeId.value = update.modeId as string;
+          runtime.currentModeId = update.modeId as string;
         }
         break;
 
       case 'available_commands_update':
-        // Agent advertised slash commands
         if ('availableCommands' in update && Array.isArray(update.availableCommands)) {
-          availableCommands.value = update.availableCommands.map((cmd) => ({
-            name: cmd.name,
-            description: cmd.description,
-            hint: cmd.input?.hint ?? undefined,
+          runtime.availableCommands = update.availableCommands.map((command) => ({
+            name: command.name,
+            description: command.description,
+            hint: command.input?.hint ?? undefined,
           }));
         }
         break;
@@ -267,8 +457,10 @@ export const useSessionStore = defineStore('session', () => {
     }
   }
 
-  // Prompt user to select auth method
-  async function promptForAuthMethod(authMethods: AuthMethod[], agentName: string): Promise<string | null> {
+  async function promptForAuthMethod(
+    authMethods: AuthMethod[],
+    agentName: string
+  ): Promise<string | null> {
     return new Promise((resolve) => {
       pendingAuthMethods.value = authMethods;
       pendingAuthAgentName.value = agentName;
@@ -276,87 +468,77 @@ export const useSessionStore = defineStore('session', () => {
     });
   }
 
-  // User selected an auth method
   function selectAuthMethod(methodId: string): void {
-    if (authMethodResolver) {
-      authMethodResolver(methodId);
-      authMethodResolver = null;
-      pendingAuthMethods.value = [];
-      pendingAuthAgentName.value = '';
+    if (!authMethodResolver) {
+      return;
     }
+    authMethodResolver(methodId);
+    authMethodResolver = null;
+    pendingAuthMethods.value = [];
+    pendingAuthAgentName.value = '';
   }
 
-  // User cancelled auth selection
   function cancelAuthSelection(): void {
-    if (authMethodResolver) {
-      authMethodResolver(null);
-      authMethodResolver = null;
-      pendingAuthMethods.value = [];
-      pendingAuthAgentName.value = '';
+    if (!authMethodResolver) {
+      return;
     }
+    authMethodResolver(null);
+    authMethodResolver = null;
+    pendingAuthMethods.value = [];
+    pendingAuthAgentName.value = '';
   }
 
-  // Create new session
-  async function createSession(agentName: string, cwd: string, proxy?: SessionProxyConfig): Promise<void> {
-    isLoading.value = true;
+  async function createSession(
+    agentName: string,
+    cwd: string,
+    proxy?: SessionProxyConfig
+  ): Promise<void> {
     isConnecting.value = true;
     connectionAborted = false;
     error.value = null;
-    
-    // Reset and start progress tracking
+
     startupPhase.value = 'starting';
     startupLogs.value = [];
     startupElapsed.value = 0;
     startupTimer = setInterval(() => {
       startupElapsed.value++;
     }, 1000);
-    
+
+    let client: AcpClientBridge | null = null;
+    let runtime: ConnectedSessionState | null = null;
+
     try {
-      // Spawn agent process
       const sanitizedProxy = sanitizeProxyConfig(proxy);
       const agentInstance = await spawnAgent(agentName, buildProxyEnv(sanitizedProxy));
-      
-      // Listen for stderr to track startup progress
-      stderrUnlisten = await onAgentStderr((stderr) => {
-        if (stderr.agent_id === agentInstance.id) {
-          startupLogs.value.push(stderr.line);
-          // Detect phase from output
-          const detectedPhase = detectPhase(stderr.line);
-          if (detectedPhase) {
-            startupPhase.value = detectedPhase;
-          }
+
+      stderrUnlisten = (await onAgentStderr((stderr) => {
+        if (stderr.agent_id !== agentInstance.id) {
+          return;
         }
-      }) as unknown as () => void;
-      
+        startupLogs.value.push(stderr.line);
+        const detectedPhase = detectPhase(stderr.line);
+        if (detectedPhase) {
+          startupPhase.value = detectedPhase;
+        }
+      })) as unknown as () => void;
+
       if (connectionAborted) {
         await killAgent(agentInstance.id);
         throw new Error('Connection cancelled');
       }
-      
+
       startupPhase.value = 'initializing';
-      
-      // Create ACP client bridge
-      acpClient = await createAcpClient(agentInstance);
-      acpClient.onSessionUpdate = handleSessionUpdate;
-      
-      // Sync bridge's pendingPermissionRequest to store's pendingPermission
-      watch(
-        () => acpClient?.pendingPermissionRequest.value,
-        (newValue) => {
-          pendingPermission.value = newValue ?? null;
-        },
-        { immediate: true }
-      );
+
+      client = await createAcpClient(agentInstance);
 
       if (connectionAborted) {
-        await acpClient.disconnect();
+        await client.disconnect();
         throw new Error('Connection cancelled');
       }
 
       startupPhase.value = 'connecting';
 
-      // Initialize connection
-      const initResponse = await acpClient.initialize({
+      const initResponse = await client.initialize({
         protocolVersion: PROTOCOL_VERSION,
         clientCapabilities: {
           fs: {
@@ -371,70 +553,53 @@ export const useSessionStore = defineStore('session', () => {
         },
       });
 
-      console.log('Agent initialized:', initResponse);
-
-      // Check if agent supports session loading
       const supportsLoadSession = initResponse.agentCapabilities?.loadSession ?? false;
-
-      if (connectionAborted) {
-        await acpClient.disconnect();
-        throw new Error('Connection cancelled');
-      }
-
-      // Store available auth methods for potential retry
       const availableAuthMethods = initResponse.authMethods || [];
 
       if (connectionAborted) {
-        await acpClient.disconnect();
+        await client.disconnect();
         throw new Error('Connection cancelled');
       }
 
-      // Try to create session - may fail with auth_required
-      let sessionResponse;
+      let sessionResponse: NewSessionResponse;
       try {
-        sessionResponse = await acpClient.newSession({
+        sessionResponse = await client.newSession({
           cwd,
           mcpServers: [],
         });
       } catch (sessionError: unknown) {
-        // Check if auth is required (error code -32000)
-        const errorMessage = sessionError instanceof Error ? sessionError.message : String(sessionError);
-        const isAuthRequired = errorMessage.toLowerCase().includes('authentication required') ||
-                               errorMessage.includes('-32000');
-        
-        if (isAuthRequired && availableAuthMethods.length > 0) {
-          console.log('Authentication required, available methods:', availableAuthMethods);
-          
-          // Prompt user to select auth method
-          const selectedMethodId = await promptForAuthMethod(availableAuthMethods, agentName);
-          
-          if (!selectedMethodId || connectionAborted) {
-            await acpClient.disconnect();
-            throw new Error('Authentication cancelled by user');
-          }
-          
-          console.log('Authenticating with method:', selectedMethodId);
-          const authResponse = await acpClient.authenticate({
-            methodId: selectedMethodId,
-          });
-          console.log('Authentication successful:', authResponse);
+        const errorMessage =
+          sessionError instanceof Error ? sessionError.message : String(sessionError);
+        const isAuthRequired =
+          errorMessage.toLowerCase().includes('authentication required') ||
+          errorMessage.includes('-32000');
 
-          if (connectionAborted) {
-            await acpClient.disconnect();
-            throw new Error('Connection cancelled');
-          }
-
-          // Retry session creation after auth
-          sessionResponse = await acpClient.newSession({
-            cwd,
-            mcpServers: [],
-          });
-        } else {
+        if (!isAuthRequired || availableAuthMethods.length === 0) {
           throw sessionError;
         }
+
+        const selectedMethodId = await promptForAuthMethod(availableAuthMethods, agentName);
+
+        if (!selectedMethodId || connectionAborted) {
+          await client.disconnect();
+          throw new Error('Authentication cancelled by user');
+        }
+
+        await client.authenticate({
+          methodId: selectedMethodId,
+        });
+
+        if (connectionAborted) {
+          await client.disconnect();
+          throw new Error('Connection cancelled');
+        }
+
+        sessionResponse = await client.newSession({
+          cwd,
+          mcpServers: [],
+        });
       }
 
-      // Save session
       const session: SavedSession = {
         id: crypto.randomUUID(),
         agentName,
@@ -446,54 +611,29 @@ export const useSessionStore = defineStore('session', () => {
         proxy: sanitizedProxy,
       };
 
-      currentSession.value = session;
+      runtime = createConnectedSessionState(session, client);
+      client.onSessionUpdate = (notification) => handleSessionUpdate(runtime!, notification);
+      applySessionCapabilities(runtime, sessionResponse);
+      attachPermissionWatcher(runtime);
+      upsertConnectedSession(runtime);
+
       savedSessions.value.push(session);
       await saveSessionsToStore();
-      
-      isConnected.value = true;
-      messages.value = [];
-      toolCalls.value.clear();
-      
-      // Track successful session creation
+
       trackEvent('SessionCreated', { agentName, success: 'true' });
-      
-      // Set up session modes if available
-      if (sessionResponse.modes) {
-        availableModes.value = (sessionResponse.modes.availableModes || []).map(m => ({
-          id: m.id,
-          name: m.name,
-          description: m.description ?? undefined,
-        }));
-        currentModeId.value = sessionResponse.modes.currentModeId || '';
-      } else {
-        availableModes.value = [];
-        currentModeId.value = '';
-      }
-
-      // Set up session models if available
-      if (sessionResponse.models) {
-        availableModels.value = (sessionResponse.models.availableModels || []).map(m => ({
-          modelId: m.modelId,
-          name: m.name,
-          description: m.description ?? undefined,
-        }));
-        currentModelId.value = sessionResponse.models.currentModelId || '';
-      } else {
-        availableModels.value = [];
-        currentModelId.value = '';
-      }
-
     } catch (e) {
       error.value = e instanceof Error ? e.message : String(e);
-      acpClient = null;
-      // Track session creation failure
+      if (runtime) {
+        removeConnectedSession(runtime.session.id);
+      }
+      if (client && !runtime) {
+        await client.disconnect();
+      }
       trackEvent('SessionCreated', { agentName, success: 'false' });
       trackError(e instanceof Error ? e : new Error(String(e)));
       throw e;
     } finally {
-      isLoading.value = false;
       isConnecting.value = false;
-      // Clean up startup progress tracking
       if (startupTimer) {
         clearInterval(startupTimer);
         startupTimer = null;
@@ -505,33 +645,34 @@ export const useSessionStore = defineStore('session', () => {
     }
   }
 
-  // Resume existing session
   async function resumeSession(savedSession: SavedSession): Promise<void> {
-    isLoading.value = true;
+    const existing = getConnectedSession(savedSession.id);
+    if (existing) {
+      touchSavedSession(existing.session);
+      await saveSessionsToStore();
+      setActiveSession(savedSession.id);
+      return;
+    }
+
     error.value = null;
 
+    let client: AcpClientBridge | null = null;
+    let runtime: ConnectedSessionState | null = null;
+
     try {
-      // Spawn agent process
       const agentInstance = await spawnAgent(
         savedSession.agentName,
         buildProxyEnv(savedSession.proxy)
       );
-      
-      // Create ACP client bridge
-      acpClient = await createAcpClient(agentInstance);
-      acpClient.onSessionUpdate = handleSessionUpdate;
-      
-      // Sync bridge's pendingPermissionRequest to store's pendingPermission
-      watch(
-        () => acpClient?.pendingPermissionRequest.value,
-        (newValue) => {
-          pendingPermission.value = newValue ?? null;
-        },
-        { immediate: true }
-      );
 
-      // Initialize connection
-      const initResponse = await acpClient.initialize({
+      client = await createAcpClient(agentInstance);
+
+      runtime = createConnectedSessionState(savedSession, client);
+      client.onSessionUpdate = (notification) => handleSessionUpdate(runtime!, notification);
+      attachPermissionWatcher(runtime);
+      upsertConnectedSession(runtime);
+
+      const initResponse = await client.initialize({
         protocolVersion: PROTOCOL_VERSION,
         clientCapabilities: {
           fs: {
@@ -546,94 +687,90 @@ export const useSessionStore = defineStore('session', () => {
         },
       });
 
-      // Store available auth methods for potential retry
       const availableAuthMethods = initResponse.authMethods || [];
 
-      // Clear messages BEFORE loadSession - the agent will stream replay via notifications
-      messages.value = [];
-      toolCalls.value.clear();
-
-      // Try to load existing session - may fail with auth_required
+      let loadResponse: LoadSessionResponse;
       try {
-        await acpClient.loadSession({
+        loadResponse = await client.loadSession({
           sessionId: savedSession.sessionId,
           cwd: savedSession.cwd,
           mcpServers: [],
         });
       } catch (sessionError: unknown) {
-        // Check if auth is required (error code -32000)
-        const errorMessage = sessionError instanceof Error ? sessionError.message : String(sessionError);
-        const isAuthRequired = errorMessage.toLowerCase().includes('authentication required') ||
-                               errorMessage.includes('-32000');
-        
-        if (isAuthRequired && availableAuthMethods.length > 0) {
-          console.log('Authentication required, available methods:', availableAuthMethods);
-          
-          // Prompt user to select auth method
-          const selectedMethodId = await promptForAuthMethod(availableAuthMethods, savedSession.agentName);
-          
-          if (!selectedMethodId) {
-            await acpClient.disconnect();
-            throw new Error('Authentication cancelled by user');
-          }
-          
-          console.log('Authenticating with method:', selectedMethodId);
-          const authResponse = await acpClient.authenticate({
-            methodId: selectedMethodId,
-          });
-          console.log('Authentication successful:', authResponse);
+        const errorMessage =
+          sessionError instanceof Error ? sessionError.message : String(sessionError);
+        const isAuthRequired =
+          errorMessage.toLowerCase().includes('authentication required') ||
+          errorMessage.includes('-32000');
 
-          // Retry loading session after auth
-          await acpClient.loadSession({
-            sessionId: savedSession.sessionId,
-            cwd: savedSession.cwd,
-            mcpServers: [],
-          });
-        } else {
+        if (!isAuthRequired || availableAuthMethods.length === 0) {
           throw sessionError;
         }
+
+        const selectedMethodId = await promptForAuthMethod(
+          availableAuthMethods,
+          savedSession.agentName
+        );
+
+        if (!selectedMethodId) {
+          await client.disconnect();
+          throw new Error('Authentication cancelled by user');
+        }
+
+        await client.authenticate({
+          methodId: selectedMethodId,
+        });
+
+        loadResponse = await client.loadSession({
+          sessionId: savedSession.sessionId,
+          cwd: savedSession.cwd,
+          mcpServers: [],
+        });
       }
 
-      currentSession.value = savedSession;
-      isConnected.value = true;
-      // Messages already populated by session/update notifications during loadSession
-
-      // Track successful session resume
-      trackEvent('SessionResumed', { agentName: savedSession.agentName, success: 'true' });
-
-      // Update last accessed time
-      savedSession.lastUpdated = Date.now();
+      applySessionCapabilities(runtime, loadResponse);
+      touchSavedSession(savedSession);
       await saveSessionsToStore();
 
+      trackEvent('SessionResumed', {
+        agentName: savedSession.agentName,
+        success: 'true',
+      });
     } catch (e) {
       error.value = e instanceof Error ? e.message : String(e);
-      // Track session resume failure
-      trackEvent('SessionResumed', { agentName: savedSession.agentName, success: 'false' });
+      if (runtime) {
+        removeConnectedSession(runtime.session.id);
+      }
+      if (client && !runtime) {
+        await client.disconnect();
+      }
+      trackEvent('SessionResumed', {
+        agentName: savedSession.agentName,
+        success: 'false',
+      });
       trackError(e instanceof Error ? e : new Error(String(e)));
       throw e;
     } finally {
-      isLoading.value = false;
     }
   }
 
-  // Send prompt
   async function sendPrompt(text: string): Promise<void> {
-    if (!acpClient || !currentSession.value) {
+    const runtime = getConnectedSession(activeSessionId.value);
+    if (!runtime) {
       throw new Error('No active session');
     }
 
-    // Add user message
-    messages.value.push({
+    runtime.messages.push({
       id: crypto.randomUUID(),
       role: 'user',
       content: text,
       timestamp: Date.now(),
     });
 
-    isLoading.value = true;
+    runtime.isLoading = true;
     try {
-      const response = await acpClient.prompt({
-        sessionId: currentSession.value.sessionId,
+      const response = await runtime.client.prompt({
+        sessionId: runtime.session.sessionId,
         prompt: [
           {
             type: 'text',
@@ -642,137 +779,116 @@ export const useSessionStore = defineStore('session', () => {
         ],
       });
 
-      console.log('Prompt completed:', response.stopReason);
-
-      // Track prompt sent
-      trackEvent('PromptSent', { 
+      trackEvent('PromptSent', {
         messageLength: String(text.length),
         stopReason: response.stopReason || 'unknown',
       });
 
-      // Update session title if it's the first message
-      if (messages.value.length === 2 && currentSession.value) {
-        currentSession.value.title = text.slice(0, 50) + (text.length > 50 ? '...' : '');
-        currentSession.value.lastUpdated = Date.now();
-        await saveSessionsToStore();
+      if (runtime.messages.length === 2) {
+        runtime.session.title = text.slice(0, 50) + (text.length > 50 ? '...' : '');
       }
+
+      touchSavedSession(runtime.session);
+      await saveSessionsToStore();
     } finally {
-      isLoading.value = false;
+      runtime.isLoading = false;
     }
   }
 
-  // Cancel current operation
   async function cancelOperation(): Promise<void> {
-    if (!acpClient || !currentSession.value) return;
-    
-    await acpClient.cancel({
-      sessionId: currentSession.value.sessionId,
+    const runtime = getConnectedSession(activeSessionId.value);
+    if (!runtime) {
+      return;
+    }
+
+    await runtime.client.cancel({
+      sessionId: runtime.session.sessionId,
     });
   }
 
-  // Cancel ongoing connection attempt
   async function cancelConnection(): Promise<void> {
     connectionAborted = true;
-    
-    // Cancel auth selection if pending
+
     if (authMethodResolver) {
       authMethodResolver(null);
       authMethodResolver = null;
       pendingAuthMethods.value = [];
       pendingAuthAgentName.value = '';
     }
-    
-    // Disconnect if client exists
-    if (acpClient) {
-      try {
-        await acpClient.disconnect();
-      } catch (e) {
-        console.error('Error disconnecting:', e);
-      }
-      acpClient = null;
-    }
-    
-    isLoading.value = false;
+
     isConnecting.value = false;
     error.value = null;
   }
 
-  // Handle permission response
   function resolvePermission(optionId: string): void {
-    if (acpClient) {
-      acpClient.resolvePermission(optionId);
+    const pendingSession = pendingPermission.value?.sessionId;
+    if (!pendingSession) {
+      return;
     }
+    const runtime = getConnectedSessionByAcpSessionId(pendingSession);
+    runtime?.client.resolvePermission(optionId);
   }
 
   function cancelPermission(): void {
-    if (acpClient) {
-      acpClient.cancelPermission();
+    const pendingSession = pendingPermission.value?.sessionId;
+    if (!pendingSession) {
+      return;
     }
+    const runtime = getConnectedSessionByAcpSessionId(pendingSession);
+    runtime?.client.cancelPermission();
   }
 
-  // Disconnect current session
-  async function disconnect(): Promise<void> {
-    const agentName = currentSession.value?.agentName || 'unknown';
-    const sessionStart = currentSession.value?.lastUpdated || Date.now();
+  async function disconnect(sessionId = activeSessionId.value): Promise<void> {
+    const runtime = getConnectedSession(sessionId);
+    if (!runtime) {
+      return;
+    }
+
+    const sessionStart = runtime.session.lastUpdated || Date.now();
     const sessionDuration = Math.round((Date.now() - sessionStart) / 1000);
-    
-    if (acpClient) {
-      await acpClient.disconnect();
-      acpClient = null;
-    }
-    
-    // Track session disconnect
-    trackEvent('SessionDisconnected', { 
-      agentName,
+
+    await runtime.client.disconnect();
+    removeConnectedSession(sessionId);
+
+    trackEvent('SessionDisconnected', {
+      agentName: runtime.session.agentName,
       sessionDurationSeconds: String(sessionDuration),
-      messageCount: String(messages.value.length),
+      messageCount: String(runtime.messages.length),
     });
-    
-    currentSession.value = null;
-    isConnected.value = false;
-    messages.value = [];
-    toolCalls.value.clear();
-    availableModes.value = [];
-    currentModeId.value = '';
-    availableCommands.value = [];
-    availableModels.value = [];
-    currentModelId.value = '';
   }
 
-  // Delete saved session
   async function deleteSession(sessionId: string): Promise<void> {
-    savedSessions.value = savedSessions.value.filter(s => s.id !== sessionId);
+    if (getConnectedSession(sessionId)) {
+      await disconnect(sessionId);
+    }
+    savedSessions.value = savedSessions.value.filter((session) => session.id !== sessionId);
     await saveSessionsToStore();
   }
 
-  // Set session mode
   async function setMode(modeId: string): Promise<void> {
-    if (!acpClient || !currentSession.value) {
+    const runtime = getConnectedSession(activeSessionId.value);
+    if (!runtime) {
       throw new Error('No active session');
     }
-    
-    await acpClient.setMode({
-      sessionId: currentSession.value.sessionId,
+
+    await runtime.client.setMode({
+      sessionId: runtime.session.sessionId,
       modeId,
     });
-    
-    // Optimistically update the current mode
-    currentModeId.value = modeId;
+    runtime.currentModeId = modeId;
   }
 
-  // Set session model
   async function setModel(modelId: string): Promise<void> {
-    if (!acpClient || !currentSession.value) {
+    const runtime = getConnectedSession(activeSessionId.value);
+    if (!runtime) {
       throw new Error('No active session');
     }
-    
-    await acpClient.unstable_setSessionModel({
-      sessionId: currentSession.value.sessionId,
+
+    await runtime.client.unstable_setSessionModel({
+      sessionId: runtime.session.sessionId,
       modelId,
     });
-    
-    // Optimistically update the current model
-    currentModelId.value = modelId;
+    runtime.currentModelId = modelId;
   }
 
   function clearError() {
@@ -780,10 +896,10 @@ export const useSessionStore = defineStore('session', () => {
   }
 
   return {
-    // State
     savedSessions,
+    connectedSessionIds,
     currentSession,
-    messages,
+    messages: messageList,
     isConnected,
     isLoading,
     isConnecting,
@@ -799,14 +915,10 @@ export const useSessionStore = defineStore('session', () => {
     startupPhase,
     startupLogs,
     startupElapsed,
-    
-    // Computed
     hasActiveSession,
     messageList,
     toolCallList,
     resumableSessions,
-    
-    // Actions
     initStore,
     createSession,
     resumeSession,
@@ -822,8 +934,9 @@ export const useSessionStore = defineStore('session', () => {
     setMode,
     setModel,
     clearError,
-    
-    // Expose client for permission handling
-    get acpClient() { return acpClient; },
+    setActiveSession,
+    get acpClient() {
+      return connectedSessions.value[activeSessionId.value]?.client ?? null;
+    },
   };
 });
