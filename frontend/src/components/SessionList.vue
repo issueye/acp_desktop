@@ -11,12 +11,16 @@ const props = withDefaults(
     pinnedSessionIds?: string[];
     activeSessionId?: string;
     connectedSessionIds?: string[];
+    pendingSessionIds?: string[];
+    deletingSessionIds?: string[];
   }>(),
   {
     query: '',
     pinnedSessionIds: () => [],
     activeSessionId: '',
     connectedSessionIds: () => [],
+    pendingSessionIds: () => [],
+    deletingSessionIds: () => [],
   }
 );
 
@@ -77,6 +81,14 @@ function isConnectedSession(sessionId: string): boolean {
   return props.connectedSessionIds.includes(sessionId);
 }
 
+function isPendingSession(sessionId: string): boolean {
+  return props.pendingSessionIds.includes(sessionId);
+}
+
+function isDeletingSession(sessionId: string): boolean {
+  return props.deletingSessionIds.includes(sessionId);
+}
+
 function getSessionSummary(session: SavedSession): string {
   return [session.agentName, session.cwd, new Date(session.lastUpdated).toLocaleString()]
     .filter(Boolean)
@@ -93,6 +105,9 @@ function handleActivate(sessionId: string) {
 
 function handleConnectAction(session: SavedSession, event: Event) {
   event.stopPropagation();
+  if (isPendingSession(session.id) || isDeletingSession(session.id)) {
+    return;
+  }
   if (isConnectedSession(session.id)) {
     emit('disconnect', session.id);
     return;
@@ -102,6 +117,9 @@ function handleConnectAction(session: SavedSession, event: Event) {
 
 function handleDelete(sessionId: string, event: Event) {
   event.stopPropagation();
+  if (isPendingSession(sessionId) || isDeletingSession(sessionId)) {
+    return;
+  }
   pendingDeleteSessionId.value = sessionId;
   showDeleteConfirm.value = true;
 }
@@ -126,10 +144,16 @@ const pendingDeleteSession = computed(() =>
 
 function handleTogglePin(sessionId: string, event: Event) {
   event.stopPropagation();
+  if (isPendingSession(sessionId) || isDeletingSession(sessionId)) {
+    return;
+  }
   emit('togglePin', sessionId);
 }
 
 function setSelectedById(sessionId: string) {
+  if (isPendingSession(sessionId) || isDeletingSession(sessionId)) {
+    return;
+  }
   const idx = sessions.value.findIndex((s) => s.id === sessionId);
   if (idx >= 0) {
     selectedIndex.value = idx;
@@ -176,10 +200,11 @@ function handleKeyDown(event: KeyboardEvent) {
         class="session-item"
         :class="{
           selected: idx === selectedIndex,
-          active: activeSessionId === session.id
+          active: activeSessionId === session.id,
+          busy: isPendingSession(session.id) || isDeletingSession(session.id)
         }"
         :title="getSessionSummary(session)"
-        @click="setSelectedById(session.id); if (isConnectedSession(session.id)) handleActivate(session.id)"
+        @click="setSelectedById(session.id); if (!isPendingSession(session.id) && !isDeletingSession(session.id) && isConnectedSession(session.id)) handleActivate(session.id)"
         @mouseenter="setSelectedById(session.id)"
       >
         <div class="session-info">
@@ -199,19 +224,29 @@ function handleKeyDown(event: KeyboardEvent) {
           <div class="session-actions">
             <button
               class="connect-btn"
-              :class="{ disconnect: isConnectedSession(session.id) }"
+              :class="{ disconnect: isConnectedSession(session.id), busy: isPendingSession(session.id) }"
+              :disabled="isPendingSession(session.id) || isDeletingSession(session.id)"
               :title="
-                isConnectedSession(session.id)
-                  ? t('session.disconnect')
-                  : t('session.connect')
+                isDeletingSession(session.id)
+                  ? t('session.deleting')
+                  : isConnectedSession(session.id)
+                    ? (isPendingSession(session.id) ? t('session.disconnecting') : t('session.disconnect'))
+                    : (isPendingSession(session.id) ? t('session.connecting') : t('session.connect'))
               "
               @click="(event) => handleConnectAction(session, event)"
             >
-              {{ isConnectedSession(session.id) ? t('session.disconnect') : t('session.connect') }}
+              {{
+                isDeletingSession(session.id)
+                  ? t('session.deleting')
+                  : isConnectedSession(session.id)
+                    ? (isPendingSession(session.id) ? t('session.disconnecting') : t('session.disconnect'))
+                    : (isPendingSession(session.id) ? t('session.connecting') : t('session.connect'))
+              }}
             </button>
             <button
               class="row-icon-button"
               :class="{ pinned: isPinned(session.id) }"
+              :disabled="isPendingSession(session.id) || isDeletingSession(session.id)"
               @click.stop="(e) => handleTogglePin(session.id, e)"
               :title="isPinned(session.id) ? t('session.unpin') : t('session.pin')"
             >
@@ -219,10 +254,11 @@ function handleKeyDown(event: KeyboardEvent) {
             </button>
             <button
               class="row-icon-button danger"
+              :disabled="isPendingSession(session.id) || isDeletingSession(session.id)"
               @click.stop="(e) => handleDelete(session.id, e)"
-              :title="t('session.delete')"
+              :title="isDeletingSession(session.id) ? t('session.deleting') : t('session.delete')"
             >
-              ×
+              {{ isDeletingSession(session.id) ? '...' : '×' }}
             </button>
           </div>
         </div>
@@ -302,6 +338,10 @@ ul {
 .session-item.active {
   background: rgba(255, 255, 255, 0.92);
   border-color: rgba(15, 23, 42, 0.04);
+}
+
+.session-item.busy {
+  opacity: 0.82;
 }
 
 .session-info {
@@ -429,6 +469,12 @@ ul {
   border-color: rgba(220, 38, 38, 0.2);
 }
 
+.connect-btn:disabled,
+.row-icon-button:disabled {
+  opacity: 0.58;
+  cursor: not-allowed;
+}
+
 .row-icon-button {
   width: 26px;
   height: 26px;
@@ -459,6 +505,14 @@ ul {
 .row-icon-button.danger:hover {
   background: rgba(220, 38, 38, 0.08);
   color: #dc2626;
+}
+
+.row-icon-button:disabled:hover,
+.connect-btn:disabled:hover {
+  transform: none;
+  background: inherit;
+  border-color: inherit;
+  color: inherit;
 }
 
 @media (max-width: 900px) {

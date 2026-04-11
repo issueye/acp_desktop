@@ -46,6 +46,10 @@ const httpsProxy = ref('');
 const allProxy = ref('');
 const noProxy = ref('');
 const toastItems = ref<AppToastItem[]>([]);
+const pendingResumeSessionIds = ref<string[]>([]);
+const pendingDisconnectSessionIds = ref<string[]>([]);
+const pendingDeleteSessionIds = ref<string[]>([]);
+const isSelectingFolder = ref(false);
 
 let prefsStoreData: Record<string, unknown> = {};
 const prefsStoreName = 'preferences.json';
@@ -57,6 +61,13 @@ const error = computed(() => sessionStore.error || configStore.error);
 const hasAgents = computed(() => configStore.hasAgents);
 const savedSessionCount = computed(() => sessionStore.resumableSessions.length);
 const connectedSessionIds = computed(() => sessionStore.connectedSessionIds);
+const pendingSessionIds = computed(() => [
+  ...new Set([
+    ...pendingResumeSessionIds.value,
+    ...pendingDisconnectSessionIds.value,
+    ...pendingDeleteSessionIds.value,
+  ]),
+]);
 const currentSessionId = computed(() => sessionStore.currentSession?.id ?? '');
 const currentSessionTitle = computed(
   () => sessionStore.currentSession?.title || t('chat.titleFallback')
@@ -97,6 +108,18 @@ function dismissToast(id: string) {
 
 function getErrorMessage(errorLike: unknown): string {
   return errorLike instanceof Error ? errorLike.message : String(errorLike);
+}
+
+function addPending(target: { value: string[] }, sessionId: string) {
+  if (!sessionId || target.value.includes(sessionId)) {
+    return false;
+  }
+  target.value = [...target.value, sessionId];
+  return true;
+}
+
+function removePending(target: { value: string[] }, sessionId: string) {
+  target.value = target.value.filter((id) => id !== sessionId);
 }
 
 function syncSelectionFromCurrentSession() {
@@ -142,11 +165,19 @@ async function handleAgentSelect(agentName: string) {
 }
 
 async function handleSelectFolder() {
-  const folder = await selectDirectory();
-  if (!folder) return;
-  selectedCwd.value = folder;
-  prefsStoreData.lastCwd = folder;
-  await persistPreferences();
+  if (isSelectingFolder.value) {
+    return;
+  }
+  isSelectingFolder.value = true;
+  try {
+    const folder = await selectDirectory();
+    if (!folder) return;
+    selectedCwd.value = folder;
+    prefsStoreData.lastCwd = folder;
+    await persistPreferences();
+  } finally {
+    isSelectingFolder.value = false;
+  }
 }
 
 function openWorkspaceDialog() {
@@ -205,17 +236,27 @@ async function handleCreateSession() {
 }
 
 async function handleResumeSession(session: SavedSession) {
+  if (
+    pendingResumeSessionIds.value.includes(session.id) ||
+    pendingDisconnectSessionIds.value.includes(session.id) ||
+    pendingDeleteSessionIds.value.includes(session.id)
+  ) {
+    return;
+  }
   selectedAgent.value = session.agentName;
   selectedCwd.value = session.cwd;
   applyProxyConfig(session.proxy);
   prefsStoreData.lastCwd = session.cwd;
   await persistProxyPreferences();
+  addPending(pendingResumeSessionIds, session.id);
   try {
     await sessionStore.resumeSession(session);
     pushToast(`${t('session.connect')}: ${session.title}`);
   } catch (e) {
     console.error('Failed to resume session:', e);
     pushToast(getErrorMessage(e), 'danger');
+  } finally {
+    removePending(pendingResumeSessionIds, session.id);
   }
 }
 
@@ -231,7 +272,15 @@ function handleActivateSession(sessionId: string) {
 }
 
 async function handleDeleteSession(sessionId: string) {
+  if (
+    pendingDeleteSessionIds.value.includes(sessionId) ||
+    pendingResumeSessionIds.value.includes(sessionId) ||
+    pendingDisconnectSessionIds.value.includes(sessionId)
+  ) {
+    return;
+  }
   const deletedSession = sessionStore.savedSessions.find((session) => session.id === sessionId);
+  addPending(pendingDeleteSessionIds, sessionId);
   try {
     await sessionStore.deleteSession(sessionId);
     if (pinnedSessionIds.value.includes(sessionId)) {
@@ -245,13 +294,24 @@ async function handleDeleteSession(sessionId: string) {
     }
   } catch (e) {
     pushToast(getErrorMessage(e), 'danger');
+  } finally {
+    removePending(pendingDeleteSessionIds, sessionId);
   }
 }
 
 async function handleDisconnect(sessionId?: string) {
-  const disconnectingSession = sessionId
-    ? sessionStore.savedSessions.find((session) => session.id === sessionId)
-    : sessionStore.currentSession;
+  const targetSessionId = sessionId || sessionStore.currentSession?.id || '';
+  if (
+    !targetSessionId ||
+    pendingDisconnectSessionIds.value.includes(targetSessionId) ||
+    pendingResumeSessionIds.value.includes(targetSessionId) ||
+    pendingDeleteSessionIds.value.includes(targetSessionId)
+  ) {
+    return;
+  }
+  const disconnectingSession = sessionStore.savedSessions.find((session) => session.id === targetSessionId)
+    || sessionStore.currentSession;
+  addPending(pendingDisconnectSessionIds, targetSessionId);
   try {
     await sessionStore.disconnect(sessionId);
     syncSelectionFromCurrentSession();
@@ -260,6 +320,8 @@ async function handleDisconnect(sessionId?: string) {
     }
   } catch (e) {
     pushToast(getErrorMessage(e), 'danger');
+  } finally {
+    removePending(pendingDisconnectSessionIds, targetSessionId);
   }
 }
 
@@ -370,6 +432,7 @@ function handleGlobalKeydown(event: KeyboardEvent) {
           v-if="showSidebar"
           :is-connecting="isConnecting"
           :is-connected="isConnected"
+          :is-disconnecting-current="pendingDisconnectSessionIds.includes(currentSessionId)"
           :saved-session-count="savedSessionCount"
           :selected-agent="selectedAgent"
           :selected-cwd-display="selectedCwdCompact"
@@ -377,6 +440,8 @@ function handleGlobalKeydown(event: KeyboardEvent) {
           :pinned-session-ids="pinnedSessionIds"
           :active-session-id="currentSessionId"
           :connected-session-ids="connectedSessionIds"
+          :pending-session-ids="pendingSessionIds"
+          :deleting-session-ids="pendingDeleteSessionIds"
           @open-workspace="openWorkspaceDialog"
           @update:query="sessionSearchQuery = $event"
           @resume="handleResumeSession"
@@ -444,6 +509,7 @@ function handleGlobalKeydown(event: KeyboardEvent) {
       :startup-logs="sessionStore.startupLogs"
       :startup-elapsed="sessionStore.startupElapsed"
       :show-startup-details="showStartupDetails"
+      :is-selecting-folder="isSelectingFolder"
       @update:selectedAgent="handleAgentSelect"
       @update:proxyEnabled="proxyEnabled = $event"
       @update:httpProxy="httpProxy = $event"

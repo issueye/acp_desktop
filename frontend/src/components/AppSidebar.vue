@@ -6,6 +6,7 @@ import { useI18n } from '../lib/i18n';
 defineProps<{
   isConnecting: boolean;
   isConnected: boolean;
+  isDisconnectingCurrent: boolean;
   savedSessionCount: number;
   selectedAgent: string;
   selectedCwdDisplay: string;
@@ -13,6 +14,8 @@ defineProps<{
   pinnedSessionIds: string[];
   activeSessionId: string;
   connectedSessionIds: string[];
+  pendingSessionIds: string[];
+  deletingSessionIds: string[];
 }>();
 
 const emit = defineEmits<{
@@ -76,6 +79,8 @@ const { t } = useI18n();
         :pinned-session-ids="pinnedSessionIds"
         :active-session-id="activeSessionId"
         :connected-session-ids="connectedSessionIds"
+        :pending-session-ids="pendingSessionIds"
+        :deleting-session-ids="deletingSessionIds"
         @resume="(session) => emit('resume', session)"
         @activate="(sessionId) => emit('activate', sessionId)"
         @disconnect="(sessionId) => emit('disconnect', sessionId)"
@@ -88,8 +93,13 @@ const { t } = useI18n();
       <button class="footer-button" @click="emit('openSettings')">
         {{ t('app.settings') }}
       </button>
-      <button v-if="isConnected" class="footer-danger" @click="emit('disconnect')">
-        {{ t('app.disconnect') }}
+      <button
+        v-if="isConnected"
+        class="footer-danger"
+        :disabled="isDisconnectingCurrent"
+        @click="emit('disconnect')"
+      >
+        {{ isDisconnectingCurrent ? t('session.disconnecting') : t('app.disconnect') }}
       </button>
     </div>
   </aside>
@@ -304,5 +314,11 @@ const { t } = useI18n();
 .footer-danger:hover {
   background: rgba(220, 38, 38, 0.06);
   border-color: rgba(220, 38, 38, 0.12);
+}
+
+.footer-button:disabled,
+.footer-danger:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 </style>

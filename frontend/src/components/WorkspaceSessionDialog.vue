@@ -10,6 +10,7 @@ const props = defineProps<{
   hasAgents: boolean;
   isConnecting: boolean;
   isLoading: boolean;
+  isSelectingFolder: boolean;
   selectedAgent: string;
   selectedCwd: string;
   selectedCwdLabel: string;
@@ -41,10 +42,94 @@ const emit = defineEmits<{
 
 const { t } = useI18n();
 
+type ValidationTone = 'warning' | 'danger';
+
+type ValidationItem = {
+  id: string;
+  message: string;
+  tone?: ValidationTone;
+};
+
 const selectedAgentModel = computed({
   get: () => props.selectedAgent,
   set: (value: string) => emit('update:selectedAgent', value),
 });
+
+function isValidProxyUrl(value: string): boolean {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return true;
+  }
+  try {
+    const parsed = new URL(trimmed);
+    return ['http:', 'https:', 'socks:', 'socks4:', 'socks5:'].includes(parsed.protocol);
+  } catch {
+    return false;
+  }
+}
+
+const validationItems = computed<ValidationItem[]>(() => {
+  const items: ValidationItem[] = [];
+
+  if (!props.selectedAgent) {
+    items.push({
+      id: 'agent-required',
+      message: t('app.validationAgentRequired'),
+      tone: 'warning',
+    });
+  }
+
+  if (props.proxyEnabled) {
+    const hasAnyProxyValue =
+      !!props.httpProxy.trim() || !!props.httpsProxy.trim() || !!props.allProxy.trim();
+
+    if (!hasAnyProxyValue) {
+      items.push({
+        id: 'proxy-required',
+        message: t('app.validationProxyRequired'),
+        tone: 'warning',
+      });
+    }
+
+    if (!isValidProxyUrl(props.httpProxy)) {
+      items.push({
+        id: 'proxy-http-invalid',
+        message: t('app.validationProxyHttpInvalid'),
+        tone: 'danger',
+      });
+    }
+
+    if (!isValidProxyUrl(props.httpsProxy)) {
+      items.push({
+        id: 'proxy-https-invalid',
+        message: t('app.validationProxyHttpsInvalid'),
+        tone: 'danger',
+      });
+    }
+
+    if (!isValidProxyUrl(props.allProxy)) {
+      items.push({
+        id: 'proxy-all-invalid',
+        message: t('app.validationProxyAllInvalid'),
+        tone: 'danger',
+      });
+    }
+  }
+
+  return items;
+});
+
+const hasValidationError = computed(() =>
+  validationItems.value.some((item) => item.tone === 'danger')
+);
+
+const canCreateSession = computed(
+  () =>
+    !props.isConnecting &&
+    !props.isLoading &&
+    !props.isSelectingFolder &&
+    validationItems.value.length === 0
+);
 
 function closeDialog() {
   if (props.isConnecting) {
@@ -143,7 +228,13 @@ function closeDialog() {
                 <p class="eyebrow">{{ t('app.workspace') }}</p>
                 <h3>{{ t('app.workingDirectory') }}</h3>
               </div>
-              <button class="ghost-button" @click="emit('selectFolder')">{{ t('app.selectFolder') }}</button>
+              <button
+                class="ghost-button"
+                :disabled="props.isSelectingFolder || props.isConnecting"
+                @click="emit('selectFolder')"
+              >
+                {{ props.isSelectingFolder ? t('app.selectingFolder') : t('app.selectFolder') }}
+              </button>
             </div>
             <div class="cwd-card" :title="selectedCwd || t('app.currentDirectory')">
               <div class="cwd-badge">#</div>
@@ -152,6 +243,9 @@ function closeDialog() {
                 <span>{{ selectedCwd || '.' }}</span>
               </div>
             </div>
+            <p class="section-hint">
+              {{ t('app.validationWorkspaceHint') }}
+            </p>
           </section>
 
           <section class="dialog-section">
@@ -213,6 +307,16 @@ function closeDialog() {
                 />
               </label>
             </div>
+            <div v-if="validationItems.some((item) => item.id.startsWith('proxy-'))" class="validation-list">
+              <div
+                v-for="item in validationItems.filter((entry) => entry.id.startsWith('proxy-'))"
+                :key="item.id"
+                class="validation-item"
+                :class="item.tone || 'warning'"
+              >
+                {{ item.message }}
+              </div>
+            </div>
           </section>
         </div>
 
@@ -239,11 +343,36 @@ function closeDialog() {
             </div>
             <div class="launch-note">
               <span class="launch-note-mark">i</span>
-              <p>{{ t('app.sessionSetupDesc') }}</p>
+              <p>{{ validationItems.length === 0 ? t('app.validationReady') : t('app.sessionSetupDesc') }}</p>
+            </div>
+            <div v-if="validationItems.length > 0" class="validation-panel">
+              <strong>
+                {{
+                  hasValidationError
+                    ? t('app.validationProxyIssueTitle')
+                    : t('app.validationActionRequired')
+                }}
+              </strong>
+              <div class="validation-list compact">
+                <div
+                  v-for="item in validationItems"
+                  :key="item.id"
+                  class="validation-item"
+                  :class="item.tone || 'warning'"
+                >
+                  {{ item.message }}
+                </div>
+              </div>
             </div>
             <div v-if="!isConnecting" class="dialog-actions launch-actions">
-              <button class="primary-button" :disabled="!selectedAgent || isLoading" @click="emit('createSession')">
-                {{ isLoading ? t('app.connecting') : t('app.newSession') }}
+              <button class="primary-button" :disabled="!canCreateSession" @click="emit('createSession')">
+                {{
+                  props.isSelectingFolder
+                    ? t('app.selectingFolder')
+                    : isLoading
+                      ? t('app.connecting')
+                      : t('app.newSession')
+                }}
               </button>
               <button class="secondary-button" @click="closeDialog">{{ t('common.cancel') }}</button>
             </div>
@@ -483,6 +612,13 @@ function closeDialog() {
   background: #ffffff;
 }
 
+.ghost-button:disabled,
+.secondary-button:disabled,
+.primary-button:disabled {
+  opacity: 0.58;
+  cursor: not-allowed;
+}
+
 .primary-button {
   min-height: 38px;
   padding: 0.68rem 1rem;
@@ -534,6 +670,13 @@ function closeDialog() {
   display: block;
   margin-top: 0.18rem;
   color: var(--text-secondary);
+}
+
+.section-hint {
+  margin-top: 0.7rem;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--text-muted);
 }
 
 .summary-line {
@@ -593,6 +736,47 @@ function closeDialog() {
 
 .proxy-grid.disabled {
   opacity: 0.58;
+}
+
+.validation-panel {
+  padding: 0.9rem 0.95rem;
+  border-radius: 8px;
+  background: #fffdfa;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+}
+
+.validation-panel strong {
+  display: block;
+  margin-bottom: 0.7rem;
+  font-size: 0.84rem;
+  color: var(--text-primary);
+}
+
+.validation-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.85rem;
+}
+
+.validation-list.compact {
+  margin-top: 0;
+}
+
+.validation-item {
+  padding: 0.68rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  border: 1px solid rgba(217, 119, 6, 0.12);
+  background: rgba(245, 158, 11, 0.08);
+  color: #b45309;
+}
+
+.validation-item.danger {
+  border-color: rgba(220, 38, 38, 0.14);
+  background: rgba(220, 38, 38, 0.06);
+  color: var(--bg-danger);
 }
 
 .proxy-field span {
