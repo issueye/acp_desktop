@@ -89,6 +89,16 @@ function isDeletingSession(sessionId: string): boolean {
   return props.deletingSessionIds.includes(sessionId);
 }
 
+function getConnectActionLabel(sessionId: string): string {
+  if (isDeletingSession(sessionId)) {
+    return t('session.deleting');
+  }
+  if (isConnectedSession(sessionId)) {
+    return isPendingSession(sessionId) ? t('session.disconnecting') : t('session.disconnect');
+  }
+  return isPendingSession(sessionId) ? t('session.connecting') : t('session.connect');
+}
+
 function getSessionSummary(session: SavedSession): string {
   return [session.agentName, session.cwd, new Date(session.lastUpdated).toLocaleString()]
     .filter(Boolean)
@@ -223,25 +233,76 @@ function handleKeyDown(event: KeyboardEvent) {
 
           <div class="session-actions">
             <button
-              class="connect-btn"
+              class="row-icon-button connect-toggle"
               :class="{ disconnect: isConnectedSession(session.id), busy: isPendingSession(session.id) }"
               :disabled="isPendingSession(session.id) || isDeletingSession(session.id)"
-              :title="
-                isDeletingSession(session.id)
-                  ? t('session.deleting')
-                  : isConnectedSession(session.id)
-                    ? (isPendingSession(session.id) ? t('session.disconnecting') : t('session.disconnect'))
-                    : (isPendingSession(session.id) ? t('session.connecting') : t('session.connect'))
-              "
+              :title="getConnectActionLabel(session.id)"
+              :aria-label="getConnectActionLabel(session.id)"
               @click="(event) => handleConnectAction(session, event)"
             >
-              {{
-                isDeletingSession(session.id)
-                  ? t('session.deleting')
-                  : isConnectedSession(session.id)
-                    ? (isPendingSession(session.id) ? t('session.disconnecting') : t('session.disconnect'))
-                    : (isPendingSession(session.id) ? t('session.connecting') : t('session.connect'))
-              }}
+              <svg
+                v-if="isConnectedSession(session.id)"
+                class="connect-icon"
+                viewBox="0 0 16 16"
+                fill="none"
+                aria-hidden="true"
+              >
+                <path
+                  d="M6 5L4.2 3.2a2.4 2.4 0 0 0-3.4 3.4L2.6 8.4"
+                  stroke="currentColor"
+                  stroke-width="1.4"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+                <path
+                  d="M10 11l1.8 1.8a2.4 2.4 0 0 0 3.4-3.4L13.4 7.6"
+                  stroke="currentColor"
+                  stroke-width="1.4"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+                <path
+                  d="M6 10l4-4"
+                  stroke="currentColor"
+                  stroke-width="1.4"
+                  stroke-linecap="round"
+                />
+                <path
+                  d="M4.6 11.4L11.4 4.6"
+                  stroke="currentColor"
+                  stroke-width="1.4"
+                  stroke-linecap="round"
+                  opacity="0.72"
+                />
+              </svg>
+              <svg
+                v-else
+                class="connect-icon"
+                viewBox="0 0 16 16"
+                fill="none"
+                aria-hidden="true"
+              >
+                <path
+                  d="M6 5L4.2 3.2a2.4 2.4 0 0 0-3.4 3.4L2.6 8.4"
+                  stroke="currentColor"
+                  stroke-width="1.4"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+                <path
+                  d="M10 11l1.8 1.8a2.4 2.4 0 0 0 3.4-3.4L13.4 7.6"
+                  stroke="currentColor"
+                  stroke-width="1.4"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+                <path
+                  d="M5 11l6-6"
+                  stroke="currentColor"
+                  stroke-width="1.4"
+                  stroke-linecap="round"
+                />
+              </svg>
             </button>
             <button
               class="row-icon-button"
@@ -349,7 +410,7 @@ ul {
   align-items: center;
   gap: 0.55rem;
   min-width: 0;
-  padding: 0.62rem 0.72rem;
+  padding: 0.22rem 0.72rem;
 }
 
 .session-main {
@@ -439,37 +500,30 @@ ul {
   pointer-events: auto;
 }
 
-.connect-btn {
-  min-width: 56px;
-  height: 28px;
-  padding: 0 0.72rem;
-  border-radius: 999px;
-  border: 1px solid rgba(37, 99, 235, 0.12);
+.connect-icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.row-icon-button.connect-toggle {
+  color: #2563eb;
+}
+
+.row-icon-button.connect-toggle:hover {
   background: rgba(37, 99, 235, 0.08);
   color: #2563eb;
-  font-size: 0.72rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
-.connect-btn:hover {
-  background: rgba(37, 99, 235, 0.14);
-  border-color: rgba(37, 99, 235, 0.2);
+.row-icon-button.connect-toggle.disconnect {
+  color: #dc2626;
 }
 
-.connect-btn.disconnect {
-  border-color: rgba(220, 38, 38, 0.12);
+.row-icon-button.connect-toggle.disconnect:hover {
   background: rgba(220, 38, 38, 0.08);
   color: #dc2626;
 }
 
-.connect-btn.disconnect:hover {
-  background: rgba(220, 38, 38, 0.14);
-  border-color: rgba(220, 38, 38, 0.2);
-}
-
-.connect-btn:disabled,
 .row-icon-button:disabled {
   opacity: 0.58;
   cursor: not-allowed;
@@ -507,8 +561,7 @@ ul {
   color: #dc2626;
 }
 
-.row-icon-button:disabled:hover,
-.connect-btn:disabled:hover {
+.row-icon-button:disabled:hover {
   transform: none;
   background: inherit;
   border-color: inherit;

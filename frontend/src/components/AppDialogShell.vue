@@ -60,10 +60,7 @@ function close() {
   >
     <section class="dialog-shell">
       <header class="dialog-shell__header">
-        <div class="dialog-shell__title-block">
-          <p v-if="props.eyebrow" class="dialog-shell__eyebrow">{{ props.eyebrow }}</p>
-          <h2 class="dialog-shell__title">{{ props.title }}</h2>
-        </div>
+        <h2 class="dialog-shell__title">{{ props.title }}</h2>
         <div class="dialog-shell__header-actions">
           <slot name="header-extra" :close="close" />
           <button
@@ -110,7 +107,7 @@ function close() {
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  padding: 0.5rem 1rem;
+  padding: 0.3rem 1rem;
   background: var(--bg-header);
   border-bottom: 1px solid var(--border-color);
 }
@@ -163,6 +160,7 @@ function close() {
   flex: 1;
   min-height: 0;
   overflow: auto;
+  padding: 0.5rem;
 }
 
 .dialog-shell__footer {

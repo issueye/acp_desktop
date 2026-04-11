@@ -153,10 +153,6 @@ function closeDialog() {
     @close="closeDialog"
   >
     <template #header-extra>
-      <div class="header-summary">
-        <span class="summary-chip">{{ selectedAgent || t('agent.select') }}</span>
-        <span class="summary-chip muted" :title="selectedCwd || '.'">{{ selectedCwdLabel }}</span>
-      </div>
     </template>
 
     <div v-if="!hasAgents" class="empty-workspace panel-card">
@@ -169,11 +165,7 @@ function closeDialog() {
       <section class="workspace-hero">
         <div class="hero-intro">
           <div class="hero-copy">
-            <p class="eyebrow">{{ t('app.workspaceSummary') }}</p>
             <h3>{{ t('app.sessionSetupDesc') }}</h3>
-            <p class="hero-text">
-              {{ t('app.sessionSetupTitle') }}
-            </p>
           </div>
           <div class="hero-metrics">
             <div class="hero-metric">
@@ -213,19 +205,12 @@ function closeDialog() {
       <div class="dialog-grid">
         <div class="dialog-main">
           <section class="dialog-section">
-            <div class="dialog-section-head">
-              <div>
-                <p class="eyebrow">{{ t('agent.label') }}</p>
-                <h3>{{ t('agent.label') }}</h3>
-              </div>
-            </div>
             <AgentSelector v-model:selected="selectedAgentModel" />
           </section>
 
           <section class="dialog-section">
             <div class="section-headline">
               <div>
-                <p class="eyebrow">{{ t('app.workspace') }}</p>
                 <h3>{{ t('app.workingDirectory') }}</h3>
               </div>
               <button
@@ -251,7 +236,6 @@ function closeDialog() {
           <section class="dialog-section">
             <div class="section-headline">
               <div>
-                <p class="eyebrow">{{ t('app.proxy') }}</p>
                 <h3>{{ t('app.proxy') }}</h3>
               </div>
               <label class="proxy-switch" :class="{ enabled: proxyEnabled }">
@@ -451,8 +435,6 @@ function closeDialog() {
   padding: 1rem;
   margin-bottom: 0.95rem;
   border-radius: 8px;
-  border: 1px solid rgba(15, 23, 42, 0.06);
-  background: linear-gradient(180deg, #ffffff 0%, #fcfbf8 100%);
 }
 
 .hero-intro {
@@ -572,8 +554,6 @@ function closeDialog() {
 .dialog-section {
   padding: 0.95rem 1rem 1rem;
   border-radius: 8px;
-  border: 1px solid rgba(15, 23, 42, 0.06);
-  background: #ffffff;
 }
 
 .dialog-section-head {
