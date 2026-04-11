@@ -102,12 +102,13 @@ function close() {
 }
 
 .dialog-shell__header {
+  flex-shrink: 0;
   min-height: 42px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  padding: 0.3rem 1rem;
+  padding: 0.5rem;
   background: var(--bg-header);
   border-bottom: 1px solid var(--border-color);
 }
@@ -159,16 +160,20 @@ function close() {
 .dialog-shell__body {
   flex: 1;
   min-height: 0;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
   padding: 0.5rem;
 }
 
 .dialog-shell__footer {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: 0.55rem;
-  padding: 0.9rem 1rem 1rem;
+  padding: 0.5rem;
   border-top: 1px solid var(--border-color);
   background: #ffffff;
 }

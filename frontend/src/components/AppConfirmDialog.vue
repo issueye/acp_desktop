@@ -27,8 +27,8 @@ function handleCancel() {
 }
 
 function handleConfirm() {
-  emit('update:modelValue', false);
   emit('confirm');
+  emit('update:modelValue', false);
 }
 </script>
 

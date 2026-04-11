@@ -37,7 +37,6 @@ const { t } = useI18n();
       <div class="brand-mark" aria-hidden="true"></div>
       <div class="brand-copy">
         <strong>ACP UI</strong>
-        <span>{{ t('app.desktopClient') }}</span>
       </div>
     </div>
 

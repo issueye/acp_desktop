@@ -82,12 +82,14 @@ onBeforeUnmount(() => {
   display: grid;
   place-items: center;
   padding: 1.5rem;
+  overflow: auto;
   background: rgba(15, 23, 42, 0.18);
   backdrop-filter: blur(10px);
 }
 
 .app-modal-panel {
   width: 100%;
+  min-height: 0;
   border-radius: 8px;
   border: 1px solid rgba(15, 23, 42, 0.08);
   background: #fffdfa;

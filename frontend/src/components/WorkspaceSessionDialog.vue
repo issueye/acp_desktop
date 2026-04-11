@@ -196,11 +196,32 @@ function closeDialog() {
                 <h3>{{ t('app.workingDirectory') }}</h3>
               </div>
               <button
-                class="ghost-button"
+                class="icon-ghost-button"
                 :disabled="props.isSelectingFolder || props.isConnecting"
+                :title="props.isSelectingFolder ? t('app.selectingFolder') : t('app.selectFolder')"
+                :aria-label="props.isSelectingFolder ? t('app.selectingFolder') : t('app.selectFolder')"
                 @click="emit('selectFolder')"
               >
-                {{ props.isSelectingFolder ? t('app.selectingFolder') : t('app.selectFolder') }}
+                <svg
+                  class="folder-picker-icon"
+                  :class="{ spinning: props.isSelectingFolder }"
+                  viewBox="0 0 20 20"
+                  fill="none"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M2.5 6.5a1.5 1.5 0 0 1 1.5-1.5h3.3l1.3 1.6H16a1.5 1.5 0 0 1 1.5 1.5v5.9a1.5 1.5 0 0 1-1.5 1.5H4A1.5 1.5 0 0 1 2.5 14V6.5Z"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    stroke-linejoin="round"
+                  />
+                  <path
+                    d="M10 8.4v4.2M7.9 10.5h4.2"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    stroke-linecap="round"
+                  />
+                </svg>
               </button>
             </div>
             <div class="cwd-card" :title="selectedCwd || t('app.currentDirectory')">
@@ -535,6 +556,41 @@ function closeDialog() {
   cursor: not-allowed;
 }
 
+.icon-ghost-button {
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: #fffdfa;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.icon-ghost-button:hover {
+  color: var(--text-accent);
+  border-color: rgba(37, 99, 235, 0.14);
+  background: #ffffff;
+}
+
+.icon-ghost-button:disabled {
+  opacity: 0.58;
+  cursor: not-allowed;
+}
+
+.folder-picker-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.folder-picker-icon.spinning {
+  animation: folder-picker-spin 0.9s linear infinite;
+}
+
 .primary-button {
   min-height: 38px;
   padding: 0.68rem 1rem;
@@ -797,6 +853,16 @@ function closeDialog() {
   border-radius: 8px;
   background: #fffdfa;
   border: 1px solid rgba(15, 23, 42, 0.06);
+}
+
+@keyframes folder-picker-spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @media (max-width: 1180px) {
