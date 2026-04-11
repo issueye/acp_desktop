@@ -7,7 +7,7 @@
   "frontend:build": "npm run build",
   "frontend:dev:watcher": "npm run dev",
   "frontend:dev:serverUrl": "http://localhost:1420",
-  "frontend:wailsjsdir": "./frontend/wailsjs",
+  "wailsjsdir": "./wailsjs",
   "author": {
     "name": "issueye"
   }
