@@ -1,9 +1,10 @@
 <script setup lang="ts">
+import { computed } from 'vue';
 import PlanCard from './PlanCard.vue';
 import type { PlanEntry } from '../lib/types';
 import { useI18n } from '../lib/i18n';
 
-defineProps<{
+const props = defineProps<{
   entries: PlanEntry[];
   collapsed: boolean;
 }>();
@@ -13,89 +14,130 @@ const emit = defineEmits<{
 }>();
 
 const { t } = useI18n();
+const completedCount = computed(
+  () => props.entries.filter((entry) => entry.status === 'completed').length
+);
 </script>
 
 <template>
   <section class="current-plan-panel">
-    <button
-      type="button"
-      class="plan-toggle"
-      :aria-expanded="!collapsed"
-      @click="emit('toggle')"
-    >
-      <div class="plan-toggle-copy">
-        <span class="plan-toggle-eyebrow">{{ t('chat.currentPlan') }}</span>
-        <strong>{{ entries.length }} {{ t('chat.planItems') }}</strong>
-      </div>
-      <span class="plan-toggle-action">
-        {{ collapsed ? t('chat.planToggleShow') : t('chat.planToggleHide') }}
-      </span>
-      <span class="plan-toggle-icon" :class="{ collapsed }" aria-hidden="true">⌃</span>
-    </button>
+    <div class="plan-panel-wrap">
+      <div class="plan-shell">
+        <button
+          type="button"
+          class="plan-toggle"
+          :aria-expanded="!collapsed"
+          @click="emit('toggle')"
+        >
+          <div class="plan-toggle-summary">
+            <svg class="plan-toggle-mark" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path
+                d="M3.5 4.5h5M3.5 8h7M3.5 11.5h4"
+                stroke="currentColor"
+                stroke-width="1.3"
+                stroke-linecap="round"
+              />
+              <path
+                d="M11.25 4.25l1 1 1.75-2"
+                stroke="currentColor"
+                stroke-width="1.3"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+            <span class="plan-toggle-title">
+              {{ t('chat.planSummaryTotal', { count: entries.length }) }}，{{ t('chat.planSummaryCompleted', { count: completedCount }) }}
+            </span>
+          </div>
+          <span class="plan-toggle-icon" :class="{ collapsed }" aria-hidden="true">
+            <svg viewBox="0 0 16 16" fill="none">
+              <path
+                d="M5.25 9.75L8 7l2.75 2.75"
+                stroke="currentColor"
+                stroke-width="1.35"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </span>
+        </button>
 
-    <div v-if="!collapsed" class="plan-panel-body">
-      <PlanCard :entries="entries" />
+        <div v-if="!collapsed" class="plan-panel-body">
+          <PlanCard :entries="entries" />
+        </div>
+      </div>
     </div>
   </section>
 </template>
 
 <style scoped>
 .current-plan-panel {
-  padding: 0 1.2rem 0.9rem;
-  background: linear-gradient(180deg, rgba(255, 253, 250, 0.96) 0%, rgba(252, 250, 246, 0.98) 100%);
-  border-top: 1px solid rgba(15, 23, 42, 0.06);
+  padding: 0.7rem 1.2rem 0.45rem;
+  background: #fffdfa;
+}
+
+.plan-panel-wrap {
+  width: min(920px, 100%);
+  margin: 0 auto;
+}
+
+.plan-shell {
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 10px;
+  background: #ffffff;
 }
 
 .plan-toggle {
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 0.85rem;
-  padding: 0.85rem 0.95rem;
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  border-radius: 10px;
-  background: #ffffff;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-height: 38px;
+  padding: 0.6rem 0.8rem;
+  border: none;
+  border-radius: 10px 10px 0 0;
+  background: transparent;
   cursor: pointer;
   text-align: left;
-  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
 .plan-toggle:hover {
-  border-color: rgba(37, 99, 235, 0.16);
-  background: #fffdfa;
+  background: rgba(15, 23, 42, 0.025);
 }
 
-.plan-toggle-copy {
+.plan-toggle-summary {
   min-width: 0;
   display: flex;
-  flex-direction: column;
-  gap: 0.18rem;
+  align-items: center;
+  gap: 0.45rem;
 }
 
-.plan-toggle-eyebrow {
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-muted);
+.plan-toggle-mark {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  color: #94a3b8;
 }
 
-.plan-toggle-copy strong {
-  color: var(--text-primary);
-  font-size: 0.94rem;
-}
-
-.plan-toggle-action {
-  margin-left: auto;
+.plan-toggle-title {
   font-size: 0.8rem;
-  color: var(--text-accent);
-  font-weight: 600;
+  font-weight: 500;
+  color: #64748b;
 }
 
 .plan-toggle-icon {
+  width: 15px;
+  height: 15px;
   flex-shrink: 0;
-  color: var(--text-muted);
+  color: #94a3b8;
   transition: transform 0.15s ease;
+}
+
+.plan-toggle-icon svg {
+  width: 100%;
+  height: 100%;
 }
 
 .plan-toggle-icon.collapsed {
@@ -103,6 +145,7 @@ const { t } = useI18n();
 }
 
 .plan-panel-body {
-  margin-top: 0.7rem;
+  padding: 0.15rem 0.8rem 0.75rem;
+  border-top: 1px solid rgba(226, 232, 240, 0.8);
 }
 </style>

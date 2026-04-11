@@ -108,6 +108,8 @@ const messages: Record<Locale, Dict> = {
     'chat.planItems': 'items',
     'chat.planToggleShow': 'Show',
     'chat.planToggleHide': 'Hide',
+    'chat.planSummaryTotal': 'Total {count} tasks',
+    'chat.planSummaryCompleted': 'Completed {count}',
 
     'permission.required': 'Permission Required',
     'common.cancel': 'Cancel',
@@ -261,6 +263,8 @@ const messages: Record<Locale, Dict> = {
     'chat.planItems': '项',
     'chat.planToggleShow': '展开',
     'chat.planToggleHide': '收起',
+    'chat.planSummaryTotal': '共 {count} 个任务',
+    'chat.planSummaryCompleted': '已完成 {count} 个',
 
     'permission.required': '需要权限确认',
     'common.cancel': '取消',

@@ -305,7 +305,7 @@ function getStatusIcon(status: string): string {
       @toggle="isPlanCollapsed = !isPlanCollapsed"
     />
     
-    <div class="input-shell">
+    <div class="input-shell" :class="{ 'input-shell-with-plan': currentPlanEntries.length > 0 }">
       <div class="input-container">
         <CommandPalette
           ref="commandPaletteRef"
@@ -593,6 +593,11 @@ function getStatusIcon(status: string): string {
   border-top: 1px solid var(--border-color);
   background: #fffdfa;
   padding: 1rem 1.2rem 1.15rem;
+}
+
+.input-shell.input-shell-with-plan {
+  border-top: none;
+  padding-top: 0.45rem;
 }
 
 .input-container {
