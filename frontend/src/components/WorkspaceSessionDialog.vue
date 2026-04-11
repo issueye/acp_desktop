@@ -162,48 +162,30 @@ function closeDialog() {
     </div>
 
     <template v-else>
-      <section class="workspace-hero">
-        <div class="hero-intro">
-          <div class="hero-copy">
-            <h3>{{ t('app.sessionSetupDesc') }}</h3>
-          </div>
-          <div class="hero-metrics">
-            <div class="hero-metric">
-              <span>{{ t('agent.label') }}</span>
-              <strong>{{ selectedAgent || t('agent.select') }}</strong>
-            </div>
-            <div class="hero-metric">
-              <span>{{ t('app.workspace') }}</span>
-              <strong :title="selectedCwd || '.'">{{ selectedCwdLabel }}</strong>
-            </div>
-            <div class="hero-metric">
-              <span>{{ t('app.proxy') }}</span>
-              <strong>{{ proxyEnabled ? t('app.proxyEnable') : t('app.proxyDisabled') }}</strong>
-            </div>
-          </div>
-        </div>
-        <div class="hero-overview">
-          <p class="eyebrow">{{ t('app.sessionLauncher') }}</p>
-          <h4>{{ t('app.newSession') }}</h4>
-          <div class="overview-lines">
-            <div class="overview-line">
-              <span>{{ t('agent.label') }}</span>
-              <strong>{{ selectedAgent || '--' }}</strong>
-            </div>
-            <div class="overview-line">
-              <span>{{ t('app.workspace') }}</span>
-              <strong :title="selectedCwd || '.'">{{ selectedCwdLabel }}</strong>
-            </div>
-            <div class="overview-line">
-              <span>{{ t('app.proxy') }}</span>
-              <strong>{{ proxyEnabled ? t('app.proxyEnable') : t('app.proxyDisabled') }}</strong>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <div class="dialog-grid">
+      <div class="workspace-layout">
         <div class="dialog-main">
+          <section class="workspace-hero">
+            <p class="eyebrow">{{ t('app.sessionLauncher') }}</p>
+            <div class="hero-copy">
+              <h3>{{ t('app.sessionSetupTitle') }}</h3>
+              <p class="hero-text">{{ t('app.sessionSetupDesc') }}</p>
+            </div>
+            <div class="hero-metrics">
+              <div class="hero-metric">
+                <span>{{ t('agent.label') }}</span>
+                <strong>{{ selectedAgent || t('agent.select') }}</strong>
+              </div>
+              <div class="hero-metric">
+                <span>{{ t('app.workspace') }}</span>
+                <strong :title="selectedCwd || '.'">{{ selectedCwdLabel }}</strong>
+              </div>
+              <div class="hero-metric">
+                <span>{{ t('app.proxy') }}</span>
+                <strong>{{ proxyEnabled ? t('app.proxyEnable') : t('app.proxyDisabled') }}</strong>
+              </div>
+            </div>
+          </section>
+
           <section class="dialog-section">
             <AgentSelector v-model:selected="selectedAgentModel" />
           </section>
@@ -384,6 +366,13 @@ function closeDialog() {
   background: linear-gradient(180deg, #f9f7f2 0%, #f6f4ef 100%);
 }
 
+.workspace-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(320px, 0.88fr);
+  gap: 1rem;
+  align-items: start;
+}
+
 .summary-line,
 .section-headline,
 .dialog-section-head {
@@ -429,29 +418,24 @@ function closeDialog() {
 }
 
 .workspace-hero {
-  display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(290px, 0.8fr);
-  gap: 0.9rem;
-  padding: 1rem;
-  margin-bottom: 0.95rem;
-  border-radius: 8px;
-}
-
-.hero-intro {
   display: flex;
   flex-direction: column;
-  gap: 0.9rem;
+  gap: 0.95rem;
+  padding: 1rem;
+  border-radius: 8px;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
 }
 
 .hero-copy h3 {
-  font-size: 1.03rem;
+  font-size: 1.08rem;
   font-weight: 600;
   color: var(--text-primary);
-  line-height: 1.45;
+  line-height: 1.3;
 }
 
 .hero-text {
-  margin-top: 0.3rem;
+  margin-top: 0.4rem;
   font-size: 0.86rem;
   line-height: 1.65;
   color: var(--text-secondary);
@@ -470,47 +454,6 @@ function closeDialog() {
   background: #ffffff;
 }
 
-.hero-overview {
-  padding: 0.95rem 1rem;
-  border-radius: 8px;
-  background: #f8fafc;
-  border: 1px solid rgba(15, 23, 42, 0.06);
-}
-
-.hero-overview h4 {
-  margin-top: 0.18rem;
-  font-size: 1rem;
-  color: var(--text-primary);
-}
-
-.overview-lines {
-  margin-top: 0.85rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.65rem;
-}
-
-.overview-line {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-}
-
-.overview-line span {
-  font-size: 0.74rem;
-  color: var(--text-muted);
-}
-
-.overview-line strong {
-  min-width: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  text-align: right;
-  color: var(--text-primary);
-}
-
 .hero-metric span {
   display: block;
   font-size: 0.72rem;
@@ -527,13 +470,6 @@ function closeDialog() {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.dialog-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1.55fr) minmax(300px, 0.92fr);
-  gap: 0.9rem;
-  align-items: start;
 }
 
 .dialog-main,
@@ -864,8 +800,7 @@ function closeDialog() {
 }
 
 @media (max-width: 1180px) {
-  .workspace-hero,
-  .dialog-grid {
+  .workspace-layout {
     grid-template-columns: 1fr;
   }
 
