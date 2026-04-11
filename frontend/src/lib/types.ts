@@ -43,6 +43,7 @@ export interface SavedSession {
   supportsLoadSession?: boolean; // Whether the agent supports session/load
   proxy?: SessionProxyConfig;
   messages?: ChatMessage[];
+  currentPlanEntries?: PlanEntry[];
 }
 
 export interface ChatMessage {
@@ -53,6 +54,7 @@ export interface ChatMessage {
   timestamp: number;
   toolCalls?: ToolCallInfo[];
   planEntries?: PlanEntry[];
+  parts?: ChatMessagePart[];
 }
 
 export interface ToolCallInfo {
@@ -83,6 +85,24 @@ export interface PlanEntry {
   priority: PlanEntryPriority;
   status: PlanEntryStatus;
 }
+
+export type ChatMessagePart =
+  | {
+      type: 'content';
+      content: string;
+    }
+  | {
+      type: 'thought';
+      content: string;
+    }
+  | {
+      type: 'tool_call';
+      toolCall: ToolCallInfo;
+    }
+  | {
+      type: 'plan';
+      entries: PlanEntry[];
+    };
 
 // Session Modes
 export interface SessionMode {

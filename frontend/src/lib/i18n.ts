@@ -104,6 +104,10 @@ const messages: Record<Locale, Dict> = {
     'chat.planPriorityHigh': 'High Priority',
     'chat.planPriorityMedium': 'Medium Priority',
     'chat.planPriorityLow': 'Low Priority',
+    'chat.currentPlan': 'Current Plan',
+    'chat.planItems': 'items',
+    'chat.planToggleShow': 'Show',
+    'chat.planToggleHide': 'Hide',
 
     'permission.required': 'Permission Required',
     'common.cancel': 'Cancel',
@@ -253,6 +257,10 @@ const messages: Record<Locale, Dict> = {
     'chat.planPriorityHigh': '高优先级',
     'chat.planPriorityMedium': '中优先级',
     'chat.planPriorityLow': '低优先级',
+    'chat.currentPlan': '当前计划',
+    'chat.planItems': '项',
+    'chat.planToggleShow': '展开',
+    'chat.planToggleHide': '收起',
 
     'permission.required': '需要权限确认',
     'common.cancel': '取消',

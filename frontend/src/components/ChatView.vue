@@ -6,8 +6,8 @@ import { useI18n } from '../lib/i18n';
 import ModePicker from './ModePicker.vue';
 import ModelPicker from './ModelPicker.vue';
 import CommandPalette from './CommandPalette.vue';
-import PlanCard from './PlanCard.vue';
-import type { SlashCommand } from '../lib/types';
+import type { ChatMessage, ChatMessagePart, SlashCommand } from '../lib/types';
+import CurrentPlanPanel from './CurrentPlanPanel.vue';
 
 const sessionStore = useSessionStore();
 const { t } = useI18n();
@@ -26,6 +26,8 @@ const currentModeId = computed(() => sessionStore.currentModeId);
 const availableModels = computed(() => sessionStore.availableModels);
 const currentModelId = computed(() => sessionStore.currentModelId);
 const availableCommands = computed(() => sessionStore.availableCommands);
+const currentPlanEntries = computed(() => sessionStore.currentPlanEntries);
+const isPlanCollapsed = ref(false);
 
 // Slash command state
 const showCommandPalette = computed(() => {
@@ -50,6 +52,21 @@ watch(messages, async () => {
     messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
   }
 }, { deep: true });
+
+watch(
+  currentPlanEntries,
+  (entries, previousEntries) => {
+    if (entries.length === 0) {
+      isPlanCollapsed.value = false;
+      return;
+    }
+
+    if (JSON.stringify(entries) !== JSON.stringify(previousEntries ?? [])) {
+      isPlanCollapsed.value = false;
+    }
+  },
+  { deep: true }
+);
 
 async function handleSend() {
   const text = inputText.value.trim();
@@ -127,6 +144,45 @@ function renderMarkdown(content: string): string {
   return marked.parse(content, { async: false }) as string;
 }
 
+function getMessageParts(message: ChatMessage): ChatMessagePart[] {
+  if (message.parts?.length) {
+    return message.parts;
+  }
+
+  const parts: ChatMessagePart[] = [];
+  if (message.content) {
+    parts.push({
+      type: 'content',
+      content: message.content,
+    });
+  }
+  if (message.thought) {
+    parts.push({
+      type: 'thought',
+      content: message.thought,
+    });
+  }
+  if (message.planEntries?.length) {
+    parts.push({
+      type: 'plan',
+      entries: message.planEntries,
+    });
+  }
+  if (message.toolCalls?.length) {
+    parts.push(
+      ...message.toolCalls.map((toolCall) => ({
+        type: 'tool_call' as const,
+        toolCall,
+      }))
+    );
+  }
+  return parts;
+}
+
+function getThoughtKey(messageId: string, index: number): string {
+  return `${messageId}-${index}`;
+}
+
 function getToolIcon(kind: string): string {
   switch (kind) {
     case 'read': return '📖';
@@ -194,43 +250,44 @@ function getStatusIcon(status: string): string {
             <span class="role">{{ message.role === 'user' ? t('chat.roleYou') : t('chat.roleAssistant') }}</span>
           </div>
 
-          <div v-if="message.thought && message.role === 'assistant'" class="thought-section">
-            <button class="thought-toggle" @click="toggleThought(message.id)">
-              <span class="thought-icon">...</span>
-              <span class="thought-label">{{ isThoughtExpanded(message.id) ? t('chat.hideThinking') : t('chat.showThinking') }}</span>
-              <span class="thought-chevron">{{ isThoughtExpanded(message.id) ? '▲' : '▼' }}</span>
-            </button>
-            <div v-if="isThoughtExpanded(message.id)" class="thought-content">
-              <div v-html="renderMarkdown(message.thought)" />
-            </div>
-          </div>
-
-          <div v-if="message.toolCalls?.length" class="tool-calls-section">
-            <div 
-              v-for="tc in message.toolCalls" 
-              :key="tc.toolCallId"
-              :class="['tool-call-inline', `tool-${tc.status}`]"
+          <template v-for="(part, partIndex) in getMessageParts(message)" :key="`${message.id}-${partIndex}`">
+            <div
+              v-if="part.type === 'thought' && message.role === 'assistant'"
+              class="thought-section"
             >
-              <span class="tool-icon">{{ getToolIcon(tc.kind) }}</span>
-              <span class="tool-name">{{ tc.title }}</span>
-              <span v-if="tc.locations?.length" class="tool-location">
-                {{ tc.locations[0].path }}
-              </span>
-              <span :class="['tool-status', `status-${tc.status}`]">
-                {{ getStatusIcon(tc.status) }}
-              </span>
+              <button class="thought-toggle" @click="toggleThought(getThoughtKey(message.id, partIndex))">
+                <span class="thought-icon">...</span>
+                <span class="thought-label">
+                  {{ isThoughtExpanded(getThoughtKey(message.id, partIndex)) ? t('chat.hideThinking') : t('chat.showThinking') }}
+                </span>
+                <span class="thought-chevron">
+                  {{ isThoughtExpanded(getThoughtKey(message.id, partIndex)) ? '▲' : '▼' }}
+                </span>
+              </button>
+              <div v-if="isThoughtExpanded(getThoughtKey(message.id, partIndex))" class="thought-content">
+                <div v-html="renderMarkdown(part.content)" />
+              </div>
             </div>
-          </div>
 
-          <div v-if="message.planEntries?.length" class="plan-section">
-            <PlanCard :entries="message.planEntries" />
-          </div>
+            <div v-else-if="part.type === 'tool_call'" class="tool-calls-section">
+              <div :class="['tool-call-inline', `tool-${part.toolCall.status}`]">
+                <span class="tool-icon">{{ getToolIcon(part.toolCall.kind) }}</span>
+                <span class="tool-name">{{ part.toolCall.title }}</span>
+                <span v-if="part.toolCall.locations?.length" class="tool-location">
+                  {{ part.toolCall.locations[0].path }}
+                </span>
+                <span :class="['tool-status', `status-${part.toolCall.status}`]">
+                  {{ getStatusIcon(part.toolCall.status) }}
+                </span>
+              </div>
+            </div>
 
-          <div 
-            v-if="message.content"
-            class="message-content"
-            v-html="renderMarkdown(message.content)"
-          />
+            <div
+              v-else-if="part.type === 'content' && part.content"
+              class="message-content"
+              v-html="renderMarkdown(part.content)"
+            />
+          </template>
         </div>
 
         <div v-if="isLoading" class="loading-indicator">
@@ -240,6 +297,13 @@ function getStatusIcon(status: string): string {
         </div>
       </div>
     </div>
+
+    <CurrentPlanPanel
+      v-if="currentPlanEntries.length"
+      :entries="currentPlanEntries"
+      :collapsed="isPlanCollapsed"
+      @toggle="isPlanCollapsed = !isPlanCollapsed"
+    />
     
     <div class="input-shell">
       <div class="input-container">
@@ -396,10 +460,6 @@ function getStatusIcon(status: string): string {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
-}
-
-.plan-section {
-  margin-bottom: 0.8rem;
 }
 
 .tool-call-inline {

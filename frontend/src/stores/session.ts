@@ -4,6 +4,7 @@ import { computed, ref, watch } from 'vue';
 import { trackError, trackEvent } from '../lib/telemetry';
 import type {
   ChatMessage,
+  ChatMessagePart,
   ModelInfo,
   PlanEntry,
   PermissionRequest,
@@ -39,6 +40,7 @@ interface ConnectedSessionState {
   client: AcpClientBridge;
   isLoading: boolean;
   messages: ChatMessage[];
+  currentPlanEntries: PlanEntry[];
   toolCalls: Map<string, ToolCallInfo>;
   availableModes: SessionMode[];
   currentModeId: string;
@@ -167,7 +169,32 @@ function cloneMessages(messages?: ChatMessage[]): ChatMessage[] {
       locations: toolCall.locations?.map((location) => ({ ...location })),
     })),
     planEntries: message.planEntries?.map((entry) => ({ ...entry })),
+    parts: message.parts?.map((part) => {
+      if (part.type === 'tool_call') {
+        return {
+          ...part,
+          toolCall: {
+            ...part.toolCall,
+            locations: part.toolCall.locations?.map((location) => ({ ...location })),
+          },
+        };
+      }
+      if (part.type === 'plan') {
+        return {
+          ...part,
+          entries: part.entries.map((entry) => ({ ...entry })),
+        };
+      }
+      return { ...part };
+    }),
   }));
+}
+
+function clonePlanEntries(entries?: PlanEntry[]): PlanEntry[] {
+  if (!Array.isArray(entries)) {
+    return [];
+  }
+  return entries.map((entry) => ({ ...entry }));
 }
 
 export const useSessionStore = defineStore('session', () => {
@@ -187,6 +214,10 @@ export const useSessionStore = defineStore('session', () => {
   const availableCommands = computed(() => {
     const active = connectedSessions.value[activeSessionId.value];
     return active?.availableCommands ?? [];
+  });
+  const currentPlanEntries = computed(() => {
+    const active = connectedSessions.value[activeSessionId.value];
+    return active?.currentPlanEntries ?? [];
   });
 
   const availableModes = computed(() => {
@@ -247,6 +278,7 @@ export const useSessionStore = defineStore('session', () => {
         ...session,
         proxy: sanitizeProxyConfig(session.proxy),
         messages: cloneMessages(session.messages),
+        currentPlanEntries: clonePlanEntries(session.currentPlanEntries),
       }));
     }
 
@@ -290,6 +322,7 @@ export const useSessionStore = defineStore('session', () => {
       client,
       isLoading: false,
       messages: [],
+      currentPlanEntries: clonePlanEntries(session.currentPlanEntries),
       toolCalls: new Map<string, ToolCallInfo>(),
       availableModes: [],
       currentModeId: '',
@@ -399,30 +432,136 @@ export const useSessionStore = defineStore('session', () => {
 
   function syncRuntimeSnapshot(runtime: ConnectedSessionState): void {
     runtime.session.messages = cloneMessages(runtime.messages);
+    runtime.session.currentPlanEntries = clonePlanEntries(runtime.currentPlanEntries);
   }
 
-  function upsertPlanMessage(runtime: ConnectedSessionState, entries: PlanEntry[]): void {
-    const lastMessage = runtime.messages[runtime.messages.length - 1];
-    const nextEntries = entries.map((entry) => ({ ...entry }));
+  function ensureMessageParts(message: ChatMessage): ChatMessagePart[] {
+    if (!message.parts) {
+      const parts: ChatMessagePart[] = [];
+      if (message.content) {
+        parts.push({
+          type: 'content',
+          content: message.content,
+        });
+      }
+      if (message.thought) {
+        parts.push({
+          type: 'thought',
+          content: message.thought,
+        });
+      }
+      if (message.planEntries?.length) {
+        parts.push({
+          type: 'plan',
+          entries: message.planEntries.map((entry) => ({ ...entry })),
+        });
+      }
+      if (message.toolCalls?.length) {
+        parts.push(
+          ...message.toolCalls.map((toolCall) => ({
+            type: 'tool_call' as const,
+            toolCall: {
+              ...toolCall,
+              locations: toolCall.locations?.map((location) => ({ ...location })),
+            },
+          }))
+        );
+      }
+      message.parts = parts;
+    }
+    return message.parts;
+  }
 
-    if (
-      lastMessage &&
-      lastMessage.role === 'assistant' &&
-      Array.isArray(lastMessage.planEntries) &&
-      !lastMessage.content &&
-      !lastMessage.thought
-    ) {
-      lastMessage.planEntries = nextEntries;
+  function createChatMessage(role: ChatMessage['role']): ChatMessage {
+    return {
+      id: crypto.randomUUID(),
+      role,
+      content: '',
+      timestamp: Date.now(),
+      parts: [],
+    };
+  }
+
+  function getOrCreateTrailingMessage(
+    runtime: ConnectedSessionState,
+    role: ChatMessage['role']
+  ): ChatMessage {
+    const lastMessage = runtime.messages[runtime.messages.length - 1];
+    if (lastMessage && lastMessage.role === role) {
+      ensureMessageParts(lastMessage);
+      return lastMessage;
+    }
+
+    const nextMessage = createChatMessage(role);
+    runtime.messages.push(nextMessage);
+    return nextMessage;
+  }
+
+  function appendTextPart(
+    message: ChatMessage,
+    type: Extract<ChatMessagePart, { type: 'content' | 'thought' }>['type'],
+    text: string
+  ): void {
+    const parts = ensureMessageParts(message);
+    const lastPart = parts[parts.length - 1];
+    if (lastPart && lastPart.type === type) {
+      lastPart.content += text;
+    } else {
+      parts.push({
+        type,
+        content: text,
+      });
+    }
+
+    if (type === 'content') {
+      message.content += text;
       return;
     }
 
-    runtime.messages.push({
-      id: crypto.randomUUID(),
-      role: 'assistant',
-      content: '',
-      timestamp: Date.now(),
-      planEntries: nextEntries,
+    message.thought = (message.thought || '') + text;
+  }
+
+  function appendToolCallPart(message: ChatMessage, toolCall: ToolCallInfo): void {
+    const nextToolCall = {
+      ...toolCall,
+      locations: toolCall.locations?.map((location) => ({ ...location })),
+    };
+
+    ensureMessageParts(message).push({
+      type: 'tool_call',
+      toolCall: nextToolCall,
     });
+    if (!message.toolCalls) {
+      message.toolCalls = [];
+    }
+    message.toolCalls.push(nextToolCall);
+  }
+
+  function upsertPlanMessage(runtime: ConnectedSessionState, entries: PlanEntry[]): void {
+    const nextEntries = entries.map((entry) => ({ ...entry }));
+    runtime.currentPlanEntries = nextEntries;
+    runtime.session.currentPlanEntries = clonePlanEntries(nextEntries);
+  }
+
+  function updateToolCallParts(messages: ChatMessage[], update: { toolCallId: string; status?: ToolCallInfo['status'] | null; title?: string | null; }): void {
+    for (const msg of messages) {
+      if (msg.toolCalls) {
+        const toolCall = msg.toolCalls.find((entry) => entry.toolCallId === update.toolCallId);
+        if (toolCall) {
+          if (update.status) toolCall.status = update.status;
+          if (update.title) toolCall.title = update.title;
+        }
+      }
+
+      const parts = ensureMessageParts(msg);
+      for (const part of parts) {
+        if (part.type !== 'tool_call' || part.toolCall.toolCallId !== update.toolCallId) {
+          continue;
+        }
+        if (update.status) part.toolCall.status = update.status;
+        if (update.title) part.toolCall.title = update.title;
+      }
+    }
   }
 
   function handleSessionUpdate(runtime: ConnectedSessionState, notification: SessionNotification) {
@@ -432,80 +571,40 @@ export const useSessionStore = defineStore('session', () => {
 
     switch (update.sessionUpdate) {
       case 'user_message_chunk': {
-        const lastUserMsg = targetMessages[targetMessages.length - 1];
-        if (lastUserMsg && lastUserMsg.role === 'user') {
-          if (update.content.type === 'text') {
-            lastUserMsg.content += update.content.text;
-          }
-        } else {
-          targetMessages.push({
-            id: crypto.randomUUID(),
-            role: 'user',
-            content: update.content.type === 'text' ? update.content.text : '',
-            timestamp: Date.now(),
-          });
+        if (update.content.type === 'text') {
+          const message = getOrCreateTrailingMessage(runtime, 'user');
+          appendTextPart(message, 'content', update.content.text);
         }
         break;
       }
 
       case 'agent_message_chunk': {
-        const lastMsg = targetMessages[targetMessages.length - 1];
-        if (lastMsg && lastMsg.role === 'assistant') {
-          if (update.content.type === 'text') {
-            lastMsg.content += update.content.text;
-          }
-        } else {
-          targetMessages.push({
-            id: crypto.randomUUID(),
-            role: 'assistant',
-            content: update.content.type === 'text' ? update.content.text : '',
-            timestamp: Date.now(),
-            toolCalls: [],
-          });
+        if (update.content.type === 'text') {
+          const message = getOrCreateTrailingMessage(runtime, 'assistant');
+          appendTextPart(message, 'content', update.content.text);
         }
         break;
       }
 
       case 'agent_thought_chunk': {
-        const lastAssistantMsg = targetMessages[targetMessages.length - 1];
-        if (lastAssistantMsg && lastAssistantMsg.role === 'assistant') {
-          if (update.content.type === 'text') {
-            lastAssistantMsg.thought = (lastAssistantMsg.thought || '') + update.content.text;
-          }
-        } else {
-          targetMessages.push({
-            id: crypto.randomUUID(),
-            role: 'assistant',
-            content: '',
-            thought: update.content.type === 'text' ? update.content.text : '',
-            timestamp: Date.now(),
-            toolCalls: [],
-          });
+        if (update.content.type === 'text') {
+          const message = getOrCreateTrailingMessage(runtime, 'assistant');
+          appendTextPart(message, 'thought', update.content.text);
         }
         break;
       }
 
       case 'tool_call': {
-        const currentAssistantMsg = targetMessages[targetMessages.length - 1];
-        if (currentAssistantMsg && currentAssistantMsg.role === 'assistant') {
-          if (!currentAssistantMsg.toolCalls) {
-            currentAssistantMsg.toolCalls = [];
-          }
-          currentAssistantMsg.toolCalls.push({
-            toolCallId: update.toolCallId,
-            title: update.title,
-            kind: update.kind || 'other',
-            status: update.status || 'pending',
-            locations: update.locations,
-          });
-        }
-        targetToolCalls.set(update.toolCallId, {
+        const nextToolCall = {
           toolCallId: update.toolCallId,
           title: update.title,
           kind: update.kind || 'other',
           status: update.status || 'pending',
           locations: update.locations,
-        });
+        };
+        const message = getOrCreateTrailingMessage(runtime, 'assistant');
+        appendToolCallPart(message, nextToolCall);
+        targetToolCalls.set(update.toolCallId, nextToolCall);
         break;
       }
 
@@ -515,13 +614,7 @@ export const useSessionStore = defineStore('session', () => {
           if (update.status) existing.status = update.status;
           if (update.title) existing.title = update.title;
         }
-        for (const msg of targetMessages) {
-          if (!msg.toolCalls) continue;
-          const toolCall = msg.toolCalls.find((entry) => entry.toolCallId === update.toolCallId);
-          if (!toolCall) continue;
-          if (update.status) toolCall.status = update.status;
-          if (update.title) toolCall.title = update.title;
-        }
+        updateToolCallParts(targetMessages, update);
         break;
       }
 
@@ -876,10 +969,15 @@ export const useSessionStore = defineStore('session', () => {
     }
 
     runtime.messages.push({
-      id: crypto.randomUUID(),
-      role: 'user',
+      ...createChatMessage('user'),
       content: text,
       timestamp: Date.now(),
+      parts: [
+        {
+          type: 'content',
+          content: text,
+        },
+      ],
     });
 
     runtime.isLoading = true;
@@ -1037,6 +1135,7 @@ export const useSessionStore = defineStore('session', () => {
     availableCommands,
     availableModels,
     currentModelId,
+    currentPlanEntries,
     startupPhase,
     startupLogs,
     startupElapsed,
