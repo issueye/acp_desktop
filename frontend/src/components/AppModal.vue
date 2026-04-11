@@ -1,19 +1,23 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted } from 'vue';
 
+type ClassValue = string | string[] | Record<string, boolean> | Array<string | Record<string, boolean>>;
+
 const props = withDefaults(
   defineProps<{
     modelValue: boolean;
     closeOnBackdrop?: boolean;
     closeOnEscape?: boolean;
     maxWidth?: string;
+    maxHeight?: string;
     width?: string;
-    panelClass?: string | string[] | Record<string, boolean>;
+    panelClass?: ClassValue;
   }>(),
   {
     closeOnBackdrop: true,
     closeOnEscape: true,
     maxWidth: '560px',
+    maxHeight: 'calc(100dvh - 64px)',
     width: '100%',
     panelClass: '',
   }
@@ -27,6 +31,7 @@ const emit = defineEmits<{
 const panelStyle = computed(() => ({
   width: props.width,
   maxWidth: props.maxWidth,
+  maxHeight: props.maxHeight,
 }));
 
 function close() {

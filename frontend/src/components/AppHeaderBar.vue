@@ -81,7 +81,7 @@ const { t } = useI18n();
   align-items: center;
   min-height: 46px;
   padding: 0.38rem 0.72rem;
-  background: rgba(248, 246, 240, 0.96);
+  background: var(--bg-header);
   color: var(--text-primary);
   border-bottom: 1px solid rgba(15, 23, 42, 0.06);
 }

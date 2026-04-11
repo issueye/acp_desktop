@@ -97,6 +97,22 @@ function buildProxyEnv(proxy?: SessionProxyConfig): Record<string, string> {
   setPair('HTTPS_PROXY', normalized.httpsProxy);
   setPair('ALL_PROXY', normalized.allProxy);
   setPair('NO_PROXY', normalized.noProxy);
+
+  const npmProxy = normalized.httpProxy || normalized.allProxy;
+  const npmHttpsProxy = normalized.httpsProxy || normalized.httpProxy || normalized.allProxy;
+  if (npmProxy) {
+    setPair('NPM_CONFIG_PROXY', npmProxy);
+    setPair('npm_config_proxy', npmProxy);
+  }
+  if (npmHttpsProxy) {
+    setPair('NPM_CONFIG_HTTPS_PROXY', npmHttpsProxy);
+    setPair('npm_config_https_proxy', npmHttpsProxy);
+    setPair('GLOBAL_AGENT_HTTP_PROXY', npmHttpsProxy);
+  }
+  if (normalized.noProxy) {
+    setPair('NPM_CONFIG_NOPROXY', normalized.noProxy);
+    setPair('npm_config_noproxy', normalized.noProxy);
+  }
   return env;
 }
 

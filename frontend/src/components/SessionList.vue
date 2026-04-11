@@ -120,6 +120,10 @@ function cancelDelete() {
   showDeleteConfirm.value = false;
 }
 
+const pendingDeleteSession = computed(() =>
+  sessions.value.find((session) => session.id === pendingDeleteSessionId.value) ?? null
+);
+
 function handleTogglePin(sessionId: string, event: Event) {
   event.stopPropagation();
   emit('togglePin', sessionId);
@@ -228,7 +232,11 @@ function handleKeyDown(event: KeyboardEvent) {
     <AppConfirmDialog
       :model-value="showDeleteConfirm"
       :title="t('session.delete')"
-      :message="t('session.confirmDelete')"
+      :message="
+        pendingDeleteSession
+          ? `${t('session.confirmDelete')} ${pendingDeleteSession.title}`
+          : t('session.confirmDelete')
+      "
       :confirm-label="t('session.delete')"
       :cancel-label="t('common.cancel')"
       tone="danger"

@@ -1,15 +1,13 @@
 import type { AgentsConfig, AgentInstance, AgentMessage, AgentStderr } from "./types";
-import {
-  Quit,
-  WindowIsMaximised,
-  WindowMinimise,
-  WindowToggleMaximise,
-} from "../../wailsjs/runtime/runtime";
 
 export type UnlistenFn = () => void;
 
 type RuntimeAPI = {
   EventsOn?: (eventName: string, callback: (payload: unknown) => void) => UnlistenFn | void;
+  Quit?: () => void;
+  WindowIsMaximised?: () => Promise<boolean>;
+  WindowMinimise?: () => void;
+  WindowToggleMaximise?: () => void;
 };
 
 type AppBinding = Record<string, (...args: unknown[]) => Promise<unknown> | unknown>;
@@ -182,17 +180,17 @@ export async function onAgentStderr(
 }
 
 export function windowMinimise(): void {
-  WindowMinimise();
+  getRuntime().WindowMinimise?.();
 }
 
 export function windowClose(): void {
-  Quit();
+  getRuntime().Quit?.();
 }
 
 export function windowToggleMaximise(): void {
-  WindowToggleMaximise();
+  getRuntime().WindowToggleMaximise?.();
 }
 
 export function windowIsMaximised(): Promise<boolean> {
-  return WindowIsMaximised();
+  return getRuntime().WindowIsMaximised?.() ?? Promise.resolve(false);
 }

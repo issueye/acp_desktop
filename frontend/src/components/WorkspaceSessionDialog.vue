@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useI18n } from '../lib/i18n';
-import AppModal from './AppModal.vue';
+import AppDialogShell from './AppDialogShell.vue';
 import AgentSelector from './AgentSelector.vue';
 import StartupProgress from './StartupProgress.vue';
 
@@ -55,33 +55,40 @@ function closeDialog() {
 </script>
 
 <template>
-  <AppModal
+  <AppDialogShell
     :model-value="modelValue"
+    :title="t('app.sessionSetupTitle')"
+    :eyebrow="t('app.sessionLauncher')"
     max-width="1080px"
     :close-on-backdrop="!isConnecting"
+    :close-on-escape="!isConnecting"
+    :show-close="!isConnecting"
+    body-class="workspace-dialog"
     @update:modelValue="(value) => emit('update:modelValue', value)"
     @close="closeDialog"
   >
-    <div class="workspace-dialog">
-      <div class="dialog-header workspace-header">
-        <div class="header-copy">
-          <p class="eyebrow">{{ t('app.workspace') }}</p>
-          <h2>{{ t('app.sessionSetupTitle') }}</h2>
-        </div>
-        <button class="icon-button" :disabled="isConnecting" @click="closeDialog">×</button>
+    <template #header-extra>
+      <div class="header-summary">
+        <span class="summary-chip">{{ selectedAgent || t('agent.select') }}</span>
+        <span class="summary-chip muted" :title="selectedCwd || '.'">{{ selectedCwdLabel }}</span>
       </div>
+    </template>
 
-      <div v-if="!hasAgents" class="empty-workspace panel-card">
-        <h3>{{ t('app.noAgentTitle') }}</h3>
-        <p>{{ t('app.noAgentDesc') }}</p>
-        <button class="primary-button" @click="emit('openAddAgent')">{{ t('settings.addAgent') }}</button>
-      </div>
+    <div v-if="!hasAgents" class="empty-workspace panel-card">
+      <h3>{{ t('app.noAgentTitle') }}</h3>
+      <p>{{ t('app.noAgentDesc') }}</p>
+      <button class="primary-button" @click="emit('openAddAgent')">{{ t('settings.addAgent') }}</button>
+    </div>
 
-      <template v-else>
-        <section class="workspace-hero">
+    <template v-else>
+      <section class="workspace-hero">
+        <div class="hero-intro">
           <div class="hero-copy">
-            <p class="eyebrow">{{ t('app.sessionLauncher') }}</p>
+            <p class="eyebrow">{{ t('app.workspaceSummary') }}</p>
             <h3>{{ t('app.sessionSetupDesc') }}</h3>
+            <p class="hero-text">
+              {{ t('app.sessionSetupTitle') }}
+            </p>
           </div>
           <div class="hero-metrics">
             <div class="hero-metric">
@@ -97,167 +104,180 @@ function closeDialog() {
               <strong>{{ proxyEnabled ? t('app.proxyEnable') : t('app.proxyDisabled') }}</strong>
             </div>
           </div>
-        </section>
+        </div>
+        <div class="hero-overview">
+          <p class="eyebrow">{{ t('app.sessionLauncher') }}</p>
+          <h4>{{ t('app.newSession') }}</h4>
+          <div class="overview-lines">
+            <div class="overview-line">
+              <span>{{ t('agent.label') }}</span>
+              <strong>{{ selectedAgent || '--' }}</strong>
+            </div>
+            <div class="overview-line">
+              <span>{{ t('app.workspace') }}</span>
+              <strong :title="selectedCwd || '.'">{{ selectedCwdLabel }}</strong>
+            </div>
+            <div class="overview-line">
+              <span>{{ t('app.proxy') }}</span>
+              <strong>{{ proxyEnabled ? t('app.proxyEnable') : t('app.proxyDisabled') }}</strong>
+            </div>
+          </div>
+        </div>
+      </section>
 
-        <div class="dialog-grid">
-          <div class="dialog-main">
-            <section class="dialog-section">
-              <div class="dialog-section-head">
-                <div>
-                  <p class="eyebrow">{{ t('agent.label') }}</p>
-                  <h3>{{ t('agent.label') }}</h3>
-                </div>
+      <div class="dialog-grid">
+        <div class="dialog-main">
+          <section class="dialog-section">
+            <div class="dialog-section-head">
+              <div>
+                <p class="eyebrow">{{ t('agent.label') }}</p>
+                <h3>{{ t('agent.label') }}</h3>
               </div>
-              <AgentSelector v-model:selected="selectedAgentModel" />
-            </section>
+            </div>
+            <AgentSelector v-model:selected="selectedAgentModel" />
+          </section>
 
-            <section class="dialog-section">
-              <div class="section-headline">
-                <div>
-                  <p class="eyebrow">{{ t('app.workspace') }}</p>
-                  <h3>{{ t('app.workingDirectory') }}</h3>
-                </div>
-                <button class="ghost-button" @click="emit('selectFolder')">{{ t('app.selectFolder') }}</button>
+          <section class="dialog-section">
+            <div class="section-headline">
+              <div>
+                <p class="eyebrow">{{ t('app.workspace') }}</p>
+                <h3>{{ t('app.workingDirectory') }}</h3>
               </div>
-              <div class="cwd-card" :title="selectedCwd || t('app.currentDirectory')">
+              <button class="ghost-button" @click="emit('selectFolder')">{{ t('app.selectFolder') }}</button>
+            </div>
+            <div class="cwd-card" :title="selectedCwd || t('app.currentDirectory')">
+              <div class="cwd-badge">#</div>
+              <div class="cwd-copy">
                 <strong>{{ selectedCwdLabel }}</strong>
                 <span>{{ selectedCwd || '.' }}</span>
               </div>
-            </section>
+            </div>
+          </section>
 
-            <section class="dialog-section">
-              <div class="section-headline">
-                <div>
-                  <p class="eyebrow">{{ t('app.proxy') }}</p>
-                  <h3>{{ t('app.proxy') }}</h3>
-                </div>
-                <label class="proxy-switch">
-                  <input
-                    :checked="proxyEnabled"
-                    type="checkbox"
-                    :disabled="isConnecting"
-                    @change="emit('update:proxyEnabled', ($event.target as HTMLInputElement).checked)"
-                  />
-                  <span>{{ t('app.proxyEnable') }}</span>
-                </label>
+          <section class="dialog-section">
+            <div class="section-headline">
+              <div>
+                <p class="eyebrow">{{ t('app.proxy') }}</p>
+                <h3>{{ t('app.proxy') }}</h3>
               </div>
-              <div class="proxy-grid" :class="{ disabled: !proxyEnabled }">
-                <label class="proxy-field">
-                  <span>{{ t('app.proxyHttp') }}</span>
-                  <input
-                    :value="httpProxy"
-                    type="text"
-                    :placeholder="t('app.proxySampleHost')"
-                    :disabled="!proxyEnabled || isConnecting"
-                    @input="emit('update:httpProxy', ($event.target as HTMLInputElement).value)"
-                  />
-                </label>
-                <label class="proxy-field">
-                  <span>{{ t('app.proxyHttps') }}</span>
-                  <input
-                    :value="httpsProxy"
-                    type="text"
-                    :placeholder="t('app.proxySampleHost')"
-                    :disabled="!proxyEnabled || isConnecting"
-                    @input="emit('update:httpsProxy', ($event.target as HTMLInputElement).value)"
-                  />
-                </label>
-                <label class="proxy-field">
-                  <span>{{ t('app.proxyAll') }}</span>
-                  <input
-                    :value="allProxy"
-                    type="text"
-                    :placeholder="t('app.proxySampleHost')"
-                    :disabled="!proxyEnabled || isConnecting"
-                    @input="emit('update:allProxy', ($event.target as HTMLInputElement).value)"
-                  />
-                </label>
-                <label class="proxy-field">
-                  <span>{{ t('app.proxyNo') }}</span>
-                  <input
-                    :value="noProxy"
-                    type="text"
-                    :placeholder="t('app.proxySampleNo')"
-                    :disabled="!proxyEnabled || isConnecting"
-                    @input="emit('update:noProxy', ($event.target as HTMLInputElement).value)"
-                  />
-                </label>
-              </div>
-            </section>
-          </div>
+              <label class="proxy-switch" :class="{ enabled: proxyEnabled }">
+                <input
+                  :checked="proxyEnabled"
+                  type="checkbox"
+                  :disabled="isConnecting"
+                  @change="emit('update:proxyEnabled', ($event.target as HTMLInputElement).checked)"
+                />
+                <span class="switch-track"><span class="switch-thumb"></span></span>
+                <span>{{ proxyEnabled ? t('app.proxyEnable') : t('app.proxyDisabled') }}</span>
+              </label>
+            </div>
+            <div class="proxy-grid" :class="{ disabled: !proxyEnabled }">
+              <label class="proxy-field">
+                <span>{{ t('app.proxyHttp') }}</span>
+                <input
+                  :value="httpProxy"
+                  type="text"
+                  :placeholder="t('app.proxySampleHost')"
+                  :disabled="!proxyEnabled || isConnecting"
+                  @input="emit('update:httpProxy', ($event.target as HTMLInputElement).value)"
+                />
+              </label>
+              <label class="proxy-field">
+                <span>{{ t('app.proxyHttps') }}</span>
+                <input
+                  :value="httpsProxy"
+                  type="text"
+                  :placeholder="t('app.proxySampleHost')"
+                  :disabled="!proxyEnabled || isConnecting"
+                  @input="emit('update:httpsProxy', ($event.target as HTMLInputElement).value)"
+                />
+              </label>
+              <label class="proxy-field">
+                <span>{{ t('app.proxyAll') }}</span>
+                <input
+                  :value="allProxy"
+                  type="text"
+                  :placeholder="t('app.proxySampleHost')"
+                  :disabled="!proxyEnabled || isConnecting"
+                  @input="emit('update:allProxy', ($event.target as HTMLInputElement).value)"
+                />
+              </label>
+              <label class="proxy-field">
+                <span>{{ t('app.proxyNo') }}</span>
+                <input
+                  :value="noProxy"
+                  type="text"
+                  :placeholder="t('app.proxySampleNo')"
+                  :disabled="!proxyEnabled || isConnecting"
+                  @input="emit('update:noProxy', ($event.target as HTMLInputElement).value)"
+                />
+              </label>
+            </div>
+          </section>
+        </div>
 
-          <aside class="dialog-side">
-            <div class="launch-card">
-              <div class="launch-copy">
-                <p class="eyebrow">{{ t('app.workspaceSummary') }}</p>
-                <h3>{{ t('app.newSession') }}</h3>
-                <p class="launch-text">{{ t('app.sessionSetupDesc') }}</p>
+        <aside class="dialog-side">
+          <div class="launch-card">
+            <div class="launch-copy">
+              <p class="eyebrow">{{ t('app.workspaceSummary') }}</p>
+              <h3>{{ t('app.newSession') }}</h3>
+              <p class="launch-text">{{ t('app.sessionSetupDesc') }}</p>
+            </div>
+            <div class="summary-card">
+              <div class="summary-line">
+                <span>{{ t('agent.label') }}</span>
+                <strong>{{ selectedAgent || '--' }}</strong>
               </div>
-              <div class="summary-card">
-                <div class="summary-line">
-                  <span>{{ t('agent.label') }}</span>
-                  <strong>{{ selectedAgent || '--' }}</strong>
-                </div>
-                <div class="summary-line">
-                  <span>{{ t('app.workspace') }}</span>
-                  <strong :title="selectedCwd || '.'">{{ selectedCwdLabel }}</strong>
-                </div>
-                <div class="summary-line">
-                  <span>{{ t('app.proxy') }}</span>
-                  <strong>{{ proxyEnabled ? t('app.proxyEnable') : t('app.proxyDisabled') }}</strong>
-                </div>
+              <div class="summary-line">
+                <span>{{ t('app.workspace') }}</span>
+                <strong :title="selectedCwd || '.'">{{ selectedCwdLabel }}</strong>
               </div>
-              <div v-if="!isConnecting" class="dialog-actions launch-actions">
-                <button class="primary-button" :disabled="!selectedAgent || isLoading" @click="emit('createSession')">
-                  {{ isLoading ? t('app.connecting') : t('app.newSession') }}
-                </button>
-                <button class="secondary-button" @click="closeDialog">{{ t('common.cancel') }}</button>
+              <div class="summary-line">
+                <span>{{ t('app.proxy') }}</span>
+                <strong>{{ proxyEnabled ? t('app.proxyEnable') : t('app.proxyDisabled') }}</strong>
               </div>
             </div>
+            <div class="launch-note">
+              <span class="launch-note-mark">i</span>
+              <p>{{ t('app.sessionSetupDesc') }}</p>
+            </div>
+            <div v-if="!isConnecting" class="dialog-actions launch-actions">
+              <button class="primary-button" :disabled="!selectedAgent || isLoading" @click="emit('createSession')">
+                {{ isLoading ? t('app.connecting') : t('app.newSession') }}
+              </button>
+              <button class="secondary-button" @click="closeDialog">{{ t('common.cancel') }}</button>
+            </div>
+          </div>
 
-            <StartupProgress
-              v-if="isConnecting"
-              :agent-name="selectedAgent"
-              :phase="startupPhase"
-              :logs="startupLogs"
-              :elapsed-seconds="startupElapsed"
-              :show-details="showStartupDetails"
-              @cancel="emit('cancelConnection')"
-              @toggle-details="emit('update:showStartupDetails', !showStartupDetails)"
-            />
-          </aside>
-        </div>
-      </template>
-    </div>
-  </AppModal>
+          <StartupProgress
+            v-if="isConnecting"
+            :agent-name="selectedAgent"
+            :phase="startupPhase"
+            :logs="startupLogs"
+            :elapsed-seconds="startupElapsed"
+            :show-details="showStartupDetails"
+            @cancel="emit('cancelConnection')"
+            @toggle-details="emit('update:showStartupDetails', !showStartupDetails)"
+          />
+        </aside>
+      </div>
+    </template>
+  </AppDialogShell>
 </template>
 
 <style scoped>
 .workspace-dialog {
-  width: min(1080px, 100%);
-  max-height: calc(100vh - 64px);
-  overflow: auto;
-  padding: 1.25rem;
-  background: #f9f7f2;
+  padding: 1rem;
+  background: linear-gradient(180deg, #f9f7f2 0%, #f6f4ef 100%);
 }
 
-.workspace-header,
-.dialog-header,
 .summary-line,
 .section-headline,
-.dialog-section-head,
-.proxy-switch {
+.dialog-section-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-}
-
-.workspace-header {
-  margin-bottom: 0.8rem;
-  padding: 0 0 0.5rem;
-  border-bottom: 1px solid rgba(15, 23, 42, 0.06);
-  min-height: 0;
 }
 
 .eyebrow {
@@ -268,45 +288,62 @@ function closeDialog() {
   color: var(--text-muted);
 }
 
-.header-copy h2 {
-  margin-top: 0.12rem;
-  font-size: 1.16rem;
-  line-height: 1.2;
+.header-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
-.icon-button {
-  width: 30px;
+.summary-chip {
+  max-width: 180px;
   height: 28px;
-  display: grid;
-  place-items: center;
-  border-radius: 8px;
-  background: #ffffff;
-  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  padding: 0 0.72rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.9);
   border: 1px solid rgba(15, 23, 42, 0.06);
-  cursor: pointer;
+  color: var(--text-primary);
+  font-size: 0.76rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.icon-button:hover {
-  border-color: rgba(15, 23, 42, 0.1);
-  color: var(--text-primary);
+.summary-chip.muted {
+  color: var(--text-secondary);
 }
 
 .workspace-hero {
   display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(360px, 0.95fr);
+  grid-template-columns: minmax(0, 1.4fr) minmax(290px, 0.8fr);
   gap: 0.9rem;
-  padding: 1rem 1.05rem;
+  padding: 1rem;
   margin-bottom: 0.95rem;
   border-radius: 8px;
   border: 1px solid rgba(15, 23, 42, 0.06);
   background: linear-gradient(180deg, #ffffff 0%, #fcfbf8 100%);
 }
 
+.hero-intro {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
 .hero-copy h3 {
   font-size: 1.03rem;
   font-weight: 600;
   color: var(--text-primary);
-  line-height: 1.55;
+  line-height: 1.45;
+}
+
+.hero-text {
+  margin-top: 0.3rem;
+  font-size: 0.86rem;
+  line-height: 1.65;
+  color: var(--text-secondary);
 }
 
 .hero-metrics {
@@ -320,6 +357,47 @@ function closeDialog() {
   border-radius: 8px;
   border: 1px solid rgba(15, 23, 42, 0.06);
   background: #ffffff;
+}
+
+.hero-overview {
+  padding: 0.95rem 1rem;
+  border-radius: 8px;
+  background: #f8fafc;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+}
+
+.hero-overview h4 {
+  margin-top: 0.18rem;
+  font-size: 1rem;
+  color: var(--text-primary);
+}
+
+.overview-lines {
+  margin-top: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.overview-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.overview-line span {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+}
+
+.overview-line strong {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: right;
+  color: var(--text-primary);
 }
 
 .hero-metric span {
@@ -343,7 +421,7 @@ function closeDialog() {
 .dialog-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.55fr) minmax(300px, 0.92fr);
-  gap: 0.85rem;
+  gap: 0.9rem;
   align-items: start;
 }
 
@@ -351,7 +429,6 @@ function closeDialog() {
 .dialog-side,
 .launch-card,
 .launch-copy,
-.dialog-actions,
 .proxy-field {
   display: flex;
   flex-direction: column;
@@ -364,7 +441,7 @@ function closeDialog() {
 }
 
 .dialog-section {
-  padding: 1rem 1.05rem;
+  padding: 0.95rem 1rem 1rem;
   border-radius: 8px;
   border: 1px solid rgba(15, 23, 42, 0.06);
   background: #ffffff;
@@ -392,7 +469,8 @@ function closeDialog() {
 
 .ghost-button,
 .secondary-button {
-  padding: 0.68rem 0.95rem;
+  min-height: 36px;
+  padding: 0.6rem 0.9rem;
   background: #fffdfa;
   color: var(--text-secondary);
   border-color: rgba(15, 23, 42, 0.08);
@@ -406,7 +484,8 @@ function closeDialog() {
 }
 
 .primary-button {
-  padding: 0.72rem 1rem;
+  min-height: 38px;
+  padding: 0.68rem 1rem;
   background: var(--bg-primary);
   color: white;
   border-color: rgba(37, 99, 235, 0.18);
@@ -420,22 +499,89 @@ function closeDialog() {
 }
 
 .cwd-card {
-  gap: 0.35rem;
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
   padding: 1rem;
   border-radius: 8px;
   border: 1px solid rgba(15, 23, 42, 0.06);
   background: #f9fbff;
 }
 
+.cwd-badge {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  color: var(--text-accent);
+  background: rgba(37, 99, 235, 0.1);
+  font-weight: 700;
+}
+
+.cwd-copy {
+  min-width: 0;
+}
+
 .cwd-card strong {
+  display: block;
   font-size: 1rem;
   color: var(--text-primary);
 }
 
-.cwd-card span,
-.summary-line,
-.proxy-switch {
+.cwd-card span {
+  display: block;
+  margin-top: 0.18rem;
   color: var(--text-secondary);
+}
+
+.summary-line {
+  color: var(--text-secondary);
+}
+
+.proxy-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  cursor: pointer;
+  color: var(--text-secondary);
+  user-select: none;
+}
+
+.proxy-switch input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.switch-track {
+  width: 38px;
+  height: 22px;
+  padding: 2px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.5);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  transition: background 0.18s ease, border-color 0.18s ease;
+}
+
+.switch-thumb {
+  width: 16px;
+  height: 16px;
+  display: block;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.15);
+  transition: transform 0.18s ease;
+}
+
+.proxy-switch.enabled .switch-track {
+  background: rgba(37, 99, 235, 0.9);
+  border-color: rgba(37, 99, 235, 0.16);
+}
+
+.proxy-switch.enabled .switch-thumb {
+  transform: translateX(16px);
 }
 
 .proxy-grid {
@@ -458,7 +604,7 @@ function closeDialog() {
 
 .proxy-field input {
   width: 100%;
-  height: 40px;
+  height: 38px;
   margin-top: 0.35rem;
   border-radius: 8px;
   border: 1px solid var(--border-color);
@@ -474,7 +620,7 @@ function closeDialog() {
 }
 
 .launch-card {
-  padding: 1rem 1.05rem;
+  padding: 1rem;
   border-radius: 8px;
   border: 1px solid rgba(15, 23, 42, 0.06);
   background: #ffffff;
@@ -489,12 +635,14 @@ function closeDialog() {
 }
 
 .summary-card {
-  padding: 0.15rem 0;
-  background: transparent;
+  padding: 0.9rem 1rem;
+  border-radius: 8px;
+  background: #f8fafc;
+  border: 1px solid rgba(15, 23, 42, 0.06);
 }
 
 .summary-line {
-  margin-top: 0.8rem;
+  margin-top: 0.72rem;
 }
 
 .summary-line:first-child {
@@ -506,9 +654,38 @@ function closeDialog() {
   text-align: right;
 }
 
+.launch-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  padding: 0.85rem 0.95rem;
+  border-radius: 8px;
+  background: rgba(37, 99, 235, 0.06);
+  color: var(--text-secondary);
+}
+
+.launch-note-mark {
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: rgba(37, 99, 235, 0.12);
+  color: var(--text-accent);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.launch-note p {
+  font-size: 0.8rem;
+  line-height: 1.55;
+}
+
 .launch-actions {
+  display: flex;
+  flex-direction: column;
   gap: 0.75rem;
-  margin-top: 0.35rem;
 }
 
 .empty-workspace {
@@ -541,6 +718,10 @@ function closeDialog() {
 
   .workspace-dialog {
     padding: 1rem;
+  }
+
+  .header-summary {
+    display: none;
   }
 }
 </style>

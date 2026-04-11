@@ -3,7 +3,11 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { useConfigStore } from '../stores/config';
 import { addAgent, removeAgent, updateAgent } from '../lib/wails';
 import { useI18n } from '../lib/i18n';
+import AppDialogShell from './AppDialogShell.vue';
+import AppConfirmDialog from './AppConfirmDialog.vue';
 import EnvVarEditor from './EnvVarEditor.vue';
+
+type ToastTone = 'success' | 'info' | 'warning' | 'danger';
 
 const props = withDefaults(
   defineProps<{
@@ -16,6 +20,7 @@ const props = withDefaults(
 
 const emit = defineEmits<{
   (e: 'close'): void;
+  (e: 'notify', payload: { message: string; tone?: ToastTone }): void;
 }>();
 
 const configStore = useConfigStore();
@@ -39,6 +44,10 @@ const formArgs = ref('');
 const formEnv = ref<Record<string, string>>({});
 const formError = ref('');
 const isSubmitting = ref(false);
+const actionError = ref('');
+const showDeleteConfirm = ref(false);
+const pendingDeleteAgentName = ref('');
+const isDeleting = ref(false);
 
 function resetForm() {
   formName.value = '';
@@ -46,6 +55,7 @@ function resetForm() {
   formArgs.value = '';
   formEnv.value = {};
   formError.value = '';
+  actionError.value = '';
   showAddForm.value = false;
   editingAgent.value = null;
 }
@@ -110,6 +120,7 @@ function parseArgs(argsString: string): string[] {
 
 async function handleSubmit() {
   formError.value = '';
+  actionError.value = '';
   
   if (!formName.value.trim()) {
     formError.value = t('settings.nameRequired');
@@ -133,6 +144,10 @@ async function handleSubmit() {
     if (editingAgent.value) {
       const newConfig = await updateAgent(formName.value, formCommand.value, args, formEnv.value);
       configStore.updateFromEvent(newConfig);
+      emit('notify', {
+        message: `${t('settings.edit')} Agent: ${formName.value}`,
+        tone: 'success',
+      });
     } else {
       // Check for duplicates
       if (configStore.config.agents[formName.value]) {
@@ -142,210 +157,201 @@ async function handleSubmit() {
       }
       const newConfig = await addAgent(formName.value, formCommand.value, args, formEnv.value);
       configStore.updateFromEvent(newConfig);
+      emit('notify', {
+        message: `${t('settings.addAgent')}: ${formName.value}`,
+        tone: 'success',
+      });
     }
     resetForm();
   } catch (e) {
     formError.value = e instanceof Error ? e.message : String(e);
+    emit('notify', {
+      message: formError.value,
+      tone: 'danger',
+    });
   } finally {
     isSubmitting.value = false;
   }
 }
 
 async function handleDelete(name: string) {
-  if (!confirm(t('settings.confirmDeleteAgent', { name }))) return;
-  
+  actionError.value = '';
+  pendingDeleteAgentName.value = name;
+  showDeleteConfirm.value = true;
+}
+
+function cancelDelete() {
+  pendingDeleteAgentName.value = '';
+  showDeleteConfirm.value = false;
+}
+
+async function confirmDelete() {
+  if (!pendingDeleteAgentName.value) {
+    return;
+  }
+
+  isDeleting.value = true;
   try {
-    const newConfig = await removeAgent(name);
+    const deletingName = pendingDeleteAgentName.value;
+    const newConfig = await removeAgent(deletingName);
     configStore.updateFromEvent(newConfig);
+    if (editingAgent.value === deletingName) {
+      resetForm();
+    }
+    cancelDelete();
+    emit('notify', {
+      message: `${t('settings.delete')}: ${deletingName}`,
+      tone: 'success',
+    });
   } catch (e) {
     console.error('Failed to delete agent:', e);
+    actionError.value = e instanceof Error ? e.message : String(e);
+    emit('notify', {
+      message: actionError.value,
+      tone: 'danger',
+    });
+  } finally {
+    isDeleting.value = false;
   }
 }
 </script>
 
 <template>
-  <div class="settings-overlay" @click.self="emit('close')">
-    <div class="settings-panel">
-      <div class="settings-header">
-        <div>
-          <p class="eyebrow">{{ t('app.settings') }}</p>
-          <h2>{{ t('settings.title') }}</h2>
+  <AppDialogShell
+    :model-value="true"
+    :title="t('settings.title')"
+    :eyebrow="t('app.settings')"
+    max-width="880px"
+    body-class="settings-body"
+    @update:modelValue="(value) => { if (!value) emit('close'); }"
+    @close="emit('close')"
+  >
+    <div class="settings-content">
+      <section class="agents-section">
+        <div class="section-header">
+          <h3>{{ t('settings.agents') }}</h3>
+          <button class="add-btn" @click="startAdd" :disabled="showAddForm || isSubmitting || isDeleting">
+            {{ t('settings.addAgent') }}
+          </button>
         </div>
-        <button class="close-btn" @click="emit('close')">✕</button>
-      </div>
 
-      <div class="settings-content">
-        <section class="agents-section">
-          <div class="section-header">
-            <h3>{{ t('settings.agents') }}</h3>
-            <button class="add-btn" @click="startAdd" :disabled="showAddForm">
-              {{ t('settings.addAgent') }}
+        <div v-if="actionError" class="action-error">
+          {{ actionError }}
+        </div>
+
+        <div v-if="showAddForm || editingAgent" class="agent-form">
+          <h4>{{ editingAgent ? t('settings.editAgent') : t('settings.addNewAgent') }}</h4>
+          
+          <div class="form-group">
+            <label>{{ t('settings.name') }}</label>
+            <input 
+              v-model="formName" 
+              type="text" 
+              :placeholder="t('settings.placeholder.agentName')"
+              :disabled="!!editingAgent"
+            />
+          </div>
+
+          <div class="form-group">
+            <label>{{ t('settings.command') }}</label>
+            <input 
+              v-model="formCommand" 
+              type="text" 
+              placeholder="npx"
+            />
+          </div>
+
+          <div class="form-group">
+            <label>{{ t('settings.arguments') }}</label>
+            <input 
+              v-model="formArgs" 
+              type="text" 
+              placeholder="-y @example/agent"
+            />
+            <small>{{ t('settings.argsHint') }}</small>
+          </div>
+
+          <div class="form-group">
+            <EnvVarEditor v-model="formEnv" />
+          </div>
+
+          <div v-if="formError" class="form-error">
+            {{ formError }}
+          </div>
+
+          <div class="form-actions">
+            <button 
+              class="save-btn" 
+              @click="handleSubmit"
+              :disabled="isSubmitting || isDeleting"
+            >
+              {{ isSubmitting ? t('settings.saving') : t('settings.save') }}
+            </button>
+            <button class="cancel-btn" @click="resetForm" :disabled="isSubmitting || isDeleting">
+              {{ t('common.cancel') }}
             </button>
           </div>
+        </div>
 
-          <!-- Add/Edit Form -->
-          <div v-if="showAddForm || editingAgent" class="agent-form">
-            <h4>{{ editingAgent ? t('settings.editAgent') : t('settings.addNewAgent') }}</h4>
-            
-            <div class="form-group">
-              <label>{{ t('settings.name') }}</label>
-              <input 
-                v-model="formName" 
-                type="text" 
-                :placeholder="t('settings.placeholder.agentName')"
-                :disabled="!!editingAgent"
-              />
+        <div class="agents-list">
+          <div 
+            v-for="agent in agents" 
+            :key="agent.name"
+            class="agent-item"
+          >
+            <div class="agent-info">
+              <div class="agent-name-row">
+                <div class="agent-name">{{ agent.name }}</div>
+                <span class="agent-badge">ACP</span>
+              </div>
+              <div class="agent-command">
+                <code>{{ agent.command }} {{ agent.args }}</code>
+              </div>
             </div>
-
-            <div class="form-group">
-              <label>{{ t('settings.command') }}</label>
-              <input 
-                v-model="formCommand" 
-                type="text" 
-                placeholder="npx"
-              />
-            </div>
-
-            <div class="form-group">
-              <label>{{ t('settings.arguments') }}</label>
-              <input 
-                v-model="formArgs" 
-                type="text" 
-                placeholder="-y @example/agent"
-              />
-              <small>{{ t('settings.argsHint') }}</small>
-            </div>
-
-            <div class="form-group">
-              <EnvVarEditor v-model="formEnv" />
-            </div>
-
-            <div v-if="formError" class="form-error">
-              {{ formError }}
-            </div>
-
-            <div class="form-actions">
-              <button 
-                class="save-btn" 
-                @click="handleSubmit"
-                :disabled="isSubmitting"
-              >
-                {{ isSubmitting ? t('settings.saving') : t('settings.save') }}
+            <div class="agent-actions">
+              <button class="edit-btn" @click="startEdit(agent)" :disabled="isSubmitting || isDeleting">
+                {{ t('settings.edit') }}
               </button>
-              <button class="cancel-btn" @click="resetForm">
-                {{ t('common.cancel') }}
+              <button class="delete-btn" @click="handleDelete(agent.name)" :disabled="isSubmitting || isDeleting">
+                {{ t('settings.delete') }}
               </button>
             </div>
           </div>
 
-          <!-- Agent List -->
-          <div class="agents-list">
-            <div 
-              v-for="agent in agents" 
-              :key="agent.name"
-              class="agent-item"
-            >
-              <div class="agent-info">
-                <div class="agent-name-row">
-                  <div class="agent-name">{{ agent.name }}</div>
-                  <span class="agent-badge">ACP</span>
-                </div>
-                <div class="agent-command">
-                  <code>{{ agent.command }} {{ agent.args }}</code>
-                </div>
-              </div>
-              <div class="agent-actions">
-                <button class="edit-btn" @click="startEdit(agent)">
-                  {{ t('settings.edit') }}
-                </button>
-                <button class="delete-btn" @click="handleDelete(agent.name)">
-                  {{ t('settings.delete') }}
-                </button>
-              </div>
-            </div>
-
-            <div v-if="agents.length === 0" class="no-agents">
-              {{ t('settings.noAgents') }}
-            </div>
+          <div v-if="agents.length === 0" class="no-agents">
+            {{ t('settings.noAgents') }}
           </div>
-        </section>
+        </div>
+      </section>
 
-        <section class="config-section">
-          <h3>{{ t('settings.configFile') }}</h3>
-          <p class="config-path">{{ configStore.configPath }}</p>
-          <small>{{ t('settings.configReloadHint') }}</small>
-        </section>
-      </div>
+      <section class="config-section">
+        <h3>{{ t('settings.configFile') }}</h3>
+        <p class="config-path">{{ configStore.configPath }}</p>
+        <small>{{ t('settings.configReloadHint') }}</small>
+      </section>
     </div>
-  </div>
+
+    <AppConfirmDialog
+      :model-value="showDeleteConfirm"
+      :title="t('settings.delete')"
+      :message="t('settings.confirmDeleteAgent', { name: pendingDeleteAgentName })"
+      :confirm-label="t('settings.delete')"
+      :cancel-label="t('common.cancel')"
+      tone="danger"
+      @update:modelValue="(value) => { if (!value) cancelDelete(); }"
+      @confirm="confirmDelete"
+      @cancel="cancelDelete"
+    />
+  </AppDialogShell>
 </template>
 
 <style scoped>
-.settings-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(15, 23, 42, 0.18);
-  backdrop-filter: blur(12px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  padding: 1.5rem;
-}
-
-.settings-panel {
-  background: #ffffff;
-  border-radius: 8px;
-  width: min(880px, 100%);
-  max-height: calc(100vh - 48px);
-  display: flex;
-  flex-direction: column;
-  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.12);
-  border: 1px solid var(--border-color);
-}
-
-.settings-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  padding: 1.35rem 1.5rem 1rem;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.settings-header h2 {
-  margin: 0.3rem 0 0;
-  font-size: 1.35rem;
-  color: var(--text-primary);
-}
-
-.eyebrow {
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
-.close-btn {
-  width: 38px;
-  height: 38px;
-  border: 1px solid var(--border-color);
-  background: #ffffff;
-  border-radius: 8px;
-  font-size: 1.15rem;
-  cursor: pointer;
-  color: var(--text-secondary);
-}
-
-.close-btn:hover {
-  color: var(--text-primary);
-  background: #f8fafc;
-  border-color: rgba(148,163,184,.34);
+.settings-body {
+  padding: 1rem;
+  background: linear-gradient(180deg, #f9f7f2 0%, #f6f4ef 100%);
 }
 
 .settings-content {
-  padding: 1.25rem 1.5rem 1.5rem;
-  overflow-y: auto;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 260px;
   gap: 1rem;
@@ -355,7 +361,7 @@ async function handleDelete(name: string) {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 1rem;
+  margin-bottom: 0.95rem;
 }
 
 .section-header h3 {
@@ -381,6 +387,17 @@ async function handleDelete(name: string) {
 .add-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.action-error {
+  margin-bottom: 0.9rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: 8px;
+  border: 1px solid rgba(220, 38, 38, 0.14);
+  background: rgba(220, 38, 38, 0.06);
+  color: var(--bg-danger);
+  font-size: 0.84rem;
+  line-height: 1.5;
 }
 
 .agent-form {
@@ -473,6 +490,13 @@ async function handleDelete(name: string) {
 
 .cancel-btn:hover {
   background: #f8fafc;
+}
+
+.cancel-btn:disabled,
+.edit-btn:disabled,
+.delete-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .agents-list {
@@ -576,8 +600,8 @@ async function handleDelete(name: string) {
 .config-section {
   padding: 1rem;
   border-radius: 8px;
-  background: #f8fafc;
-  border: 1px solid var(--border-color);
+  background: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.06);
   align-self: start;
 }
 

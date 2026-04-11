@@ -22,7 +22,9 @@ import AppHeaderBar from './components/AppHeaderBar.vue';
 import AppSidebar from './components/AppSidebar.vue';
 import WelcomePanel from './components/WelcomePanel.vue';
 import WorkspaceSessionDialog from './components/WorkspaceSessionDialog.vue';
+import AppToastStack from './components/AppToastStack.vue';
 import type { SavedSession, SessionProxyConfig } from './lib/types';
+import type { AppToastItem } from './components/AppToastStack.vue';
 
 const configStore = useConfigStore();
 const sessionStore = useSessionStore();
@@ -43,6 +45,7 @@ const httpProxy = ref('');
 const httpsProxy = ref('');
 const allProxy = ref('');
 const noProxy = ref('');
+const toastItems = ref<AppToastItem[]>([]);
 
 let prefsStoreData: Record<string, unknown> = {};
 const prefsStoreName = 'preferences.json';
@@ -78,6 +81,32 @@ const activeStatusLabel = computed(() => {
 
 async function persistPreferences() {
   await saveStore(prefsStoreName, prefsStoreData);
+}
+
+function pushToast(message: string, tone: AppToastItem['tone'] = 'success') {
+  const id = crypto.randomUUID();
+  toastItems.value = [...toastItems.value, { id, message, tone }];
+  window.setTimeout(() => {
+    dismissToast(id);
+  }, tone === 'danger' ? 4200 : 2600);
+}
+
+function dismissToast(id: string) {
+  toastItems.value = toastItems.value.filter((item) => item.id !== id);
+}
+
+function getErrorMessage(errorLike: unknown): string {
+  return errorLike instanceof Error ? errorLike.message : String(errorLike);
+}
+
+function syncSelectionFromCurrentSession() {
+  const current = sessionStore.currentSession;
+  if (!current) {
+    return;
+  }
+  selectedAgent.value = current.agentName;
+  selectedCwd.value = current.cwd;
+  applyProxyConfig(current.proxy);
 }
 
 onMounted(async () => {
@@ -168,8 +197,10 @@ async function handleCreateSession() {
     );
     showWorkspaceDialog.value = false;
     showStartupDetails.value = false;
+    pushToast(`${t('app.newSession')}: ${selectedAgent.value}`);
   } catch (e) {
     console.error('Failed to create session:', e);
+    pushToast(getErrorMessage(e), 'danger');
   }
 }
 
@@ -181,8 +212,10 @@ async function handleResumeSession(session: SavedSession) {
   await persistProxyPreferences();
   try {
     await sessionStore.resumeSession(session);
+    pushToast(`${t('session.connect')}: ${session.title}`);
   } catch (e) {
     console.error('Failed to resume session:', e);
+    pushToast(getErrorMessage(e), 'danger');
   }
 }
 
@@ -198,18 +231,36 @@ function handleActivateSession(sessionId: string) {
 }
 
 async function handleDeleteSession(sessionId: string) {
-  await sessionStore.deleteSession(sessionId);
+  const deletedSession = sessionStore.savedSessions.find((session) => session.id === sessionId);
+  try {
+    await sessionStore.deleteSession(sessionId);
+    if (pinnedSessionIds.value.includes(sessionId)) {
+      pinnedSessionIds.value = pinnedSessionIds.value.filter((id) => id !== sessionId);
+      prefsStoreData.pinnedSessionIds = pinnedSessionIds.value;
+      await persistPreferences();
+    }
+    syncSelectionFromCurrentSession();
+    if (deletedSession) {
+      pushToast(`${t('session.delete')}: ${deletedSession.title}`);
+    }
+  } catch (e) {
+    pushToast(getErrorMessage(e), 'danger');
+  }
 }
 
 async function handleDisconnect(sessionId?: string) {
-  await sessionStore.disconnect(sessionId);
-  const current = sessionStore.currentSession;
-  if (!current) {
-    return;
+  const disconnectingSession = sessionId
+    ? sessionStore.savedSessions.find((session) => session.id === sessionId)
+    : sessionStore.currentSession;
+  try {
+    await sessionStore.disconnect(sessionId);
+    syncSelectionFromCurrentSession();
+    if (disconnectingSession) {
+      pushToast(`${t('session.disconnect')}: ${disconnectingSession.title}`, 'info');
+    }
+  } catch (e) {
+    pushToast(getErrorMessage(e), 'danger');
   }
-  selectedAgent.value = current.agentName;
-  selectedCwd.value = current.cwd;
-  applyProxyConfig(current.proxy);
 }
 
 async function handleCancelConnection() {
@@ -424,8 +475,11 @@ function handleGlobalKeydown(event: KeyboardEvent) {
     <SettingsView
       v-if="showSettings"
       :start-in-add-mode="openSettingsInAddMode"
+      @notify="pushToast($event.message, $event.tone)"
       @close="closeSettings"
     />
+
+    <AppToastStack :items="toastItems" @dismiss="dismissToast" />
   </div>
 </template>
 
@@ -437,6 +491,7 @@ function handleGlobalKeydown(event: KeyboardEvent) {
   --bg-warning: #fff4ce;
   --bg-main: #f6f4ef;
   --bg-sidebar: #f2ede3;
+  --bg-header: rgba(248, 246, 240, 0.96);
   --bg-hover: rgba(37, 99, 235, 0.08);
   --bg-user: #eef4ff;
   --bg-assistant: #ffffff;

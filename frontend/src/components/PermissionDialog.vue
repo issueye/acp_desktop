@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { PermissionRequest } from '../lib/types';
 import { useI18n } from '../lib/i18n';
-import AppModal from './AppModal.vue';
+import AppDialogShell from './AppDialogShell.vue';
 
 defineProps<{
   request: PermissionRequest;
@@ -23,72 +23,56 @@ function handleCancel() {
 </script>
 
 <template>
-  <AppModal :model-value="true" max-width="560px" @close="handleCancel">
-    <div class="permission-dialog">
-      <div class="dialog-header">
-        <span class="icon">🔐</span>
-        <h3>{{ t('permission.required') }}</h3>
+  <AppDialogShell
+    :model-value="true"
+    :title="t('permission.required')"
+    max-width="560px"
+    @close="handleCancel"
+  >
+    <template #header-extra>
+      <span class="icon">🔐</span>
+    </template>
+
+    <div class="dialog-content">
+      <div class="tool-info">
+        <span class="tool-title">{{ request.toolCall.title }}</span>
+        <span class="tool-kind">{{ request.toolCall.kind }}</span>
       </div>
       
-      <div class="dialog-content">
-        <div class="tool-info">
-          <span class="tool-title">{{ request.toolCall.title }}</span>
-          <span class="tool-kind">{{ request.toolCall.kind }}</span>
-        </div>
-        
-        <div v-if="request.toolCall.locations?.length" class="locations">
-          <div 
-            v-for="(loc, index) in request.toolCall.locations" 
-            :key="index"
-            class="location"
-          >
-            📁 {{ loc.path }}
-          </div>
-        </div>
-      </div>
-      
-      <div class="dialog-actions">
-        <button 
-          v-for="option in request.options" 
-          :key="option.optionId"
-          :class="['option-btn', `option-${option.kind}`]"
-          @click="handleSelect(option.optionId)"
+      <div v-if="request.toolCall.locations?.length" class="locations">
+        <div 
+          v-for="(loc, index) in request.toolCall.locations" 
+          :key="index"
+          class="location"
         >
-          {{ option.name }}
-        </button>
-        <button class="cancel-btn" @click="handleCancel">
-          {{ t('common.cancel') }}
-        </button>
+          📁 {{ loc.path }}
+        </div>
       </div>
     </div>
-  </AppModal>
+
+    <template #footer>
+      <button 
+        v-for="option in request.options" 
+        :key="option.optionId"
+        :class="['option-btn', `option-${option.kind}`]"
+        @click="handleSelect(option.optionId)"
+      >
+        {{ option.name }}
+      </button>
+      <button class="cancel-btn" @click="handleCancel">
+        {{ t('common.cancel') }}
+      </button>
+    </template>
+  </AppDialogShell>
 </template>
 
 <style scoped>
-.permission-dialog {
-  background: #fffdfa;
-}
-
-.dialog-header {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 1.15rem 1.2rem 1rem;
-  background: #ffffff;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.dialog-header .icon {
-  font-size: 1.5rem;
-}
-
-.dialog-header h3 {
-  margin: 0;
-  font-size: 1.1rem;
-}
-
 .dialog-content {
-  padding: 1.1rem 1.2rem;
+  padding: 1rem;
+}
+
+.icon {
+  font-size: 1rem;
 }
 
 .tool-info {
@@ -135,15 +119,6 @@ function handleCancel() {
   word-break: break-all;
 }
 
-.dialog-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  padding: 1rem 1.2rem 1.2rem;
-  border-top: 1px solid var(--border-color);
-  background: #ffffff;
-}
-
 .option-btn {
   flex: 1;
   min-width: 120px;
@@ -165,6 +140,7 @@ function handleCancel() {
 .option-allow_once:hover,
 .option-allow_always:hover {
   background: var(--bg-primary-hover);
+  transform: translateY(-1px);
 }
 
 .option-reject_once,
@@ -176,6 +152,7 @@ function handleCancel() {
 .option-reject_once:hover,
 .option-reject_always:hover {
   background: #b91c1c;
+  transform: translateY(-1px);
 }
 
 .cancel-btn {
@@ -191,10 +168,6 @@ function handleCancel() {
 
 .cancel-btn:hover {
   background: #f8fafc;
-}
-
-.option-btn:hover,
-.cancel-btn:hover {
   transform: translateY(-1px);
 }
 </style>

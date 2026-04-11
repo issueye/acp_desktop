@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"strings"
 	"sync"
 
 	"acp_go_ui/internal/config"
@@ -59,13 +60,7 @@ func (m *Manager) SpawnAgent(name string, cfg config.AgentConfig, envOverrides m
 	}
 
 	cmd := buildCommand(cfg)
-	cmd.Env = os.Environ()
-	for key, value := range cfg.Env {
-		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", key, value))
-	}
-	for key, value := range envOverrides {
-		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", key, value))
-	}
+	cmd.Env = mergeEnvs(os.Environ(), cfg.Env, envOverrides)
 
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
@@ -228,4 +223,42 @@ func newAgentID() (string, error) {
 		return "", err
 	}
 	return hex.EncodeToString(buf), nil
+}
+
+func mergeEnvs(base []string, layers ...map[string]string) []string {
+	merged := map[string]string{}
+	keyNames := map[string]string{}
+
+	addPair := func(key, value string) {
+		normalizedKey := normalizeEnvKey(key)
+		if normalizedKey == "" {
+			return
+		}
+		keyNames[normalizedKey] = key
+		merged[normalizedKey] = value
+	}
+
+	for _, entry := range base {
+		key, value, ok := strings.Cut(entry, "=")
+		if !ok {
+			continue
+		}
+		addPair(key, value)
+	}
+
+	for _, layer := range layers {
+		for key, value := range layer {
+			addPair(key, value)
+		}
+	}
+
+	env := make([]string, 0, len(merged))
+	for normalizedKey, value := range merged {
+		env = append(env, fmt.Sprintf("%s=%s", keyNames[normalizedKey], value))
+	}
+	return env
+}
+
+func normalizeEnvKey(key string) string {
+	return strings.ToUpper(strings.TrimSpace(key))
 }

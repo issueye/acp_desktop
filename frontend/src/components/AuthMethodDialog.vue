@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { AuthMethod } from '@agentclientprotocol/sdk';
 import { useI18n } from '../lib/i18n';
-import AppModal from './AppModal.vue';
+import AppDialogShell from './AppDialogShell.vue';
 
 defineProps<{
   authMethods: AuthMethod[];
@@ -20,83 +20,47 @@ function handleSelect(methodId: string) {
 </script>
 
 <template>
-  <AppModal :model-value="true" max-width="520px" @close="emit('cancel')">
-    <div class="auth-dialog">
-      <div class="dialog-header">
-        <h3>{{ t('auth.required') }}</h3>
-        <button class="close-btn" @click="emit('cancel')">✕</button>
-      </div>
+  <AppDialogShell
+    :model-value="true"
+    :title="t('auth.required')"
+    max-width="520px"
+    @close="emit('cancel')"
+  >
+    <div class="dialog-content">
+      <p class="description">
+        {{ t('auth.description', { agent: agentName }) }}
+        {{ t('auth.selectMethod') }}
+      </p>
       
-      <div class="dialog-content">
-        <p class="description">
-          {{ t('auth.description', { agent: agentName }) }}
-          {{ t('auth.selectMethod') }}
-        </p>
-        
-        <div class="auth-methods">
-          <button
-            v-for="method in authMethods"
-            :key="method.id"
-            class="auth-method-btn"
-            @click="handleSelect(method.id)"
-          >
-            <div class="method-info">
-              <span class="method-name">{{ method.name }}</span>
-              <span v-if="method.description" class="method-desc">
-                {{ method.description }}
-              </span>
-            </div>
-            <span class="arrow">→</span>
-          </button>
-        </div>
-      </div>
-      
-      <div class="dialog-footer">
-        <button class="cancel-btn" @click="emit('cancel')">
-          {{ t('common.cancel') }}
+      <div class="auth-methods">
+        <button
+          v-for="method in authMethods"
+          :key="method.id"
+          class="auth-method-btn"
+          @click="handleSelect(method.id)"
+        >
+          <div class="method-info">
+            <span class="method-name">{{ method.name }}</span>
+            <span v-if="method.description" class="method-desc">
+              {{ method.description }}
+            </span>
+          </div>
+          <span class="arrow">→</span>
         </button>
       </div>
     </div>
-  </AppModal>
+
+    <template #footer>
+      <button class="cancel-btn" @click="emit('cancel')">
+        {{ t('common.cancel') }}
+      </button>
+    </template>
+  </AppDialogShell>
 </template>
 
 <style scoped>
-.auth-dialog {
-  background: #fffdfa;
-}
-
-.dialog-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  padding: 1.2rem 1.25rem 1rem;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.dialog-header h3 {
-  margin: 0;
-  font-size: 1.2rem;
-}
-
-.close-btn {
-  width: 38px;
-  height: 38px;
-  border: 1px solid var(--border-color);
-  background: #ffffff;
-  border-radius: 8px;
-  font-size: 1.15rem;
-  cursor: pointer;
-  color: var(--text-secondary);
-}
-
-.close-btn:hover {
-  color: var(--text-primary);
-  background: #f8fafc;
-  border-color: rgba(148,163,184,.34);
-}
-
 .dialog-content {
-  padding: 1.15rem 1.25rem;
+  padding: 1rem;
 }
 
 .description {
@@ -158,13 +122,6 @@ function handleSelect(methodId: string) {
 
 .auth-method-btn:hover .arrow {
   color: var(--text-accent);
-}
-
-.dialog-footer {
-  padding: 1rem 1.25rem 1.2rem;
-  border-top: 1px solid var(--border-color);
-  display: flex;
-  justify-content: flex-end;
 }
 
 .cancel-btn {
