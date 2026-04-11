@@ -392,7 +392,6 @@ ul {
 
 .session-item:hover,
 .session-item.selected {
-  background: rgba(255, 255, 255, 0.74);
   border-color: rgba(15, 23, 42, 0.04);
 }
 

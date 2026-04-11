@@ -39,7 +39,6 @@ const { t } = useI18n();
         <span class="create-icon">+</span>
         <span class="create-copy">
           <strong>{{ t('app.newSession') }}</strong>
-          <span>{{ t('app.openWorkspace') }}</span>
         </span>
       </button>
     </div>
@@ -131,10 +130,9 @@ const { t } = useI18n();
   display: flex;
   align-items: center;
   gap: 0.8rem;
-  padding: 0.8rem 0.9rem;
+  padding: 0.5rem 0.9rem;
   border-radius: 8px;
   border: 1px solid rgba(37, 99, 235, 0.12);
-  background: #fffdfa;
   cursor: pointer;
   text-align: left;
 }
@@ -205,7 +203,6 @@ const { t } = useI18n();
 }
 
 .nav-row.active {
-  background: rgba(255, 255, 255, 0.72);
   border-color: rgba(15, 23, 42, 0.05);
   color: var(--text-primary);
 }
