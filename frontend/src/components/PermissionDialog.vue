@@ -26,7 +26,7 @@ function handleCancel() {
   <AppDialogShell
     :model-value="true"
     :title="t('permission.required')"
-    max-width="560px"
+    max-width="760px"
     @close="handleCancel"
   >
     <template #header-extra>
@@ -34,12 +34,22 @@ function handleCancel() {
     </template>
 
     <div class="dialog-content">
-      <div class="tool-info">
-        <span class="tool-title">{{ request.toolCall.title }}</span>
-        <span class="tool-kind">{{ request.toolCall.kind }}</span>
+      <div class="tool-meta">
+        <div class="tool-info">
+          <span class="tool-label">Tool</span>
+          <span class="tool-kind">{{ request.toolCall.kind }}</span>
+        </div>
+
+        <div class="tool-preview">
+          <div class="preview-head">
+            <span class="preview-label">Command Preview</span>
+          </div>
+          <pre class="tool-command">{{ request.toolCall.title }}</pre>
+        </div>
       </div>
       
       <div v-if="request.toolCall.locations?.length" class="locations">
+        <div class="locations-title">Paths</div>
         <div 
           v-for="(loc, index) in request.toolCall.locations" 
           :key="index"
@@ -70,26 +80,38 @@ function handleCancel() {
 <style scoped>
 .dialog-content {
   padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
 }
 
 .icon {
   font-size: 1rem;
 }
 
-.tool-info {
+.tool-meta {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
-  padding: 0.95rem 1rem;
+  gap: 0.85rem;
+}
+
+.tool-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
   border-radius: 8px;
   background: #f8fafc;
   border: 1px solid var(--border-color);
 }
 
-.tool-title {
+.tool-label {
   font-weight: 600;
-  font-size: 1rem;
-  color: var(--text-primary, #102033);
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted, #486176);
 }
 
 .tool-kind {
@@ -104,12 +126,55 @@ function handleCancel() {
   text-transform: capitalize;
 }
 
+.tool-preview {
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.preview-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.7rem 0.9rem;
+  border-bottom: 1px solid var(--border-color);
+  background: #f8fafc;
+}
+
+.preview-label,
+.locations-title {
+  font-size: 0.76rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted, #486176);
+}
+
+.tool-command {
+  max-height: min(42dvh, 420px);
+  margin: 0;
+  padding: 0.9rem;
+  overflow: auto;
+  font-family: Consolas, 'SFMono-Regular', 'Courier New', monospace;
+  font-size: 0.84rem;
+  line-height: 1.55;
+  color: var(--text-primary, #102033);
+  background: #fffdfa;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .locations {
-  margin-top: 0.9rem;
   padding: 0.8rem 0.9rem;
   background: #ffffff;
   border-radius: 8px;
   border: 1px solid var(--border-color);
+}
+
+.locations-title {
+  margin-bottom: 0.45rem;
 }
 
 .location {
@@ -170,5 +235,12 @@ function handleCancel() {
 .cancel-btn:hover {
   background: #f8fafc;
   transform: translateY(-1px);
+}
+
+@media (max-width: 720px) {
+  .option-btn,
+  .cancel-btn {
+    min-width: 0;
+  }
 }
 </style>

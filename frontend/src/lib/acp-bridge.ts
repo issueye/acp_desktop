@@ -182,6 +182,20 @@ export class AcpClientBridge implements Client {
     }
   }
 
+  private getRequestTimeoutMs(method: string): number | null {
+    switch (method) {
+      case 'session/prompt':
+        return null;
+      case 'initialize':
+      case 'authenticate':
+      case 'session/new':
+      case 'session/load':
+        return 180000;
+      default:
+        return 60000;
+    }
+  }
+
   private async sendRequest<T>(method: string, params?: unknown): Promise<T> {
     const id = this.nextRequestId++;
     const request = {
@@ -205,6 +219,7 @@ export class AcpClientBridge implements Client {
     console.log('Sending request:', request);
 
     return new Promise((resolve, reject) => {
+      const timeoutMs = this.getRequestTimeoutMs(method);
       this.messageResolvers.set(id, (response) => {
         resolve(response as T);
       });
@@ -217,15 +232,16 @@ export class AcpClientBridge implements Client {
         reject(e);
       });
 
-      // Timeout after 60 seconds (increased for auth flows)
-      setTimeout(() => {
-        if (this.messageResolvers.has(id)) {
-          this.messageResolvers.delete(id);
-          this.messageRejecters.delete(id);
-          this.pendingMethods.delete(id);
-          reject(new Error(`Request timeout: ${method}`));
-        }
-      }, 60000);
+      if (timeoutMs !== null) {
+        setTimeout(() => {
+          if (this.messageResolvers.has(id)) {
+            this.messageResolvers.delete(id);
+            this.messageRejecters.delete(id);
+            this.pendingMethods.delete(id);
+            reject(new Error(`Request timeout: ${method}`));
+          }
+        }, timeoutMs);
+      }
     });
   }
 

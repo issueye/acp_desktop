@@ -52,6 +52,7 @@ export interface ChatMessage {
   thought?: string;
   timestamp: number;
   toolCalls?: ToolCallInfo[];
+  planEntries?: PlanEntry[];
 }
 
 export interface ToolCallInfo {
@@ -72,6 +73,15 @@ export interface PermissionOption {
   kind: string;
   name: string;
   optionId: string;
+}
+
+export type PlanEntryPriority = 'high' | 'medium' | 'low';
+export type PlanEntryStatus = 'pending' | 'in_progress' | 'completed';
+
+export interface PlanEntry {
+  content: string;
+  priority: PlanEntryPriority;
+  status: PlanEntryStatus;
 }
 
 // Session Modes

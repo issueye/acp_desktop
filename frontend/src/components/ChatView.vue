@@ -6,6 +6,7 @@ import { useI18n } from '../lib/i18n';
 import ModePicker from './ModePicker.vue';
 import ModelPicker from './ModelPicker.vue';
 import CommandPalette from './CommandPalette.vue';
+import PlanCard from './PlanCard.vue';
 import type { SlashCommand } from '../lib/types';
 
 const sessionStore = useSessionStore();
@@ -221,6 +222,10 @@ function getStatusIcon(status: string): string {
             </div>
           </div>
 
+          <div v-if="message.planEntries?.length" class="plan-section">
+            <PlanCard :entries="message.planEntries" />
+          </div>
+
           <div 
             v-if="message.content"
             class="message-content"
@@ -391,6 +396,10 @@ function getStatusIcon(status: string): string {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
+}
+
+.plan-section {
+  margin-bottom: 0.8rem;
 }
 
 .tool-call-inline {

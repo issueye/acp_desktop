@@ -5,6 +5,7 @@ import { trackError, trackEvent } from '../lib/telemetry';
 import type {
   ChatMessage,
   ModelInfo,
+  PlanEntry,
   PermissionRequest,
   SavedSession,
   SessionMode,
@@ -165,6 +166,7 @@ function cloneMessages(messages?: ChatMessage[]): ChatMessage[] {
       ...toolCall,
       locations: toolCall.locations?.map((location) => ({ ...location })),
     })),
+    planEntries: message.planEntries?.map((entry) => ({ ...entry })),
   }));
 }
 
@@ -305,6 +307,17 @@ export const useSessionStore = defineStore('session', () => {
     setActiveSession(runtime.session.id);
   }
 
+  function notifyConnectedSessionChanged(runtime: ConnectedSessionState): void {
+    if (!connectedSessions.value[runtime.session.id]) {
+      return;
+    }
+
+    connectedSessions.value = {
+      ...connectedSessions.value,
+      [runtime.session.id]: runtime,
+    };
+  }
+
   function applySessionCapabilities(
     runtime: ConnectedSessionState,
     response?: Pick<NewSessionResponse, 'modes' | 'models'> | Pick<LoadSessionResponse, 'modes' | 'models'>
@@ -316,6 +329,7 @@ export const useSessionStore = defineStore('session', () => {
     const normalizedModels = normalizeModels(response?.models);
     runtime.availableModels = normalizedModels.availableModels;
     runtime.currentModelId = normalizedModels.currentModelId;
+    notifyConnectedSessionChanged(runtime);
   }
 
   function clearRuntimePermissionState(sessionId: string): void {
@@ -385,6 +399,30 @@ export const useSessionStore = defineStore('session', () => {
 
   function syncRuntimeSnapshot(runtime: ConnectedSessionState): void {
     runtime.session.messages = cloneMessages(runtime.messages);
+  }
+
+  function upsertPlanMessage(runtime: ConnectedSessionState, entries: PlanEntry[]): void {
+    const lastMessage = runtime.messages[runtime.messages.length - 1];
+    const nextEntries = entries.map((entry) => ({ ...entry }));
+
+    if (
+      lastMessage &&
+      lastMessage.role === 'assistant' &&
+      Array.isArray(lastMessage.planEntries) &&
+      !lastMessage.content &&
+      !lastMessage.thought
+    ) {
+      lastMessage.planEntries = nextEntries;
+      return;
+    }
+
+    runtime.messages.push({
+      id: crypto.randomUUID(),
+      role: 'assistant',
+      content: '',
+      timestamp: Date.now(),
+      planEntries: nextEntries,
+    });
   }
 
   function handleSessionUpdate(runtime: ConnectedSessionState, notification: SessionNotification) {
@@ -487,6 +525,12 @@ export const useSessionStore = defineStore('session', () => {
         break;
       }
 
+      case 'plan':
+        if ('entries' in update && Array.isArray(update.entries)) {
+          upsertPlanMessage(runtime, update.entries as PlanEntry[]);
+        }
+        break;
+
       case 'current_mode_update':
         if ('modeId' in update && update.modeId) {
           runtime.currentModeId = update.modeId as string;
@@ -518,6 +562,8 @@ export const useSessionStore = defineStore('session', () => {
       default:
         console.log('Unhandled session update:', update);
     }
+
+    notifyConnectedSessionChanged(runtime);
   }
 
   async function promptForAuthMethod(
@@ -837,6 +883,7 @@ export const useSessionStore = defineStore('session', () => {
     });
 
     runtime.isLoading = true;
+    notifyConnectedSessionChanged(runtime);
     try {
       const response = await runtime.client.prompt({
         sessionId: runtime.session.sessionId,
@@ -862,6 +909,7 @@ export const useSessionStore = defineStore('session', () => {
       await saveSessionsToStore();
     } finally {
       runtime.isLoading = false;
+      notifyConnectedSessionChanged(runtime);
     }
   }
 
@@ -951,6 +999,7 @@ export const useSessionStore = defineStore('session', () => {
       modeId,
     });
     runtime.currentModeId = modeId;
+    notifyConnectedSessionChanged(runtime);
   }
 
   async function setModel(modelId: string): Promise<void> {
@@ -964,6 +1013,7 @@ export const useSessionStore = defineStore('session', () => {
       modelId,
     });
     runtime.currentModelId = modelId;
+    notifyConnectedSessionChanged(runtime);
   }
 
   function clearError() {
