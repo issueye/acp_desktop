@@ -54,12 +54,13 @@ function handleCancel() {
       <button 
         v-for="option in request.options" 
         :key="option.optionId"
+        type="button"
         :class="['option-btn', `option-${option.kind}`]"
         @click="handleSelect(option.optionId)"
       >
         {{ option.name }}
       </button>
-      <button class="cancel-btn" @click="handleCancel">
+      <button type="button" class="cancel-btn" @click="handleCancel">
         {{ t('common.cancel') }}
       </button>
     </template>

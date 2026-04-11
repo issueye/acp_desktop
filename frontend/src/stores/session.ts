@@ -154,6 +154,20 @@ function normalizeModels(
   };
 }
 
+function cloneMessages(messages?: ChatMessage[]): ChatMessage[] {
+  if (!Array.isArray(messages)) {
+    return [];
+  }
+
+  return messages.map((message) => ({
+    ...message,
+    toolCalls: message.toolCalls?.map((toolCall) => ({
+      ...toolCall,
+      locations: toolCall.locations?.map((location) => ({ ...location })),
+    })),
+  }));
+}
+
 export const useSessionStore = defineStore('session', () => {
   const savedSessions = ref<SavedSession[]>([]);
   const connectedSessions = ref<Record<string, ConnectedSessionState>>({});
@@ -230,6 +244,7 @@ export const useSessionStore = defineStore('session', () => {
       savedSessions.value = saved.map((session) => ({
         ...session,
         proxy: sanitizeProxyConfig(session.proxy),
+        messages: cloneMessages(session.messages),
       }));
     }
 
@@ -310,6 +325,22 @@ export const useSessionStore = defineStore('session', () => {
     }
   }
 
+  function getRuntimeForPendingPermission(): ConnectedSessionState | null {
+    if (pendingPermissionSessionId.value) {
+      const localRuntime = getConnectedSession(pendingPermissionSessionId.value);
+      if (localRuntime) {
+        return localRuntime;
+      }
+    }
+
+    const acpSessionId = pendingPermission.value?.sessionId;
+    if (!acpSessionId) {
+      return null;
+    }
+
+    return getConnectedSessionByAcpSessionId(acpSessionId);
+  }
+
   function attachPermissionWatcher(runtime: ConnectedSessionState): void {
     runtime.stopPermissionWatch = watch(
       () => runtime.client.pendingPermissionRequest.value,
@@ -350,6 +381,10 @@ export const useSessionStore = defineStore('session', () => {
 
   function touchSavedSession(session: SavedSession): void {
     session.lastUpdated = Date.now();
+  }
+
+  function syncRuntimeSnapshot(runtime: ConnectedSessionState): void {
+    runtime.session.messages = cloneMessages(runtime.messages);
   }
 
   function handleSessionUpdate(runtime: ConnectedSessionState, notification: SessionNotification) {
@@ -455,6 +490,18 @@ export const useSessionStore = defineStore('session', () => {
       case 'current_mode_update':
         if ('modeId' in update && update.modeId) {
           runtime.currentModeId = update.modeId as string;
+        }
+        break;
+
+      case 'session_info_update':
+        if ('title' in update) {
+          runtime.session.title = update.title || runtime.session.title;
+        }
+        if ('updatedAt' in update && update.updatedAt) {
+          const nextUpdatedAt = Date.parse(update.updatedAt);
+          if (!Number.isNaN(nextUpdatedAt)) {
+            runtime.session.lastUpdated = nextUpdatedAt;
+          }
         }
         break;
 
@@ -625,6 +672,7 @@ export const useSessionStore = defineStore('session', () => {
         cwd,
         supportsLoadSession,
         proxy: sanitizedProxy,
+        messages: [],
       };
 
       runtime = createConnectedSessionState(session, client);
@@ -632,6 +680,7 @@ export const useSessionStore = defineStore('session', () => {
       applySessionCapabilities(runtime, sessionResponse);
       attachPermissionWatcher(runtime);
       upsertConnectedSession(runtime);
+      syncRuntimeSnapshot(runtime);
 
       savedSessions.value.push(session);
       await saveSessionsToStore();
@@ -745,7 +794,11 @@ export const useSessionStore = defineStore('session', () => {
       }
 
       applySessionCapabilities(runtime, loadResponse);
+      if (runtime.messages.length === 0 && savedSession.messages?.length) {
+        runtime.messages = cloneMessages(savedSession.messages);
+      }
       touchSavedSession(savedSession);
+      syncRuntimeSnapshot(runtime);
       await saveSessionsToStore();
 
       trackEvent('SessionResumed', {
@@ -805,6 +858,7 @@ export const useSessionStore = defineStore('session', () => {
       }
 
       touchSavedSession(runtime.session);
+      syncRuntimeSnapshot(runtime);
       await saveSessionsToStore();
     } finally {
       runtime.isLoading = false;
@@ -837,21 +891,23 @@ export const useSessionStore = defineStore('session', () => {
   }
 
   function resolvePermission(optionId: string): void {
-    const pendingSession = pendingPermission.value?.sessionId;
-    if (!pendingSession) {
+    const runtime = getRuntimeForPendingPermission();
+    if (!runtime) {
       return;
     }
-    const runtime = getConnectedSessionByAcpSessionId(pendingSession);
-    runtime?.client.resolvePermission(optionId);
+    runtime.client.resolvePermission(optionId);
+    pendingPermission.value = null;
+    pendingPermissionSessionId.value = null;
   }
 
   function cancelPermission(): void {
-    const pendingSession = pendingPermission.value?.sessionId;
-    if (!pendingSession) {
+    const runtime = getRuntimeForPendingPermission();
+    if (!runtime) {
       return;
     }
-    const runtime = getConnectedSessionByAcpSessionId(pendingSession);
-    runtime?.client.cancelPermission();
+    runtime.client.cancelPermission();
+    pendingPermission.value = null;
+    pendingPermissionSessionId.value = null;
   }
 
   async function disconnect(sessionId = activeSessionId.value): Promise<void> {
@@ -863,6 +919,9 @@ export const useSessionStore = defineStore('session', () => {
     const sessionStart = runtime.session.lastUpdated || Date.now();
     const sessionDuration = Math.round((Date.now() - sessionStart) / 1000);
 
+    touchSavedSession(runtime.session);
+    syncRuntimeSnapshot(runtime);
+    await saveSessionsToStore();
     await runtime.client.disconnect();
     removeConnectedSession(sessionId);
 

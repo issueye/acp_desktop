@@ -42,6 +42,7 @@ export interface SavedSession {
   cwd: string;
   supportsLoadSession?: boolean; // Whether the agent supports session/load
   proxy?: SessionProxyConfig;
+  messages?: ChatMessage[];
 }
 
 export interface ChatMessage {
