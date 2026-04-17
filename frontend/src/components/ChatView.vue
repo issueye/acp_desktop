@@ -310,6 +310,14 @@ function getStatusIcon(status: string): string {
         />
       </div>
     </div>
+
+    <CurrentPlanPanel
+      v-if="currentPlanEntries.length"
+      class="chat-plan-floating"
+      :entries="currentPlanEntries"
+      :collapsed="isPlanCollapsed"
+      @toggle="isPlanCollapsed = !isPlanCollapsed"
+    />
     
     <div ref="messagesContainer" class="messages-container" @scroll="handleMessagesScroll">
       <div class="messages-stack">
@@ -393,14 +401,6 @@ function getStatusIcon(status: string): string {
     </div>
 
     <div class="input-shell" :class="{ 'input-shell-with-plan': currentPlanEntries.length > 0 }">
-      <CurrentPlanPanel
-        v-if="currentPlanEntries.length"
-        class="input-plan-overlay"
-        :entries="currentPlanEntries"
-        :collapsed="isPlanCollapsed"
-        @toggle="isPlanCollapsed = !isPlanCollapsed"
-      />
-
       <div class="input-container">
         <CommandPalette
           ref="commandPaletteRef"
@@ -435,6 +435,7 @@ function getStatusIcon(status: string): string {
 
 <style scoped>
 .chat-view {
+  position: relative;
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -491,6 +492,14 @@ function getStatusIcon(status: string): string {
 .messages-stack {
   width: min(920px, 100%);
   margin: 0 auto;
+}
+
+.chat-plan-floating {
+  position: absolute;
+  top: 78px;
+  right: 4px;
+  width: min(380px, calc(100vw - 32px));
+  z-index: 7;
 }
 
 .scroll-jump {
@@ -720,14 +729,6 @@ function getStatusIcon(status: string): string {
   margin: 0 auto;
 }
 
-.input-plan-overlay {
-  position: absolute;
-  right: 30%;
-  bottom: calc(100% + 0.1rem);
-  width: min(420px, calc(100vw - 48px));
-  z-index: 6;
-}
-
 .chat-input {
   flex: 1;
   resize: none;
@@ -832,19 +833,18 @@ function getStatusIcon(status: string): string {
     padding-right: 1rem;
   }
 
+  .chat-plan-floating {
+    top: 118px;
+    right: 12px;
+    width: min(340px, calc(100vw - 24px));
+  }
+
   .scroll-jump {
     bottom: 12px;
   }
 
   .input-container {
     flex-direction: column;
-  }
-
-  .input-plan-overlay {
-    left: 1rem;
-    right: 1rem;
-    width: auto;
-    bottom: calc(100% + 0.5rem);
   }
 
   .send-btn {

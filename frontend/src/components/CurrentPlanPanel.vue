@@ -17,16 +17,22 @@ const { t } = useI18n();
 const completedCount = computed(
   () => props.entries.filter((entry) => entry.status === 'completed').length
 );
+const panelSummaryLabel = computed(
+  () =>
+    `${t('chat.planSummaryTotal', { count: props.entries.length })}，${t('chat.planSummaryCompleted', { count: completedCount.value })}`
+);
 </script>
 
 <template>
-  <section class="current-plan-panel">
+  <section class="current-plan-panel" :class="{ 'is-collapsed': collapsed }">
     <div class="plan-panel-wrap">
       <div class="plan-shell">
         <button
           type="button"
           class="plan-toggle"
           :aria-expanded="!collapsed"
+          :aria-label="collapsed ? panelSummaryLabel : undefined"
+          :title="collapsed ? panelSummaryLabel : undefined"
           @click="emit('toggle')"
         >
           <div class="plan-toggle-summary">
@@ -46,7 +52,7 @@ const completedCount = computed(
               />
             </svg>
             <span class="plan-toggle-title">
-              {{ t('chat.planSummaryTotal', { count: entries.length }) }}，{{ t('chat.planSummaryCompleted', { count: completedCount }) }}
+              {{ panelSummaryLabel }}
             </span>
           </div>
           <span class="plan-toggle-icon" :class="{ collapsed }" aria-hidden="true">
@@ -73,19 +79,41 @@ const completedCount = computed(
 <style scoped>
 .current-plan-panel {
   width: 100%;
+  display: flex;
+  justify-content: flex-end;
 }
 
 .plan-panel-wrap {
   width: 100%;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.current-plan-panel.is-collapsed .plan-panel-wrap {
+  width: auto;
 }
 
 .plan-shell {
+  width: min(380px, calc(100vw - 32px));
+  max-width: 100%;
   border: 1px solid var(--ued-border-default);
   border-radius: var(--ued-radius-lg);
   background: color-mix(in srgb, var(--ued-bg-panel) 94%, white);
   box-shadow: var(--ued-shadow-dialog);
   backdrop-filter: blur(14px);
   overflow: hidden;
+  transform-origin: right center;
+  transition:
+    width 0.26s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.26s ease,
+    border-color 0.26s ease,
+    transform 0.26s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.current-plan-panel.is-collapsed .plan-shell {
+  width: 48px;
+  box-shadow: 0 12px 28px rgba(16, 24, 40, 0.18);
+  transform: translateX(2px);
 }
 
 .plan-toggle {
@@ -101,7 +129,17 @@ const completedCount = computed(
   background: color-mix(in srgb, var(--ued-bg-panel) 70%, white);
   cursor: pointer;
   text-align: left;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    padding 0.26s cubic-bezier(0.22, 1, 0.36, 1),
+    min-height 0.26s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.current-plan-panel.is-collapsed .plan-toggle {
+  justify-content: center;
+  min-height: 48px;
+  padding: 0;
 }
 
 .plan-toggle:hover {
@@ -113,19 +151,45 @@ const completedCount = computed(
   display: flex;
   align-items: center;
   gap: 0.45rem;
+  transition: gap 0.26s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.current-plan-panel.is-collapsed .plan-toggle-summary {
+  gap: 0;
 }
 
 .plan-toggle-mark {
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   flex-shrink: 0;
-  color: var(--ued-text-muted);
+  color: var(--ued-accent);
+  transition:
+    color 0.18s ease,
+    transform 0.26s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.current-plan-panel.is-collapsed .plan-toggle-mark {
+  transform: scale(1.02);
 }
 
 .plan-toggle-title {
   font-size: 0.8rem;
   font-weight: 600;
   color: var(--ued-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition:
+    opacity 0.16s ease,
+    max-width 0.26s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.26s cubic-bezier(0.22, 1, 0.36, 1);
+  max-width: 260px;
+}
+
+.current-plan-panel.is-collapsed .plan-toggle-title {
+  opacity: 0;
+  max-width: 0;
+  transform: translateX(8px);
 }
 
 .plan-toggle-icon {
@@ -133,12 +197,20 @@ const completedCount = computed(
   height: 15px;
   flex-shrink: 0;
   color: var(--ued-text-muted);
-  transition: transform 0.15s ease;
+  transition:
+    transform 0.18s ease,
+    opacity 0.16s ease,
+    width 0.26s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .plan-toggle-icon svg {
   width: 100%;
   height: 100%;
+}
+
+.current-plan-panel.is-collapsed .plan-toggle-icon {
+  opacity: 0;
+  width: 0;
 }
 
 .plan-toggle-icon.collapsed {

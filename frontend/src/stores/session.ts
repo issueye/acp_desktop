@@ -164,6 +164,8 @@ function cloneMessages(messages?: ChatMessage[]): ChatMessage[] {
 
   return messages.map((message) => ({
     ...message,
+    content: typeof message.content === 'string' ? message.content : '',
+    thought: typeof message.thought === 'string' ? message.thought : undefined,
     toolCalls: message.toolCalls?.map((toolCall) => ({
       ...toolCall,
       locations: toolCall.locations?.map((location) => ({ ...location })),
@@ -435,6 +437,11 @@ export const useSessionStore = defineStore('session', () => {
     runtime.session.currentPlanEntries = clonePlanEntries(runtime.currentPlanEntries);
   }
 
+  function refreshRuntimeCollections(runtime: ConnectedSessionState): void {
+    runtime.messages = [...runtime.messages];
+    runtime.currentPlanEntries = [...runtime.currentPlanEntries];
+  }
+
   function ensureMessageParts(message: ChatMessage): ChatMessagePart[] {
     if (!message.parts) {
       const parts: ChatMessagePart[] = [];
@@ -497,11 +504,11 @@ export const useSessionStore = defineStore('session', () => {
     return nextMessage;
   }
 
-  function appendTextPart(
-    message: ChatMessage,
-    type: Extract<ChatMessagePart, { type: 'content' | 'thought' }>['type'],
-    text: string
-  ): void {
+function appendTextPart(
+  message: ChatMessage,
+  type: Extract<ChatMessagePart, { type: 'content' | 'thought' }>['type'],
+  text: string
+): void {
     const parts = ensureMessageParts(message);
     const lastPart = parts[parts.length - 1];
     if (lastPart && lastPart.type === type) {
@@ -513,10 +520,10 @@ export const useSessionStore = defineStore('session', () => {
       });
     }
 
-    if (type === 'content') {
-      message.content += text;
-      return;
-    }
+  if (type === 'content') {
+    message.content = (typeof message.content === 'string' ? message.content : '') + text;
+    return;
+  }
 
     message.thought = (message.thought || '') + text;
   }
@@ -656,6 +663,7 @@ export const useSessionStore = defineStore('session', () => {
         console.log('Unhandled session update:', update);
     }
 
+    refreshRuntimeCollections(runtime);
     notifyConnectedSessionChanged(runtime);
   }
 
@@ -981,6 +989,7 @@ export const useSessionStore = defineStore('session', () => {
         },
       ],
     });
+    refreshRuntimeCollections(runtime);
 
     runtime.isLoading = true;
     notifyConnectedSessionChanged(runtime);
