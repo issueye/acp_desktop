@@ -1,5 +1,6 @@
 <script setup>
 import SessionList from './SessionList.vue';
+import UEDButton from './common/UEDButton.vue';
 
 import { useI18n } from '../lib/i18n';
 
@@ -26,12 +27,12 @@ const { t } = useI18n();
 <template>
   <aside class="sidebar-panel">
     <div class="sidebar-top">
-      <button class="sidebar-create" :disabled="isConnecting" @click="emit('openWorkspace')">
+      <UEDButton class="sidebar-create" variant="surface" block :disabled="isConnecting" @click="emit('openWorkspace')">
         <span class="create-icon">+</span>
         <span class="create-copy">
           <strong>{{ t('app.newSession') }}</strong>
         </span>
-      </button>
+      </UEDButton>
     </div>
 
     <nav class="sidebar-nav">
@@ -80,17 +81,19 @@ const { t } = useI18n();
     </div>
 
     <div class="sidebar-footer">
-      <button class="footer-button" @click="emit('openSettings')">
+      <UEDButton class="sidebar-footer-btn" variant="ghost" block @click="emit('openSettings')">
         {{ t('app.settings') }}
-      </button>
-      <button
+      </UEDButton>
+      <UEDButton
         v-if="isConnected"
-        class="footer-danger"
+        class="sidebar-footer-btn"
+        variant="danger-soft"
+        block
         :disabled="isDisconnectingCurrent"
         @click="emit('disconnect')"
       >
         {{ isDisconnectingCurrent ? t('session.disconnecting') : t('app.disconnect') }}
-      </button>
+      </UEDButton>
     </div>
   </aside>
 </template>
@@ -117,27 +120,14 @@ const { t } = useI18n();
 }
 
 .sidebar-create {
-  width: 100%;
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   gap: 0.8rem;
+  min-height: 48px;
   padding: 0.5rem 0.9rem;
   border-radius: var(--ued-radius-md);
-  border: 1px solid color-mix(in srgb, var(--ued-accent) 18%, var(--ued-border-default));
-  background: var(--ued-bg-panel);
-  box-shadow: var(--ued-shadow-rest);
-  cursor: pointer;
   text-align: left;
-}
-
-.sidebar-create:hover:not(:disabled) {
-  background: var(--ued-bg-panel-hover);
-  border-color: color-mix(in srgb, var(--ued-accent) 26%, var(--ued-border-default));
-}
-
-.sidebar-create:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
 }
 
 .create-icon {
@@ -279,37 +269,11 @@ const { t } = useI18n();
   border-top: 1px solid var(--ued-border-subtle);
 }
 
-.footer-button,
-.footer-danger {
-  width: 100%;
+.sidebar-footer-btn {
   min-height: 38px;
+  justify-content: flex-start;
   padding: 0 0.8rem;
   border-radius: var(--ued-radius-md);
-  border: 1px solid transparent;
-  background: transparent;
-  color: var(--ued-text-secondary);
   text-align: left;
-  cursor: pointer;
-}
-
-.footer-button:hover {
-  background: rgba(255, 255, 255, 0.72);
-  border-color: var(--ued-border-default);
-  color: var(--ued-text-primary);
-}
-
-.footer-danger {
-  color: var(--ued-danger);
-}
-
-.footer-danger:hover {
-  background: var(--ued-danger-soft);
-  border-color: color-mix(in srgb, var(--ued-danger) 18%, var(--ued-border-default));
-}
-
-.footer-button:disabled,
-.footer-danger:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
 }
 </style>

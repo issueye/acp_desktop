@@ -38,7 +38,7 @@ function selectItem(id) {
     <template #trigger>
       <div class="ued-menu-picker" :class="{ disabled }" :style="{ minWidth: triggerMinWidth }">
         <button
-          class="ued-menu-picker__trigger"
+          class="ued-menu-picker__trigger ued-btn ued-btn--secondary"
           :disabled="disabled"
           :title="currentItem?.name || currentId"
           @click.stop="toggleDropdown"
@@ -90,12 +90,9 @@ function selectItem(id) {
   width: 100%;
   min-height: 38px;
   padding: 0.44rem 0.72rem;
-  border: 1px solid var(--ued-border-default);
   border-radius: var(--ued-radius-md);
-  background: var(--ued-bg-panel);
   color: var(--ued-text-primary);
   font-size: 0.79rem;
-  cursor: pointer;
   transition:
     background-color 0.15s ease,
     border-color 0.15s ease,

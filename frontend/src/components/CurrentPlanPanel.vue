@@ -27,7 +27,7 @@ const panelSummaryLabel = computed(
       <div class="plan-shell">
         <button
           type="button"
-          class="plan-toggle"
+          class="plan-toggle ued-btn ued-btn--ghost"
           :aria-expanded="!collapsed"
           :aria-label="collapsed ? panelSummaryLabel : undefined"
           :title="collapsed ? panelSummaryLabel : undefined"
@@ -122,10 +122,8 @@ const panelSummaryLabel = computed(
   gap: 0.75rem;
   min-height: 42px;
   padding: 0.6rem 0.8rem;
-  border: none;
   border-radius: var(--ued-radius-lg) var(--ued-radius-lg) 0 0;
   background: color-mix(in srgb, var(--ued-bg-panel) 70%, white);
-  cursor: pointer;
   text-align: left;
   transition:
     background 0.15s ease,

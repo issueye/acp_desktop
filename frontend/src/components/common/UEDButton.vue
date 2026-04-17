@@ -3,6 +3,8 @@ import { computed, useAttrs } from 'vue';
 
 
 const props = defineProps({
+    variant: { type: String, default: 'secondary' },
+    size: { type: String, default: 'md' },
     block: { type: Boolean, default: false },
     active: { type: Boolean, default: false },
     disabled: { type: Boolean, default: false },
@@ -25,16 +27,3 @@ const classes = computed(() => [
     <slot />
   </button>
 </template>
-
-<style scoped>
-.ued-btn--block {
-  width: 100%;
-}
-
-.ued-btn.is-active.ued-btn--secondary,
-.ued-btn.is-active.ued-btn--ghost {
-  background: var(--ued-accent-soft);
-  border-color: color-mix(in srgb, var(--ued-accent) 22%, var(--ued-border-default));
-  color: var(--ued-accent);
-}
-</style>

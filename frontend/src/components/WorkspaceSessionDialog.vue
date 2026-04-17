@@ -186,7 +186,7 @@ function closeDialog() {
             <div class="section-headline">
               <h3 class="ued-title-2">{{ t('app.workingDirectory') }}</h3>
               <button
-                class="icon-ghost-button ued-icon-btn"
+                class="icon-ghost-button ued-icon-btn ued-icon-btn--ghost"
                 :disabled="props.isSelectingFolder || props.isConnecting"
                 :title="props.isSelectingFolder ? t('app.selectingFolder') : t('app.selectFolder')"
                 :aria-label="props.isSelectingFolder ? t('app.selectingFolder') : t('app.selectFolder')"

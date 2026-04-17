@@ -1,5 +1,6 @@
 <script setup>
 import { useI18n } from '../lib/i18n';
+import UEDButton from './common/UEDButton.vue';
 
 defineProps({
     showSidebar: { type: Boolean, required: true },
@@ -20,7 +21,7 @@ const { t } = useI18n();
   <header class="window-header drag-region" @dblclick="emit('headerDblclick')">
     <div class="window-brand">
       <button
-        class="icon-button no-drag"
+        class="header-icon-button ued-icon-btn no-drag"
         :title="showSidebar ? t('app.collapseSidebar') : t('app.expandSidebar')"
         @click="emit('toggleSidebar')"
       >
@@ -47,19 +48,19 @@ const { t } = useI18n();
 
     <div class="window-actions no-drag">
       <button
-        class="icon-button"
-        :class="{ active: trafficMonitorOpen }"
+        class="header-icon-button ued-icon-btn"
+        :class="{ 'ued-icon-btn--active': trafficMonitorOpen }"
         :title="t('app.trafficMonitor')"
         @click="emit('toggleTraffic')"
       >
         ~
       </button>
-      <button class="header-chip" :title="t('app.language')" @click="emit('toggleLocale')">
+      <UEDButton class="header-chip" variant="secondary" size="sm" :title="t('app.language')" @click="emit('toggleLocale')">
         {{ locale === 'zh-CN' ? t('app.langLabelZh') : t('app.langLabelEn') }}
-      </button>
-      <button class="icon-button" :title="t('app.settings')" @click="emit('openSettings')">⚙</button>
-      <button class="icon-button" :title="t('app.minimise')" @click="emit('minimise')">_</button>
-      <button class="icon-button close-button" :title="t('app.close')" @click="emit('close')">×</button>
+      </UEDButton>
+      <button class="header-icon-button ued-icon-btn" :title="t('app.settings')" @click="emit('openSettings')">⚙</button>
+      <button class="header-icon-button ued-icon-btn" :title="t('app.minimise')" @click="emit('minimise')">_</button>
+      <button class="header-icon-button ued-icon-btn ued-icon-btn--danger close-button" :title="t('app.close')" @click="emit('close')">×</button>
     </div>
   </header>
 </template>
@@ -177,17 +178,6 @@ const { t } = useI18n();
   gap: 0.4rem;
 }
 
-.header-chip,
-.icon-button {
-  height: 28px;
-  border-radius: var(--ued-radius-md);
-  background: var(--ued-bg-panel);
-  color: var(--ued-text-secondary);
-  border: 1px solid var(--ued-border-default);
-  cursor: pointer;
-  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
-}
-
 .header-chip {
   min-width: 46px;
   padding: 0 0.65rem;
@@ -195,30 +185,20 @@ const { t } = useI18n();
   font-weight: 700;
 }
 
-.icon-button {
+.header-icon-button {
   width: 30px;
+  height: 30px;
   display: grid;
   place-items: center;
   font-size: 0.88rem;
 }
 
 .header-chip:hover,
-.icon-button:hover {
-  background: var(--ued-bg-panel-hover);
-  color: var(--ued-text-primary);
-  border-color: var(--ued-border-strong);
+.header-icon-button:hover {
   transform: translateY(-1px);
 }
 
-.icon-button.active {
-  background: var(--ued-accent-soft);
-  color: var(--ued-accent);
-  border-color: color-mix(in srgb, var(--ued-accent) 18%, var(--ued-border-default));
-}
-
 .close-button:hover {
-  background: var(--ued-danger-soft);
-  border-color: color-mix(in srgb, var(--ued-danger) 18%, var(--ued-border-default));
   color: var(--ued-danger);
 }
 

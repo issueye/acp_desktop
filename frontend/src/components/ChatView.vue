@@ -343,7 +343,7 @@ function getStatusIcon(status) {
               v-if="part.type === 'thought' && message.role === 'assistant'"
               class="thought-section"
             >
-              <button class="thought-toggle" @click="toggleThought(getThoughtKey(message.id, partIndex))">
+              <button class="thought-toggle ued-btn ued-btn--ghost" @click="toggleThought(getThoughtKey(message.id, partIndex))">
                 <span class="thought-icon">...</span>
                 <span class="thought-label">
                   {{ isThoughtExpanded(getThoughtKey(message.id, partIndex)) ? t('chat.hideThinking') : t('chat.showThinking') }}
@@ -754,20 +754,25 @@ function getStatusIcon(status) {
 .thought-toggle {
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   gap: 0.5rem;
   width: 100%;
   padding: 0.65rem 0.85rem;
   background: var(--ued-bg-panel-muted);
-  border: none;
-  cursor: pointer;
+  min-height: auto;
   font-size: 0.85rem;
   color: var(--ued-text-muted);
   text-align: left;
   transition: background 0.15s ease;
+  transform: none;
 }
 
 .thought-toggle:hover {
   background: var(--ued-bg-panel-hover);
+}
+
+.thought-toggle:active:not(:disabled) {
+  transform: none;
 }
 
 .thought-icon {

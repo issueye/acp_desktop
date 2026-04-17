@@ -463,7 +463,7 @@ function handleGlobalKeydown(event) {
           @open-settings="openSettings()"
         />
 
-        <button v-else class="sidebar-rail no-drag" :title="t('app.expandSidebar')" @click="toggleSidebar">
+        <button v-else class="sidebar-rail ued-btn ued-btn--ghost no-drag" :title="t('app.expandSidebar')" @click="toggleSidebar">
           <span>▶</span>
           <span>{{ savedSessionCount }}</span>
         </button>
@@ -473,7 +473,7 @@ function handleGlobalKeydown(event) {
             <div v-if="error" class="error-banner">
               <span class="error-icon">!</span>
               <span class="error-text">{{ error }}</span>
-              <button class="error-close" @click="clearError">×</button>
+              <button class="error-close ued-icon-btn ued-icon-btn--ghost ued-icon-btn--danger" @click="clearError">×</button>
             </div>
 
             <ChatView v-if="isConnected" />
@@ -602,6 +602,7 @@ input, textarea, select { user-select: text; }
 .window-body { flex: 1; min-height: 0; display: flex; gap: 0; padding: 0; background: var(--ued-bg-window); }
 .sidebar-rail {
   width: 54px;
+  min-height: 100%;
   border-right: 1px solid var(--ued-border-default);
   background: var(--bg-sidebar);
   color: var(--text-secondary);
@@ -610,8 +611,14 @@ input, textarea, select { user-select: text; }
   align-items: center;
   justify-content: center;
   gap: .4rem;
-  cursor: pointer;
+  border-radius: 0;
+  transform: none;
   box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.65);
+}
+
+.sidebar-rail:hover,
+.sidebar-rail:active {
+  transform: none;
 }
 .content-stage { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 0; background: var(--ued-bg-panel); }
 .main-content { flex: 1; min-height: 0; overflow: hidden; background: linear-gradient(180deg, var(--ued-bg-panel) 0%, var(--ued-bg-window) 100%); }
@@ -626,7 +633,7 @@ input, textarea, select { user-select: text; }
 }
 .error-icon { width: 26px; height: 26px; display: grid; place-items: center; border-radius: 50%; background: color-mix(in srgb, var(--ued-danger) 10%, transparent); font-weight: 700; }
 .error-text { flex: 1; }
-.error-close { border: none; background: transparent; color: inherit; font-size: 1.1rem; cursor: pointer; }
+.error-close { color: inherit; font-size: 1.1rem; }
 @media (max-width: 900px) {
   .app-shell { padding: 0; }
   .window-body { padding: 0; }

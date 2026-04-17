@@ -217,7 +217,7 @@ function handleKeyDown(event) {
 
           <div class="session-actions">
             <button
-              class="row-icon-button connect-toggle"
+              class="row-icon-button ued-icon-btn ued-icon-btn--ghost connect-toggle"
               :class="{ disconnect: isConnectedSession(session.id), busy: isPendingSession(session.id) }"
               :disabled="isPendingSession(session.id) || isDeletingSession(session.id)"
               :title="getConnectActionLabel(session.id)"
@@ -289,7 +289,7 @@ function handleKeyDown(event) {
               </svg>
             </button>
             <button
-              class="row-icon-button"
+              class="row-icon-button ued-icon-btn ued-icon-btn--ghost"
               :class="{ pinned: isPinned(session.id) }"
               :disabled="isPendingSession(session.id) || isDeletingSession(session.id)"
               @click.stop="(e) => handleTogglePin(session.id, e)"
@@ -298,7 +298,7 @@ function handleKeyDown(event) {
               ★
             </button>
             <button
-              class="row-icon-button danger"
+              class="row-icon-button ued-icon-btn ued-icon-btn--ghost ued-icon-btn--danger danger"
               :disabled="isPendingSession(session.id) || isDeletingSession(session.id)"
               @click.stop="(e) => handleDelete(session.id, e)"
               :title="isDeletingSession(session.id) ? t('session.deleting') : t('session.delete')"
@@ -517,19 +517,10 @@ ul {
 .row-icon-button {
   width: 26px;
   height: 26px;
-  display: grid;
-  place-items: center;
-  border: none;
-  border-radius: var(--ued-radius-sm);
-  background: transparent;
-  color: var(--ued-text-muted);
   font-size: 0.86rem;
-  cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
 }
 
 .row-icon-button:hover {
-  background: rgba(255, 255, 255, 0.72);
   color: var(--ued-text-primary);
 }
 
@@ -542,14 +533,11 @@ ul {
 }
 
 .row-icon-button.danger:hover {
-  background: var(--ued-danger-soft);
   color: var(--ued-danger);
 }
 
 .row-icon-button:disabled:hover {
   transform: none;
-  background: inherit;
-  border-color: inherit;
   color: inherit;
 }
 

@@ -125,8 +125,8 @@ function handleCopy(entry) {
       
       <div class="controls">
         <button 
-          class="control-btn"
-          :class="{ active: trafficStore.isPaused }"
+          class="control-btn ued-icon-btn ued-icon-btn--ghost"
+          :class="{ 'ued-icon-btn--active': trafficStore.isPaused }"
           @click="trafficStore.togglePause()"
           :title="trafficStore.isPaused ? 'Resume' : 'Pause'"
         >
@@ -134,7 +134,7 @@ function handleCopy(entry) {
         </button>
         
         <button 
-          class="control-btn"
+          class="control-btn ued-icon-btn ued-icon-btn--ghost"
           @click="trafficStore.clear()"
           title="Clear"
         >
@@ -152,7 +152,7 @@ function handleCopy(entry) {
           />
           <button 
             v-if="trafficStore.searchQuery"
-            class="search-clear-btn"
+            class="search-clear-btn ued-icon-btn ued-icon-btn--ghost"
             @click="trafficStore.clearSearch()"
             title="Clear search"
           >
@@ -176,7 +176,7 @@ function handleCopy(entry) {
         </select>
       </div>
       
-      <button class="close-btn" @click="emit('close')" title="Close">×</button>
+      <button class="close-btn ued-icon-btn ued-icon-btn--danger" @click="emit('close')" title="Close">×</button>
     </div>
     
     <div 
@@ -201,7 +201,7 @@ function handleCopy(entry) {
           <span class="type-label">{{ getTypeLabel(entry) }}</span>
           <span v-if="entry.requestId !== undefined" class="request-id">#{{ entry.requestId }}</span>
           <button 
-            class="copy-btn" 
+            class="copy-btn ued-icon-btn ued-icon-btn--ghost" 
             @click.stop="handleCopy(entry)"
             title="Copy JSON"
           >
@@ -272,20 +272,9 @@ function handleCopy(entry) {
 }
 
 .control-btn {
-  padding: 0.35rem 0.65rem;
-  border: 1px solid var(--border-color);
-  border-radius: 999px;
-  background: #ffffff;
-  cursor: pointer;
+  width: 30px;
+  height: 30px;
   font-size: 0.75rem;
-}
-
-.control-btn:hover {
-  background: #f8fafc;
-}
-
-.control-btn.active {
-  background: var(--bg-warning);
 }
 
 .search-container {
@@ -318,11 +307,8 @@ function handleCopy(entry) {
 }
 
 .search-clear-btn {
-  padding: 0 0.25rem;
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
+  width: 24px;
+  height: 24px;
   font-size: 0.9rem;
   line-height: 1;
 }
@@ -350,10 +336,7 @@ function handleCopy(entry) {
 .close-btn {
   width: 32px;
   height: 32px;
-  border: 1px solid var(--border-color);
-  background: #ffffff;
   border-radius: 8px;
-  cursor: pointer;
   font-size: 1rem;
   color: var(--text-muted);
 }
@@ -429,11 +412,8 @@ function handleCopy(entry) {
 }
 
 .copy-btn {
-  padding: 0.18rem 0.35rem;
-  border: 1px solid var(--border-color);
-  background: #ffffff;
-  border-radius: 8px;
-  cursor: pointer;
+  width: 24px;
+  height: 24px;
   font-size: 0.7rem;
   opacity: 0;
   transition: opacity 0.15s;
