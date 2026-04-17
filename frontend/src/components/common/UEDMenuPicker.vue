@@ -1,6 +1,7 @@
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
 import AppPopover from '../AppPopover.vue';
+import UEDInput from './UEDInput.vue';
 
 const props = defineProps({
     items: { type: Array, required: true },
@@ -9,15 +10,31 @@ const props = defineProps({
     minWidth: { type: String, default: '292px' },
     maxWidth: { type: String, default: '420px' },
     triggerMinWidth: { type: String, default: '172px' },
+    searchable: { type: Boolean, default: false },
+    searchPlaceholder: { type: String, default: 'Search...' },
+    emptySearchText: { type: String, default: 'No matching results.' },
 });
 
 const emit = defineEmits(['change']);
 
 const isOpen = ref(false);
+const searchQuery = ref('');
+const searchInputRef = ref(null);
 
 const currentItem = computed(() =>
   props.items.find((item) => item.id === props.currentId) ?? null
 );
+
+const filteredItems = computed(() => {
+  const normalizedQuery = String(searchQuery.value ?? '').trim().toLowerCase();
+  if (!props.searchable || !normalizedQuery) {
+    return props.items;
+  }
+  return props.items.filter((item) => {
+    const haystack = `${item.name ?? ''} ${item.description ?? ''} ${item.id ?? ''}`.toLowerCase();
+    return haystack.includes(normalizedQuery);
+  });
+});
 
 function toggleDropdown() {
   if (!props.disabled) {
@@ -31,6 +48,15 @@ function selectItem(id) {
   }
   isOpen.value = false;
 }
+
+watch(isOpen, async (open) => {
+  if (open && props.searchable) {
+    await nextTick();
+    searchInputRef.value?.focus();
+    return;
+  }
+  searchQuery.value = '';
+});
 </script>
 
 <template>
@@ -52,20 +78,39 @@ function selectItem(id) {
 
     <template #default>
       <div class="ued-menu-picker__menu">
-        <div
-          v-for="item in items"
-          :key="item.id"
-          :class="['ued-menu-picker__item', { 'is-selected': item.id === currentId }]"
-          @click="selectItem(item.id)"
-        >
-          <span v-if="item.icon" class="ued-menu-picker__item-icon">{{ item.icon }}</span>
-          <div class="ued-menu-picker__item-content">
-            <span class="ued-menu-picker__item-name">{{ item.name }}</span>
-            <span v-if="item.description" class="ued-menu-picker__item-description">
-              {{ item.description }}
-            </span>
+        <div v-if="searchable" class="ued-menu-picker__search">
+          <UEDInput
+            ref="searchInputRef"
+            :model-value="searchQuery"
+            :placeholder="searchPlaceholder"
+            class="ued-menu-picker__search-input"
+            @update:modelValue="searchQuery = $event"
+          />
+        </div>
+
+        <div class="ued-menu-picker__list">
+          <div
+            v-if="filteredItems.length === 0"
+            class="ued-menu-picker__empty ued-meta"
+          >
+            {{ emptySearchText }}
           </div>
-          <span v-if="item.id === currentId" class="ued-menu-picker__check">✓</span>
+
+          <div
+            v-for="item in filteredItems"
+            :key="item.id"
+            :class="['ued-menu-picker__item', { 'is-selected': item.id === currentId }]"
+            @click="selectItem(item.id)"
+          >
+            <span v-if="item.icon" class="ued-menu-picker__item-icon">{{ item.icon }}</span>
+            <div class="ued-menu-picker__item-content">
+              <span class="ued-menu-picker__item-name">{{ item.name }}</span>
+              <span v-if="item.description" class="ued-menu-picker__item-description">
+                {{ item.description }}
+              </span>
+            </div>
+            <span v-if="item.id === currentId" class="ued-menu-picker__check">✓</span>
+          </div>
         </div>
       </div>
     </template>
@@ -138,12 +183,33 @@ function selectItem(id) {
 }
 
 .ued-menu-picker__menu {
+  display: flex;
+  flex-direction: column;
   max-height: 360px;
-  overflow-y: auto;
   background: var(--ued-bg-panel);
   border: 1px solid var(--ued-border-default);
   border-radius: var(--ued-radius-md);
   box-shadow: var(--ued-shadow-dialog);
+  overflow: hidden;
+}
+
+.ued-menu-picker__search {
+  padding: 0.65rem;
+  border-bottom: 1px solid var(--ued-border-subtle);
+  background: color-mix(in srgb, var(--ued-bg-panel) 92%, white);
+}
+
+.ued-menu-picker__search-input {
+  width: 100%;
+}
+
+.ued-menu-picker__list {
+  overflow-y: auto;
+}
+
+.ued-menu-picker__empty {
+  padding: 1rem 0.9rem;
+  text-align: center;
 }
 
 .ued-menu-picker__item {

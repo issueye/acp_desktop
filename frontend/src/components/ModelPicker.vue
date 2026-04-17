@@ -1,5 +1,6 @@
 <script setup>
 import { computed } from 'vue';
+import { useI18n } from '../lib/i18n';
 
 import UEDMenuPicker from './common/UEDMenuPicker.vue';
 
@@ -10,6 +11,7 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['change']);
+const { t } = useI18n();
 
 const items = computed(() =>
   props.models.map((model) => ({
@@ -38,6 +40,9 @@ function getModelIcon(modelId) {
     :items="items"
     :current-id="currentModelId"
     :disabled="disabled"
+    searchable
+    :search-placeholder="t('picker.searchModels')"
+    :empty-search-text="t('picker.noMatchingModels')"
     min-width="348px"
     max-width="420px"
     trigger-min-width="220px"

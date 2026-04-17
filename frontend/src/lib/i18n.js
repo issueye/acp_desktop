@@ -115,6 +115,9 @@ const messages = {
     'auth.description': '{agent} requires authentication to continue.',
     'auth.selectMethod': 'Select an authentication method:',
 
+    'picker.searchModels': 'Search models...',
+    'picker.noMatchingModels': 'No matching models found.',
+
     'startup.connectingTo': 'Connecting to {agent}...',
     'startup.phase.starting': 'Starting process...',
     'startup.phase.downloading': 'Downloading packages...',
@@ -269,6 +272,9 @@ const messages = {
     'auth.required': '需要认证',
     'auth.description': '{agent} 需要认证后才能继续。',
     'auth.selectMethod': '请选择认证方式：',
+
+    'picker.searchModels': '搜索模型...',
+    'picker.noMatchingModels': '没有匹配的模型。',
 
     'startup.connectingTo': '正在连接 {agent}...',
     'startup.phase.starting': '正在启动进程...',
