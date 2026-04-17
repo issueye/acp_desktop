@@ -81,8 +81,8 @@ const { t } = useI18n();
   min-height: 46px;
   padding: 0.38rem 0.72rem;
   background: var(--bg-header);
-  color: var(--text-primary);
-  border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+  color: var(--ued-text-primary);
+  border-bottom: 1px solid var(--ued-border-default);
 }
 
 .window-brand,
@@ -101,9 +101,10 @@ const { t } = useI18n();
   width: 28px;
   height: 28px;
   border-radius: 8px;
-  background: linear-gradient(180deg, #ffffff, #eef4ff);
-  border: 1px solid rgba(37, 99, 235, 0.12);
+  background: linear-gradient(180deg, var(--ued-bg-panel), var(--ued-accent-soft));
+  border: 1px solid color-mix(in srgb, var(--ued-accent) 18%, var(--ued-border-default));
   position: relative;
+  box-shadow: var(--ued-shadow-rest);
 }
 
 .brand-mark::before {
@@ -129,7 +130,7 @@ const { t } = useI18n();
 
 .brand-copy span {
   font-size: 0.62rem;
-  color: var(--text-muted);
+  color: var(--ued-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   line-height: 1.1;
@@ -145,13 +146,13 @@ const { t } = useI18n();
   width: 8px;
   height: 8px;
   border-radius: 999px;
-  background: #cbd5e1;
+  background: var(--ued-text-muted);
   flex-shrink: 0;
 }
 
 .status-dot.live {
-  background: var(--text-accent);
-  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
+  background: var(--ued-accent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--ued-accent) 14%, transparent);
 }
 
 .status-copy {
@@ -172,12 +173,12 @@ const { t } = useI18n();
 .status-copy strong {
   font-size: 0.82rem;
   font-weight: 600;
-  color: var(--text-primary);
+  color: var(--ued-text-primary);
 }
 
 .status-copy span {
   font-size: 0.72rem;
-  color: var(--text-muted);
+  color: var(--ued-text-muted);
 }
 
 .window-actions {
@@ -187,12 +188,12 @@ const { t } = useI18n();
 .header-chip,
 .icon-button {
   height: 28px;
-  border-radius: 8px;
-  background: #fffdfa;
-  color: var(--text-secondary);
-  border: 1px solid rgba(15, 23, 42, 0.06);
+  border-radius: var(--ued-radius-md);
+  background: var(--ued-bg-panel);
+  color: var(--ued-text-secondary);
+  border: 1px solid var(--ued-border-default);
   cursor: pointer;
-  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
 }
 
 .header-chip {
@@ -211,21 +212,22 @@ const { t } = useI18n();
 
 .header-chip:hover,
 .icon-button:hover {
-  background: #ffffff;
-  color: var(--text-primary);
-  border-color: rgba(15, 23, 42, 0.1);
+  background: var(--ued-bg-panel-hover);
+  color: var(--ued-text-primary);
+  border-color: var(--ued-border-strong);
+  transform: translateY(-1px);
 }
 
 .icon-button.active {
-  background: rgba(37, 99, 235, 0.08);
-  color: var(--text-accent);
-  border-color: rgba(37, 99, 235, 0.14);
+  background: var(--ued-accent-soft);
+  color: var(--ued-accent);
+  border-color: color-mix(in srgb, var(--ued-accent) 18%, var(--ued-border-default));
 }
 
 .close-button:hover {
-  background: rgba(220, 38, 38, 0.08);
-  border-color: rgba(220, 38, 38, 0.16);
-  color: var(--bg-danger);
+  background: var(--ued-danger-soft);
+  border-color: color-mix(in srgb, var(--ued-danger) 18%, var(--ued-border-default));
+  color: var(--ued-danger);
 }
 
 @media (max-width: 1180px) {

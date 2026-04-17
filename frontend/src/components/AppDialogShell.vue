@@ -60,12 +60,15 @@ function close() {
   >
     <section class="dialog-shell">
       <header class="dialog-shell__header">
-        <h2 class="dialog-shell__title">{{ props.title }}</h2>
+        <div class="dialog-shell__title-block">
+          <p v-if="props.eyebrow" class="dialog-shell__eyebrow">{{ props.eyebrow }}</p>
+          <h2 class="dialog-shell__title">{{ props.title }}</h2>
+        </div>
         <div class="dialog-shell__header-actions">
           <slot name="header-extra" :close="close" />
           <button
             v-if="props.showClose"
-            class="dialog-shell__close"
+            class="dialog-shell__close ued-icon-btn"
             type="button"
             @click="close"
           >
@@ -90,6 +93,10 @@ function close() {
   max-height: 100%;
   display: flex;
   flex-direction: column;
+  border-radius: var(--ued-radius-lg);
+  border: 1px solid var(--ued-border-default);
+  background: var(--ued-bg-panel);
+  box-shadow: var(--ued-shadow-dialog);
 }
 
 .dialog-shell {
@@ -98,19 +105,19 @@ function close() {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  background: #fffdfa;
+  background: var(--ued-bg-panel);
 }
 
 .dialog-shell__header {
   flex-shrink: 0;
-  min-height: 42px;
+  min-height: 58px;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.5rem;
-  background: var(--bg-header);
-  border-bottom: 1px solid var(--border-color);
+  gap: var(--ued-space-12);
+  padding: 16px 16px 12px;
+  background: var(--ued-bg-panel);
+  border-bottom: 1px solid var(--ued-border-default);
 }
 
 .dialog-shell__title-block {
@@ -122,39 +129,24 @@ function close() {
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--text-muted);
+  color: var(--ued-text-muted);
 }
 
 .dialog-shell__title {
   margin: 0;
-  font-size: 1rem;
-  line-height: 1.2;
-  color: var(--text-primary);
+  font-size: var(--ued-text-title-2);
+  line-height: var(--ued-line-title-2);
+  color: var(--ued-text-primary);
 }
 
 .dialog-shell__header-actions {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--ued-space-8);
 }
 
 .dialog-shell__close {
-  width: 28px;
-  height: 28px;
-  display: grid;
-  place-items: center;
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  background: #ffffff;
-  color: var(--text-secondary);
   font-size: 0.95rem;
-  cursor: pointer;
-}
-
-.dialog-shell__close:hover {
-  color: var(--text-primary);
-  background: #f8fafc;
-  border-color: rgba(148, 163, 184, 0.34);
 }
 
 .dialog-shell__body {
@@ -164,7 +156,7 @@ function close() {
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
-  padding: 0.5rem;
+  padding: 16px;
 }
 
 .dialog-shell__footer {
@@ -172,9 +164,9 @@ function close() {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 0.55rem;
-  padding: 0.5rem;
-  border-top: 1px solid var(--border-color);
-  background: #ffffff;
+  gap: var(--ued-space-8);
+  padding: 12px 16px 16px;
+  border-top: 1px solid var(--ued-border-default);
+  background: var(--ued-bg-panel);
 }
 </style>

@@ -73,7 +73,7 @@ const completedCount = computed(
 <style scoped>
 .current-plan-panel {
   padding: 0.7rem 1.2rem 0.45rem;
-  background: #fffdfa;
+  background: color-mix(in srgb, var(--ued-bg-panel) 90%, white);
 }
 
 .plan-panel-wrap {
@@ -82,9 +82,10 @@ const completedCount = computed(
 }
 
 .plan-shell {
-  border: 1px solid rgba(148, 163, 184, 0.28);
-  border-radius: 10px;
-  background: #ffffff;
+  border: 1px solid var(--ued-border-default);
+  border-radius: var(--ued-radius-lg);
+  background: var(--ued-bg-panel);
+  box-shadow: var(--ued-shadow-rest);
 }
 
 .plan-toggle {
@@ -96,7 +97,7 @@ const completedCount = computed(
   min-height: 38px;
   padding: 0.6rem 0.8rem;
   border: none;
-  border-radius: 10px 10px 0 0;
+  border-radius: var(--ued-radius-lg) var(--ued-radius-lg) 0 0;
   background: transparent;
   cursor: pointer;
   text-align: left;
@@ -104,7 +105,7 @@ const completedCount = computed(
 }
 
 .plan-toggle:hover {
-  background: rgba(15, 23, 42, 0.025);
+  background: var(--ued-bg-panel-hover);
 }
 
 .plan-toggle-summary {
@@ -118,20 +119,20 @@ const completedCount = computed(
   width: 14px;
   height: 14px;
   flex-shrink: 0;
-  color: #94a3b8;
+  color: var(--ued-text-muted);
 }
 
 .plan-toggle-title {
   font-size: 0.8rem;
   font-weight: 500;
-  color: #64748b;
+  color: var(--ued-text-secondary);
 }
 
 .plan-toggle-icon {
   width: 15px;
   height: 15px;
   flex-shrink: 0;
-  color: #94a3b8;
+  color: var(--ued-text-muted);
   transition: transform 0.15s ease;
 }
 
@@ -146,6 +147,6 @@ const completedCount = computed(
 
 .plan-panel-body {
   padding: 0.15rem 0.8rem 0.75rem;
-  border-top: 1px solid rgba(226, 232, 240, 0.8);
+  border-top: 1px solid var(--ued-border-subtle);
 }
 </style>

@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import { useI18n } from '../lib/i18n';
+import UEDButton from './common/UEDButton.vue';
+import UEDCard from './common/UEDCard.vue';
+import UEDStatus from './common/UEDStatus.vue';
 
 defineProps<{
   hasAgents: boolean;
@@ -19,37 +22,40 @@ const { t } = useI18n();
 
 <template>
   <div class="welcome-screen">
-    <div class="welcome-card">
-      <p class="eyebrow">{{ t('app.welcomeEyebrow') }}</p>
-      <h2>{{ t('app.welcomeTitle') }}</h2>
-      <p class="welcome-text">{{ t('app.welcomeDesc') }}</p>
+    <UEDCard raised class="welcome-card">
+      <p class="ued-kicker">{{ t('app.welcomeEyebrow') }}</p>
+      <h2 class="ued-title-1">{{ t('app.welcomeTitle') }}</h2>
+      <p class="welcome-text ued-body">{{ t('app.welcomeDesc') }}</p>
 
       <div class="welcome-actions">
-        <button class="primary-button" :disabled="isConnecting" @click="emit('openWorkspace')">
+        <UEDButton variant="primary" size="lg" :disabled="isConnecting" @click="emit('openWorkspace')">
           {{ t('app.newSession') }}
-        </button>
-        <button class="secondary-button" @click="emit('openAddAgent')">
+        </UEDButton>
+        <UEDButton variant="secondary" size="lg" @click="emit('openAddAgent')">
           {{ t('settings.addAgent') }}
-        </button>
+        </UEDButton>
       </div>
 
       <div class="welcome-grid">
-        <div class="welcome-stat">
+        <UEDCard class="welcome-stat">
           <span>{{ t('agent.label') }}</span>
           <strong>{{ selectedAgentLabel }}</strong>
-        </div>
-        <div class="welcome-stat">
+        </UEDCard>
+        <UEDCard class="welcome-stat">
           <span>{{ t('app.workspace') }}</span>
           <strong>{{ workspaceLabel }}</strong>
-        </div>
-        <div class="welcome-stat">
+        </UEDCard>
+        <UEDCard class="welcome-stat">
           <span>{{ t('app.savedSessions') }}</span>
-          <strong>{{ savedSessionCount }}</strong>
-        </div>
+          <div class="welcome-stat__foot">
+            <strong>{{ savedSessionCount }}</strong>
+            <UEDStatus kind="badge" tone="info">ACP</UEDStatus>
+          </div>
+        </UEDCard>
       </div>
 
-      <p v-if="!hasAgents" class="hint-text">{{ t('app.configureAgentsHint') }}</p>
-    </div>
+      <p v-if="!hasAgents" class="hint-text ued-meta">{{ t('app.configureAgentsHint') }}</p>
+    </UEDCard>
   </div>
 </template>
 
@@ -59,37 +65,20 @@ const { t } = useI18n();
   display: grid;
   place-items: center;
   padding: 2rem;
-  background: linear-gradient(180deg, #ffffff 0%, #fcfaf6 100%);
+  background:
+    radial-gradient(circle at top right, rgba(10, 100, 216, 0.08), transparent 28%),
+    linear-gradient(180deg, var(--ued-bg-panel) 0%, var(--ued-bg-window) 100%);
 }
 
 .welcome-card {
   width: min(760px, 100%);
-  padding: 2rem;
-  border-radius: 8px;
-  background: #fffdfa;
-  border: 1px solid rgba(15, 23, 42, 0.06);
-  box-shadow: var(--shadow-md);
-}
-
-.eyebrow {
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
-h2 {
-  margin-top: 0.35rem;
-  font-size: 1.15rem;
-  color: var(--text-primary);
+  overflow: hidden;
 }
 
 .welcome-text,
 .hint-text {
   margin-top: 0.65rem;
   line-height: 1.7;
-  color: var(--text-secondary);
 }
 
 .welcome-actions {
@@ -97,40 +86,6 @@ h2 {
   align-items: center;
   gap: 0.75rem;
   margin-top: 1.4rem;
-}
-
-.primary-button,
-.secondary-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  cursor: pointer;
-}
-
-.primary-button {
-  padding: 0.72rem 1rem;
-  background: var(--bg-primary);
-  color: white;
-  border-color: rgba(37, 99, 235, 0.18);
-  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.16);
-}
-
-.primary-button:hover:not(:disabled) {
-  transform: translateY(-1px);
-  background: var(--bg-primary-hover);
-  border-color: rgba(37, 99, 235, 0.22);
-}
-
-.secondary-button {
-  padding: 0.68rem 0.95rem;
-  background: #fffdfa;
-  color: var(--text-secondary);
-  border-color: rgba(15, 23, 42, 0.08);
-}
-
-.secondary-button:hover {
-  color: var(--text-accent);
-  border-color: rgba(37, 99, 235, 0.14);
-  background: #ffffff;
 }
 
 .welcome-grid {
@@ -144,22 +99,26 @@ h2 {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
-  padding: 1rem;
-  border-radius: 8px;
-  background: #ffffff;
-  border: 1px solid rgba(15, 23, 42, 0.06);
+  min-width: 0;
 }
 
 .welcome-stat span {
   font-size: 0.76rem;
-  color: var(--text-muted);
+  color: var(--ued-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
 
 .welcome-stat strong {
   font-size: 0.98rem;
-  color: var(--text-primary);
+  color: var(--ued-text-primary);
+}
+
+.welcome-stat__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
 }
 
 @media (max-width: 900px) {

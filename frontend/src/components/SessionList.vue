@@ -360,7 +360,7 @@ function handleKeyDown(event: KeyboardEvent) {
 .empty-state {
   text-align: left;
   padding: 0.85rem 0.6rem;
-  color: var(--text-muted, #999);
+  color: var(--ued-text-muted);
 }
 
 .empty-state .hint {
@@ -382,7 +382,7 @@ ul {
   display: block;
   padding: 0;
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: var(--ued-radius-md);
   margin-bottom: 0;
   cursor: pointer;
   background: transparent;
@@ -392,12 +392,14 @@ ul {
 
 .session-item:hover,
 .session-item.selected {
-  border-color: rgba(15, 23, 42, 0.04);
+  border-color: var(--ued-border-default);
+  background: rgba(255, 255, 255, 0.56);
 }
 
 .session-item.active {
-  background: rgba(255, 255, 255, 0.92);
-  border-color: rgba(15, 23, 42, 0.04);
+  background: var(--ued-bg-panel);
+  border-color: color-mix(in srgb, var(--ued-accent) 16%, var(--ued-border-default));
+  box-shadow: var(--ued-shadow-rest);
 }
 
 .session-item.busy {
@@ -432,7 +434,7 @@ ul {
   min-width: 0;
   font-weight: 500;
   font-size: 0.92rem;
-  color: #5a6472;
+  color: var(--ued-text-secondary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -441,14 +443,14 @@ ul {
 .session-item.active .session-title,
 .session-item:hover .session-title,
 .session-item.selected .session-title {
-  color: #2d3748;
+  color: var(--ued-text-primary);
 }
 
 .folder-icon {
   position: relative;
   width: 14px;
   height: 10px;
-  border: 1.4px solid rgba(112, 120, 132, 0.9);
+  border: 1.4px solid color-mix(in srgb, var(--ued-text-muted) 86%, transparent);
   border-radius: 2px;
   background: transparent;
 }
@@ -460,7 +462,7 @@ ul {
   top: -4px;
   width: 6px;
   height: 4px;
-  border: 1.4px solid rgba(112, 120, 132, 0.9);
+  border: 1.4px solid color-mix(in srgb, var(--ued-text-muted) 86%, transparent);
   border-bottom: none;
   border-radius: 2px 2px 0 0;
   background: transparent;
@@ -473,12 +475,12 @@ ul {
   width: 6px;
   height: 6px;
   border-radius: 999px;
-  background: #10b981;
+  background: var(--ued-success);
   box-shadow: 0 0 0 2px var(--bg-sidebar, #f2ede3);
 }
 
 .session-dot.active {
-  background: #2563eb;
+  background: var(--ued-accent);
 }
 
 .session-actions {
@@ -506,21 +508,21 @@ ul {
 }
 
 .row-icon-button.connect-toggle {
-  color: #2563eb;
+  color: var(--ued-accent);
 }
 
 .row-icon-button.connect-toggle:hover {
-  background: rgba(37, 99, 235, 0.08);
-  color: #2563eb;
+  background: var(--ued-accent-soft);
+  color: var(--ued-accent);
 }
 
 .row-icon-button.connect-toggle.disconnect {
-  color: #dc2626;
+  color: var(--ued-danger);
 }
 
 .row-icon-button.connect-toggle.disconnect:hover {
-  background: rgba(220, 38, 38, 0.08);
-  color: #dc2626;
+  background: var(--ued-danger-soft);
+  color: var(--ued-danger);
 }
 
 .row-icon-button:disabled {
@@ -534,30 +536,30 @@ ul {
   display: grid;
   place-items: center;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--ued-radius-sm);
   background: transparent;
-  color: #7b8694;
+  color: var(--ued-text-muted);
   font-size: 0.86rem;
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease;
 }
 
 .row-icon-button:hover {
-  background: rgba(15, 23, 42, 0.06);
-  color: #374151;
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--ued-text-primary);
 }
 
 .row-icon-button.active {
-  color: #2563eb;
+  color: var(--ued-accent);
 }
 
 .row-icon-button.pinned {
-  color: #b45309;
+  color: var(--ued-warning);
 }
 
 .row-icon-button.danger:hover {
-  background: rgba(220, 38, 38, 0.08);
-  color: #dc2626;
+  background: var(--ued-danger-soft);
+  color: var(--ued-danger);
 }
 
 .row-icon-button:disabled:hover {

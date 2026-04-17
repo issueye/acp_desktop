@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AppDialogShell from './AppDialogShell.vue';
+import UEDButton from './common/UEDButton.vue';
 
 withDefaults(
   defineProps<{
@@ -45,67 +46,25 @@ function handleConfirm() {
     </div>
 
     <template #footer>
-      <button class="secondary-btn" @click="handleCancel">
+      <UEDButton variant="secondary" @click="handleCancel">
         {{ cancelLabel }}
-      </button>
-      <button class="primary-btn" :class="tone" @click="handleConfirm">
+      </UEDButton>
+      <UEDButton :variant="tone === 'danger' ? 'danger' : 'primary'" @click="handleConfirm">
         {{ confirmLabel }}
-      </button>
+      </UEDButton>
     </template>
   </AppDialogShell>
 </template>
 
 <style scoped>
 .confirm-content {
-  padding: 0.9rem 1rem 1rem;
+  padding: 4px 0 0;
 }
 
 .confirm-content p {
   margin: 0;
-  color: var(--text-secondary);
+  color: var(--ued-text-secondary);
   line-height: 1.6;
-  font-size: 0.9rem;
-}
-
-.secondary-btn,
-.primary-btn {
-  min-width: 92px;
-  height: 36px;
-  padding: 0 0.95rem;
-  border-radius: 8px;
-  font-size: 0.84rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
-}
-
-.secondary-btn {
-  border: 1px solid var(--border-color);
-  background: #ffffff;
-  color: var(--text-secondary);
-}
-
-.secondary-btn:hover {
-  background: #f8fafc;
-}
-
-.primary-btn {
-  border: 1px solid rgba(37, 99, 235, 0.16);
-  background: var(--bg-primary);
-  color: #ffffff;
-}
-
-.primary-btn:hover {
-  background: var(--bg-primary-hover);
-  transform: translateY(-1px);
-}
-
-.primary-btn.danger {
-  border-color: rgba(220, 38, 38, 0.14);
-  background: var(--bg-danger);
-}
-
-.primary-btn.danger:hover {
-  background: #b91c1c;
+  font-size: var(--ued-text-body);
 }
 </style>

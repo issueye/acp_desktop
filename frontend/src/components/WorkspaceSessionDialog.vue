@@ -4,6 +4,12 @@ import { useI18n } from '../lib/i18n';
 import AppDialogShell from './AppDialogShell.vue';
 import AgentSelector from './AgentSelector.vue';
 import StartupProgress from './StartupProgress.vue';
+import UEDButton from './common/UEDButton.vue';
+import UEDCard from './common/UEDCard.vue';
+import UEDEmptyState from './common/UEDEmptyState.vue';
+import UEDField from './common/UEDField.vue';
+import UEDInput from './common/UEDInput.vue';
+import UEDStatus from './common/UEDStatus.vue';
 
 const props = defineProps<{
   modelValue: boolean;
@@ -152,51 +158,56 @@ function closeDialog() {
     @update:modelValue="(value) => emit('update:modelValue', value)"
     @close="closeDialog"
   >
-    <template #header-extra>
-    </template>
+    <template #header-extra></template>
 
-    <div v-if="!hasAgents" class="empty-workspace panel-card">
-      <h3>{{ t('app.noAgentTitle') }}</h3>
-      <p>{{ t('app.noAgentDesc') }}</p>
-      <button class="primary-button" @click="emit('openAddAgent')">{{ t('settings.addAgent') }}</button>
-    </div>
+    <UEDEmptyState
+      v-if="!hasAgents"
+      class="empty-workspace"
+      :title="t('app.noAgentTitle')"
+      :text="t('app.noAgentDesc')"
+    >
+      <UEDButton variant="primary" @click="emit('openAddAgent')">{{ t('settings.addAgent') }}</UEDButton>
+    </UEDEmptyState>
 
     <template v-else>
       <div class="workspace-layout">
         <div class="dialog-main">
-          <section class="workspace-hero">
-            <p class="eyebrow">{{ t('app.sessionLauncher') }}</p>
+          <UEDCard class="workspace-hero" raised>
+            <p class="ued-kicker">{{ t('app.sessionLauncher') }}</p>
             <div class="hero-copy">
-              <h3>{{ t('app.sessionSetupTitle') }}</h3>
-              <p class="hero-text">{{ t('app.sessionSetupDesc') }}</p>
+              <h3 class="ued-title-2">{{ t('app.sessionSetupTitle') }}</h3>
+              <p class="hero-text ued-body">{{ t('app.sessionSetupDesc') }}</p>
             </div>
             <div class="hero-metrics">
-              <div class="hero-metric">
+              <UEDCard class="hero-metric">
                 <span>{{ t('agent.label') }}</span>
                 <strong>{{ selectedAgent || t('agent.select') }}</strong>
-              </div>
-              <div class="hero-metric">
+              </UEDCard>
+              <UEDCard class="hero-metric">
                 <span>{{ t('app.workspace') }}</span>
                 <strong :title="selectedCwd || '.'">{{ selectedCwdLabel }}</strong>
-              </div>
-              <div class="hero-metric">
+              </UEDCard>
+              <UEDCard class="hero-metric">
                 <span>{{ t('app.proxy') }}</span>
-                <strong>{{ proxyEnabled ? t('app.proxyEnable') : t('app.proxyDisabled') }}</strong>
-              </div>
+                <div class="hero-metric__status">
+                  <strong>{{ proxyEnabled ? t('app.proxyEnable') : t('app.proxyDisabled') }}</strong>
+                  <UEDStatus kind="badge" :tone="proxyEnabled ? 'info' : 'neutral'">
+                    {{ proxyEnabled ? 'ON' : 'OFF' }}
+                  </UEDStatus>
+                </div>
+              </UEDCard>
             </div>
-          </section>
+          </UEDCard>
 
-          <section class="dialog-section">
+          <UEDCard tag="section" class="dialog-section">
             <AgentSelector v-model:selected="selectedAgentModel" />
-          </section>
+          </UEDCard>
 
-          <section class="dialog-section">
+          <UEDCard tag="section" class="dialog-section">
             <div class="section-headline">
-              <div>
-                <h3>{{ t('app.workingDirectory') }}</h3>
-              </div>
+              <h3 class="ued-title-2">{{ t('app.workingDirectory') }}</h3>
               <button
-                class="icon-ghost-button"
+                class="icon-ghost-button ued-icon-btn"
                 :disabled="props.isSelectingFolder || props.isConnecting"
                 :title="props.isSelectingFolder ? t('app.selectingFolder') : t('app.selectFolder')"
                 :aria-label="props.isSelectingFolder ? t('app.selectingFolder') : t('app.selectFolder')"
@@ -224,23 +235,21 @@ function closeDialog() {
                 </svg>
               </button>
             </div>
-            <div class="cwd-card" :title="selectedCwd || t('app.currentDirectory')">
+            <UEDCard muted class="cwd-card" :title="selectedCwd || t('app.currentDirectory')">
               <div class="cwd-badge">#</div>
               <div class="cwd-copy">
                 <strong>{{ selectedCwdLabel }}</strong>
                 <span>{{ selectedCwd || '.' }}</span>
               </div>
-            </div>
-            <p class="section-hint">
+            </UEDCard>
+            <p class="section-hint ued-meta">
               {{ t('app.validationWorkspaceHint') }}
             </p>
-          </section>
+          </UEDCard>
 
-          <section class="dialog-section">
+          <UEDCard tag="section" class="dialog-section">
             <div class="section-headline">
-              <div>
-                <h3>{{ t('app.proxy') }}</h3>
-              </div>
+              <h3 class="ued-title-2">{{ t('app.proxy') }}</h3>
               <label class="proxy-switch" :class="{ enabled: proxyEnabled }">
                 <input
                   :checked="proxyEnabled"
@@ -253,46 +262,41 @@ function closeDialog() {
               </label>
             </div>
             <div class="proxy-grid" :class="{ disabled: !proxyEnabled }">
-              <label class="proxy-field">
-                <span>{{ t('app.proxyHttp') }}</span>
-                <input
-                  :value="httpProxy"
-                  type="text"
+              <UEDField class="proxy-field" :label="t('app.proxyHttp')">
+                <UEDInput
+                  :model-value="httpProxy"
                   :placeholder="t('app.proxySampleHost')"
                   :disabled="!proxyEnabled || isConnecting"
-                  @input="emit('update:httpProxy', ($event.target as HTMLInputElement).value)"
+                  :error="validationItems.some((item) => item.id === 'proxy-http-invalid')"
+                  @update:modelValue="emit('update:httpProxy', $event)"
                 />
-              </label>
-              <label class="proxy-field">
-                <span>{{ t('app.proxyHttps') }}</span>
-                <input
-                  :value="httpsProxy"
-                  type="text"
+              </UEDField>
+              <UEDField class="proxy-field" :label="t('app.proxyHttps')">
+                <UEDInput
+                  :model-value="httpsProxy"
                   :placeholder="t('app.proxySampleHost')"
                   :disabled="!proxyEnabled || isConnecting"
-                  @input="emit('update:httpsProxy', ($event.target as HTMLInputElement).value)"
+                  :error="validationItems.some((item) => item.id === 'proxy-https-invalid')"
+                  @update:modelValue="emit('update:httpsProxy', $event)"
                 />
-              </label>
-              <label class="proxy-field">
-                <span>{{ t('app.proxyAll') }}</span>
-                <input
-                  :value="allProxy"
-                  type="text"
+              </UEDField>
+              <UEDField class="proxy-field" :label="t('app.proxyAll')">
+                <UEDInput
+                  :model-value="allProxy"
                   :placeholder="t('app.proxySampleHost')"
                   :disabled="!proxyEnabled || isConnecting"
-                  @input="emit('update:allProxy', ($event.target as HTMLInputElement).value)"
+                  :error="validationItems.some((item) => item.id === 'proxy-all-invalid')"
+                  @update:modelValue="emit('update:allProxy', $event)"
                 />
-              </label>
-              <label class="proxy-field">
-                <span>{{ t('app.proxyNo') }}</span>
-                <input
-                  :value="noProxy"
-                  type="text"
+              </UEDField>
+              <UEDField class="proxy-field" :label="t('app.proxyNo')">
+                <UEDInput
+                  :model-value="noProxy"
                   :placeholder="t('app.proxySampleNo')"
                   :disabled="!proxyEnabled || isConnecting"
-                  @input="emit('update:noProxy', ($event.target as HTMLInputElement).value)"
+                  @update:modelValue="emit('update:noProxy', $event)"
                 />
-              </label>
+              </UEDField>
             </div>
             <div v-if="validationItems.some((item) => item.id.startsWith('proxy-'))" class="validation-list">
               <div
@@ -304,17 +308,17 @@ function closeDialog() {
                 {{ item.message }}
               </div>
             </div>
-          </section>
+          </UEDCard>
         </div>
 
         <aside class="dialog-side">
-          <div class="launch-card">
+          <UEDCard class="launch-card" raised>
             <div class="launch-copy">
-              <p class="eyebrow">{{ t('app.workspaceSummary') }}</p>
-              <h3>{{ t('app.newSession') }}</h3>
-              <p class="launch-text">{{ t('app.sessionSetupDesc') }}</p>
+              <p class="ued-kicker">{{ t('app.workspaceSummary') }}</p>
+              <h3 class="ued-title-2">{{ t('app.newSession') }}</h3>
+              <p class="launch-text ued-body">{{ t('app.sessionSetupDesc') }}</p>
             </div>
-            <div class="summary-card">
+            <UEDCard muted class="summary-card">
               <div class="summary-line">
                 <span>{{ t('agent.label') }}</span>
                 <strong>{{ selectedAgent || '--' }}</strong>
@@ -327,7 +331,7 @@ function closeDialog() {
                 <span>{{ t('app.proxy') }}</span>
                 <strong>{{ proxyEnabled ? t('app.proxyEnable') : t('app.proxyDisabled') }}</strong>
               </div>
-            </div>
+            </UEDCard>
             <div class="launch-note">
               <span class="launch-note-mark">i</span>
               <p>{{ validationItems.length === 0 ? t('app.validationReady') : t('app.sessionSetupDesc') }}</p>
@@ -352,7 +356,7 @@ function closeDialog() {
               </div>
             </div>
             <div v-if="!isConnecting" class="dialog-actions launch-actions">
-              <button class="primary-button" :disabled="!canCreateSession" @click="emit('createSession')">
+              <UEDButton variant="primary" size="lg" block :disabled="!canCreateSession" @click="emit('createSession')">
                 {{
                   props.isSelectingFolder
                     ? t('app.selectingFolder')
@@ -360,10 +364,12 @@ function closeDialog() {
                       ? t('app.connecting')
                       : t('app.newSession')
                 }}
-              </button>
-              <button class="secondary-button" @click="closeDialog">{{ t('common.cancel') }}</button>
+              </UEDButton>
+              <UEDButton variant="secondary" size="lg" block @click="closeDialog">
+                {{ t('common.cancel') }}
+              </UEDButton>
             </div>
-          </div>
+          </UEDCard>
 
           <StartupProgress
             v-if="isConnecting"
@@ -383,8 +389,8 @@ function closeDialog() {
 
 <style scoped>
 .workspace-dialog {
-  padding: 1rem;
-  background: linear-gradient(180deg, #f9f7f2 0%, #f6f4ef 100%);
+  padding: 0;
+  background: linear-gradient(180deg, var(--ued-bg-window) 0%, var(--ued-bg-canvas) 100%);
 }
 
 .workspace-layout {
@@ -394,72 +400,38 @@ function closeDialog() {
   align-items: start;
 }
 
-.summary-line,
+.dialog-main,
+.dialog-side {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.dialog-section {
+  min-width: 0;
+}
+
 .section-headline,
-.dialog-section-head {
+.summary-line {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
 }
 
-.eyebrow {
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
-.header-summary {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.summary-chip {
-  max-width: 180px;
-  height: 28px;
-  display: inline-flex;
-  align-items: center;
-  padding: 0 0.72rem;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(15, 23, 42, 0.06);
-  color: var(--text-primary);
-  font-size: 0.76rem;
-  font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.summary-chip.muted {
-  color: var(--text-secondary);
-}
-
 .workspace-hero {
-  display: flex;
-  flex-direction: column;
-  gap: 0.95rem;
-  padding: 1rem;
-  border-radius: 8px;
-  border: 1px solid rgba(15, 23, 42, 0.06);
-  background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+  background:
+    radial-gradient(circle at top right, rgba(10, 100, 216, 0.12), transparent 32%),
+    linear-gradient(145deg, var(--ued-bg-panel) 0%, var(--ued-bg-panel-muted) 100%);
 }
 
-.hero-copy h3 {
-  font-size: 1.08rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  line-height: 1.3;
+.hero-copy {
+  display: grid;
+  gap: 0.4rem;
 }
 
 .hero-text {
-  margin-top: 0.4rem;
-  font-size: 0.86rem;
-  line-height: 1.65;
-  color: var(--text-secondary);
+  margin: 0;
 }
 
 .hero-metrics {
@@ -469,16 +441,13 @@ function closeDialog() {
 }
 
 .hero-metric {
-  padding: 0.9rem 0.95rem;
-  border-radius: 8px;
-  border: 1px solid rgba(15, 23, 42, 0.06);
-  background: #ffffff;
+  min-width: 0;
 }
 
 .hero-metric span {
   display: block;
   font-size: 0.72rem;
-  color: var(--text-muted);
+  color: var(--ued-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
@@ -487,98 +456,29 @@ function closeDialog() {
   display: block;
   margin-top: 0.32rem;
   font-size: 0.95rem;
-  color: var(--text-primary);
+  color: var(--ued-text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.dialog-main,
-.dialog-side,
-.launch-card,
-.launch-copy,
-.proxy-field {
+.hero-metric__status {
   display: flex;
-  flex-direction: column;
-}
-
-.dialog-main,
-.dialog-side,
-.launch-card {
-  gap: 0.75rem;
-}
-
-.dialog-section {
-  padding: 0.95rem 1rem 1rem;
-  border-radius: 8px;
-}
-
-.dialog-section-head {
-  margin-bottom: 0.7rem;
-}
-
-.dialog-section h3,
-.section-headline h3,
-.launch-copy h3 {
-  font-size: 0.98rem;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.ghost-button,
-.secondary-button,
-.primary-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  cursor: pointer;
-}
-
-.ghost-button,
-.secondary-button {
-  min-height: 36px;
-  padding: 0.6rem 0.9rem;
-  background: #fffdfa;
-  color: var(--text-secondary);
-  border-color: rgba(15, 23, 42, 0.08);
-}
-
-.ghost-button:hover,
-.secondary-button:hover {
-  color: var(--text-accent);
-  border-color: rgba(37, 99, 235, 0.14);
-  background: #ffffff;
-}
-
-.ghost-button:disabled,
-.secondary-button:disabled,
-.primary-button:disabled {
-  opacity: 0.58;
-  cursor: not-allowed;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
 }
 
 .icon-ghost-button {
-  width: 36px;
-  height: 36px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 8px;
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  background: #fffdfa;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease,
+    background-color 0.15s ease,
+    transform 0.15s ease;
 }
 
-.icon-ghost-button:hover {
-  color: var(--text-accent);
-  border-color: rgba(37, 99, 235, 0.14);
-  background: #ffffff;
-}
-
-.icon-ghost-button:disabled {
-  opacity: 0.58;
-  cursor: not-allowed;
+.icon-ghost-button:hover:not(:disabled) {
+  transform: translateY(-1px);
 }
 
 .folder-picker-icon {
@@ -591,40 +491,21 @@ function closeDialog() {
   animation: folder-picker-spin 0.9s linear infinite;
 }
 
-.primary-button {
-  min-height: 38px;
-  padding: 0.68rem 1rem;
-  background: var(--bg-primary);
-  color: white;
-  border-color: rgba(37, 99, 235, 0.18);
-  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.16);
-}
-
-.primary-button:hover:not(:disabled) {
-  transform: translateY(-1px);
-  background: var(--bg-primary-hover);
-  border-color: rgba(37, 99, 235, 0.22);
-}
-
 .cwd-card {
   display: flex;
   align-items: center;
   gap: 0.8rem;
-  padding: 1rem;
-  border-radius: 8px;
-  border: 1px solid rgba(15, 23, 42, 0.06);
-  background: #f9fbff;
 }
 
 .cwd-badge {
   width: 34px;
   height: 34px;
-  border-radius: 8px;
+  border-radius: var(--ued-radius-md);
   display: grid;
   place-items: center;
   flex-shrink: 0;
-  color: var(--text-accent);
-  background: rgba(37, 99, 235, 0.1);
+  color: var(--ued-accent);
+  background: color-mix(in srgb, var(--ued-accent) 10%, transparent);
   font-weight: 700;
 }
 
@@ -632,27 +513,24 @@ function closeDialog() {
   min-width: 0;
 }
 
-.cwd-card strong {
+.cwd-copy strong,
+.cwd-copy span {
   display: block;
-  font-size: 1rem;
-  color: var(--text-primary);
 }
 
-.cwd-card span {
-  display: block;
+.cwd-copy strong {
+  font-size: 1rem;
+  color: var(--ued-text-primary);
+}
+
+.cwd-copy span {
   margin-top: 0.18rem;
-  color: var(--text-secondary);
+  color: var(--ued-text-secondary);
+  word-break: break-all;
 }
 
 .section-hint {
   margin-top: 0.7rem;
-  font-size: 0.78rem;
-  line-height: 1.5;
-  color: var(--text-muted);
-}
-
-.summary-line {
-  color: var(--text-secondary);
 }
 
 .proxy-switch {
@@ -660,7 +538,7 @@ function closeDialog() {
   align-items: center;
   gap: 0.55rem;
   cursor: pointer;
-  color: var(--text-secondary);
+  color: var(--ued-text-secondary);
   user-select: none;
 }
 
@@ -675,8 +553,8 @@ function closeDialog() {
   height: 22px;
   padding: 2px;
   border-radius: 999px;
-  background: rgba(148, 163, 184, 0.5);
-  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: color-mix(in srgb, var(--ued-text-muted) 42%, transparent);
+  border: 1px solid var(--ued-border-default);
   transition: background 0.18s ease, border-color 0.18s ease;
 }
 
@@ -686,13 +564,13 @@ function closeDialog() {
   display: block;
   border-radius: 50%;
   background: #ffffff;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.15);
+  box-shadow: var(--ued-shadow-rest);
   transition: transform 0.18s ease;
 }
 
 .proxy-switch.enabled .switch-track {
-  background: rgba(37, 99, 235, 0.9);
-  border-color: rgba(37, 99, 235, 0.16);
+  background: var(--ued-accent);
+  border-color: color-mix(in srgb, var(--ued-accent) 24%, var(--ued-border-default));
 }
 
 .proxy-switch.enabled .switch-thumb {
@@ -710,18 +588,22 @@ function closeDialog() {
   opacity: 0.58;
 }
 
+.proxy-field {
+  min-width: 0;
+}
+
 .validation-panel {
   padding: 0.9rem 0.95rem;
-  border-radius: 8px;
-  background: #fffdfa;
-  border: 1px solid rgba(15, 23, 42, 0.06);
+  border-radius: var(--ued-radius-md);
+  background: var(--ued-bg-panel-muted);
+  border: 1px solid var(--ued-border-default);
 }
 
 .validation-panel strong {
   display: block;
   margin-bottom: 0.7rem;
   font-size: 0.84rem;
-  color: var(--text-primary);
+  color: var(--ued-text-primary);
 }
 
 .validation-list {
@@ -737,76 +619,48 @@ function closeDialog() {
 
 .validation-item {
   padding: 0.68rem 0.75rem;
-  border-radius: 8px;
+  border-radius: var(--ued-radius-md);
   font-size: 0.78rem;
   line-height: 1.5;
-  border: 1px solid rgba(217, 119, 6, 0.12);
-  background: rgba(245, 158, 11, 0.08);
-  color: #b45309;
+  border: 1px solid color-mix(in srgb, var(--ued-warning) 18%, var(--ued-border-default));
+  background: var(--ued-warning-soft);
+  color: var(--ued-warning);
 }
 
 .validation-item.danger {
-  border-color: rgba(220, 38, 38, 0.14);
-  background: rgba(220, 38, 38, 0.06);
-  color: var(--bg-danger);
-}
-
-.proxy-field span {
-  font-size: 0.76rem;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.proxy-field input {
-  width: 100%;
-  height: 38px;
-  margin-top: 0.35rem;
-  border-radius: 8px;
-  border: 1px solid var(--border-color);
-  background: #fffdfa;
-  color: var(--text-primary);
-  padding: 0 0.9rem;
-}
-
-.proxy-field input:focus {
-  outline: none;
-  border-color: rgba(37, 99, 235, 0.32);
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.08);
+  border-color: color-mix(in srgb, var(--ued-danger) 18%, var(--ued-border-default));
+  background: var(--ued-danger-soft);
+  color: var(--ued-danger);
 }
 
 .launch-card {
-  padding: 1rem;
-  border-radius: 8px;
-  border: 1px solid rgba(15, 23, 42, 0.06);
-  background: #ffffff;
   position: sticky;
   top: 0;
 }
 
+.launch-copy {
+  display: grid;
+  gap: 0.4rem;
+}
+
 .launch-text {
-  font-size: 0.88rem;
-  line-height: 1.65;
-  color: var(--text-secondary);
+  margin: 0;
 }
 
 .summary-card {
-  padding: 0.9rem 1rem;
-  border-radius: 8px;
-  background: #f8fafc;
-  border: 1px solid rgba(15, 23, 42, 0.06);
+  margin-top: 0.2rem;
 }
 
 .summary-line {
+  color: var(--ued-text-secondary);
+}
+
+.summary-line + .summary-line {
   margin-top: 0.72rem;
 }
 
-.summary-line:first-child {
-  margin-top: 0;
-}
-
 .summary-line strong {
-  color: var(--text-primary);
+  color: var(--ued-text-primary);
   text-align: right;
 }
 
@@ -815,9 +669,9 @@ function closeDialog() {
   align-items: flex-start;
   gap: 0.55rem;
   padding: 0.85rem 0.95rem;
-  border-radius: 8px;
-  background: rgba(37, 99, 235, 0.06);
-  color: var(--text-secondary);
+  border-radius: var(--ued-radius-md);
+  background: var(--ued-info-soft);
+  color: var(--ued-text-secondary);
 }
 
 .launch-note-mark {
@@ -827,8 +681,8 @@ function closeDialog() {
   place-items: center;
   flex-shrink: 0;
   border-radius: 50%;
-  background: rgba(37, 99, 235, 0.12);
-  color: var(--text-accent);
+  background: color-mix(in srgb, var(--ued-accent) 12%, transparent);
+  color: var(--ued-accent);
   font-size: 0.72rem;
   font-weight: 700;
 }
@@ -845,14 +699,7 @@ function closeDialog() {
 }
 
 .empty-workspace {
-  display: grid;
-  place-items: center;
-  gap: 0.75rem;
-  padding: 3rem 1.5rem;
-  text-align: center;
-  border-radius: 8px;
-  background: #fffdfa;
-  border: 1px solid rgba(15, 23, 42, 0.06);
+  min-height: 240px;
 }
 
 @keyframes folder-picker-spin {
@@ -879,14 +726,6 @@ function closeDialog() {
   .hero-metrics,
   .proxy-grid {
     grid-template-columns: 1fr;
-  }
-
-  .workspace-dialog {
-    padding: 1rem;
-  }
-
-  .header-summary {
-    display: none;
   }
 }
 </style>

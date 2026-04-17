@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import UEDStatus from './common/UEDStatus.vue';
+
 export interface AppToastItem {
   id: string;
   message: string;
@@ -37,7 +39,10 @@ const emit = defineEmits<{
             }}
           </span>
           <span class="toast-message">{{ item.message }}</span>
-          <button class="toast-close" @click="emit('dismiss', item.id)">×</button>
+          <UEDStatus class="toast-tone" kind="badge" :tone="item.tone === 'danger' ? 'error' : item.tone || 'success'">
+            {{ item.tone || 'success' }}
+          </UEDStatus>
+          <button class="toast-close ued-icon-btn" @click="emit('dismiss', item.id)">×</button>
         </div>
       </TransitionGroup>
     </div>
@@ -58,15 +63,15 @@ const emit = defineEmits<{
 
 .toast-item {
   display: grid;
-  grid-template-columns: 4px 20px minmax(0, 1fr) 28px;
+  grid-template-columns: 4px 20px minmax(0, 1fr) auto 32px;
   align-items: center;
   gap: 0.75rem;
   min-height: 48px;
   padding: 0.7rem 0.75rem 0.7rem 0;
-  border-radius: 8px;
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  background: rgba(255, 253, 250, 0.96);
-  box-shadow: var(--shadow-md);
+  border-radius: var(--ued-radius-md);
+  border: 1px solid var(--ued-border-default);
+  background: color-mix(in srgb, var(--ued-bg-panel) 92%, white);
+  box-shadow: var(--ued-shadow-panel);
   backdrop-filter: blur(10px);
 }
 
@@ -81,7 +86,7 @@ const emit = defineEmits<{
 }
 
 .toast-item.info {
-  background: rgba(239, 246, 255, 0.96);
+  background: color-mix(in srgb, var(--ued-info-soft) 90%, white);
 }
 
 .toast-item.success .toast-accent {
@@ -89,7 +94,7 @@ const emit = defineEmits<{
 }
 
 .toast-item.success {
-  background: rgba(240, 253, 244, 0.96);
+  background: color-mix(in srgb, var(--ued-success-soft) 90%, white);
 }
 
 .toast-item.warning .toast-accent {
@@ -97,7 +102,7 @@ const emit = defineEmits<{
 }
 
 .toast-item.warning {
-  background: rgba(255, 251, 235, 0.96);
+  background: color-mix(in srgb, var(--ued-warning-soft) 90%, white);
 }
 
 .toast-item.danger .toast-accent {
@@ -105,7 +110,7 @@ const emit = defineEmits<{
 }
 
 .toast-item.danger {
-  background: rgba(254, 242, 242, 0.96);
+  background: color-mix(in srgb, var(--ued-danger-soft) 92%, white);
 }
 
 .toast-icon {
@@ -116,45 +121,38 @@ const emit = defineEmits<{
   border-radius: 50%;
   font-size: 0.76rem;
   font-weight: 700;
-  color: var(--text-accent);
-  background: rgba(37, 99, 235, 0.12);
+  color: var(--ued-accent);
+  background: color-mix(in srgb, var(--ued-accent) 12%, transparent);
 }
 
 .toast-item.success .toast-icon {
-  color: #15803d;
-  background: rgba(22, 163, 74, 0.12);
+  color: var(--ued-success);
+  background: color-mix(in srgb, var(--ued-success) 12%, transparent);
 }
 
 .toast-item.warning .toast-icon {
-  color: #b45309;
-  background: rgba(217, 119, 6, 0.12);
+  color: var(--ued-warning);
+  background: color-mix(in srgb, var(--ued-warning) 12%, transparent);
 }
 
 .toast-item.danger .toast-icon {
-  color: var(--bg-danger);
-  background: rgba(220, 38, 38, 0.12);
+  color: var(--ued-danger);
+  background: color-mix(in srgb, var(--ued-danger) 12%, transparent);
 }
 
 .toast-message {
   min-width: 0;
   font-size: 0.84rem;
   line-height: 1.5;
-  color: var(--text-primary);
+  color: var(--ued-text-primary);
 }
 
 .toast-close {
-  width: 28px;
-  height: 28px;
-  border: none;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
+  font-size: 0.95rem;
 }
 
-.toast-close:hover {
-  background: rgba(15, 23, 42, 0.06);
-  color: var(--text-primary);
+.toast-tone {
+  text-transform: capitalize;
 }
 
 .toast-enter-active,

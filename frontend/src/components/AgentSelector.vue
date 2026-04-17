@@ -2,6 +2,9 @@
 import { computed, watch } from 'vue';
 import { useConfigStore } from '../stores/config';
 import { useI18n } from '../lib/i18n';
+import UEDCard from './common/UEDCard.vue';
+import UEDField from './common/UEDField.vue';
+import UEDSelect from './common/UEDSelect.vue';
 
 const emit = defineEmits<{
   select: [agentName: string];
@@ -24,36 +27,30 @@ watch(agents, (newAgents) => {
   }
 }, { immediate: true });
 
-function handleSelect(event: Event) {
-  const target = event.target as HTMLSelectElement;
-  selectedAgent.value = target.value;
-  if (target.value) {
-    emit('select', target.value);
-  }
-}
 </script>
 
 <template>
   <div class="agent-selector">
-    <label for="agent-select">{{ t('agent.label') }}</label>
-    <select 
-      id="agent-select" 
-      :value="selectedAgent"
-      @change="handleSelect"
-      :disabled="!hasAgents"
-    >
-      <option value="" disabled>
-        {{ hasAgents ? t('agent.select') : t('agent.noneConfigured') }}
-      </option>
-      <option v-for="agent in agents" :key="agent" :value="agent">
-        {{ agent }}
-      </option>
-    </select>
+    <UEDField :label="t('agent.label')">
+      <UEDSelect
+        id="agent-select"
+        :model-value="selectedAgent"
+        :disabled="!hasAgents"
+        @update:modelValue="selectedAgent = $event; emit('select', $event)"
+      >
+        <option value="" disabled>
+          {{ hasAgents ? t('agent.select') : t('agent.noneConfigured') }}
+        </option>
+        <option v-for="agent in agents" :key="agent" :value="agent">
+          {{ agent }}
+        </option>
+      </UEDSelect>
+    </UEDField>
     
-    <div v-if="!hasAgents" class="config-hint">
-      <p>{{ t('agent.noneFound') }}</p>
-      <code>{{ configPath }}</code>
-    </div>
+    <UEDCard v-if="!hasAgents" muted class="config-hint">
+      <p class="ued-meta">{{ t('agent.noneFound') }}</p>
+      <code class="ued-code config-path">{{ configPath }}</code>
+    </UEDCard>
   </div>
 </template>
 
@@ -64,53 +61,16 @@ function handleSelect(event: Event) {
   gap: 0.6rem;
 }
 
-label {
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-muted, #486176);
-}
-
-select {
-  height: 44px;
-  padding: 0 0.95rem;
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  border-radius: 8px;
-  font-size: 0.9rem;
-  font-weight: 500;
-  background: #fbfbfc;
-  color: var(--text-primary, #102033);
-  box-shadow: none;
-}
-
-select:focus {
-  outline: none;
-  border-color: rgba(37,99,235,.32);
-  box-shadow: 0 0 0 3px rgba(37,99,235,.08);
-}
-
-select:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
 .config-hint {
   margin-top: 0.3rem;
-  padding: 0.9rem;
-  background: #fff8e8;
-  border-radius: 8px;
-  font-size: 0.78rem;
-  border: 1px solid rgba(210, 153, 34, 0.18);
 }
 
-.config-hint code {
+.config-path {
   display: block;
   margin-top: 0.45rem;
   padding: 0.45rem 0.55rem;
-  background: #ffffff;
-  border-radius: 8px;
-  font-family: monospace;
+  background: var(--ued-bg-panel);
+  border-radius: var(--ued-radius-sm);
   word-break: break-all;
 }
 </style>

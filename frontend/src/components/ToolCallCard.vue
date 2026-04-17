@@ -60,30 +60,30 @@ const kindIcon = computed(() => {
 <style scoped>
 .tool-call-card {
   padding: 0.75rem;
-  border-radius: 6px;
+  border-radius: var(--ued-radius-md);
   margin: 0.5rem 0;
-  border-left: 3px solid var(--border-color, #ccc);
-  background: var(--bg-tool, #f9f9f9);
+  border-left: 3px solid var(--ued-border-default);
+  background: var(--ued-bg-panel-muted);
 }
 
 .status-pending {
-  border-left-color: #ffc107;
-  background: #fffbf0;
+  border-left-color: var(--ued-warning);
+  background: var(--ued-warning-soft);
 }
 
 .status-running {
-  border-left-color: #17a2b8;
-  background: #f0f9ff;
+  border-left-color: var(--ued-info);
+  background: var(--ued-info-soft);
 }
 
 .status-completed {
-  border-left-color: #28a745;
-  background: #f0fff4;
+  border-left-color: var(--ued-success);
+  background: var(--ued-success-soft);
 }
 
 .status-failed {
-  border-left-color: #dc3545;
-  background: #fff5f5;
+  border-left-color: var(--ued-danger);
+  background: var(--ued-danger-soft);
 }
 
 .tool-header {
@@ -100,6 +100,7 @@ const kindIcon = computed(() => {
   flex: 1;
   font-weight: 500;
   font-size: 0.9rem;
+  color: var(--ued-text-primary);
 }
 
 .status-icon {
@@ -112,9 +113,9 @@ const kindIcon = computed(() => {
 }
 
 .location {
-  font-family: monospace;
+  font-family: var(--ued-font-mono);
   font-size: 0.8rem;
-  color: var(--text-muted, #666);
+  color: var(--ued-text-muted);
   padding: 0.125rem 0;
 }
 </style>

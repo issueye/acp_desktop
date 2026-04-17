@@ -6,6 +6,12 @@ import { useI18n } from '../lib/i18n';
 import AppDialogShell from './AppDialogShell.vue';
 import AppConfirmDialog from './AppConfirmDialog.vue';
 import EnvVarEditor from './EnvVarEditor.vue';
+import UEDButton from './common/UEDButton.vue';
+import UEDCard from './common/UEDCard.vue';
+import UEDField from './common/UEDField.vue';
+import UEDInput from './common/UEDInput.vue';
+import UEDStatus from './common/UEDStatus.vue';
+import UEDEmptyState from './common/UEDEmptyState.vue';
 
 type ToastTone = 'success' | 'info' | 'warning' | 'danger';
 
@@ -227,74 +233,69 @@ async function confirmDelete() {
     @close="emit('close')"
   >
     <div class="settings-content">
-      <section class="agents-section">
+      <UEDCard tag="section" class="agents-section">
         <div class="section-header">
-          <h3>{{ t('settings.agents') }}</h3>
-          <button class="add-btn" @click="startAdd" :disabled="showAddForm || isSubmitting || isDeleting">
+          <h3 class="ued-title-2">{{ t('settings.agents') }}</h3>
+          <UEDButton variant="primary" @click="startAdd" :disabled="showAddForm || isSubmitting || isDeleting">
             {{ t('settings.addAgent') }}
-          </button>
+          </UEDButton>
         </div>
 
-        <div v-if="actionError" class="action-error">
+        <div v-if="actionError" class="action-error ued-meta">
           {{ actionError }}
         </div>
 
-        <div v-if="showAddForm || editingAgent" class="agent-form">
-          <h4>{{ editingAgent ? t('settings.editAgent') : t('settings.addNewAgent') }}</h4>
+        <UEDCard v-if="showAddForm || editingAgent" muted class="agent-form">
+          <h4 class="ued-title-2">{{ editingAgent ? t('settings.editAgent') : t('settings.addNewAgent') }}</h4>
           
-          <div class="form-group">
-            <label>{{ t('settings.name') }}</label>
-            <input 
+          <UEDField :label="t('settings.name')">
+            <UEDInput
               v-model="formName" 
-              type="text" 
               :placeholder="t('settings.placeholder.agentName')"
               :disabled="!!editingAgent"
+              :error="!!formError && !formName.trim()"
             />
-          </div>
+          </UEDField>
 
-          <div class="form-group">
-            <label>{{ t('settings.command') }}</label>
-            <input 
+          <UEDField :label="t('settings.command')">
+            <UEDInput
               v-model="formCommand" 
-              type="text" 
               placeholder="npx"
+              :error="!!formError && !formCommand.trim()"
             />
-          </div>
+          </UEDField>
 
-          <div class="form-group">
-            <label>{{ t('settings.arguments') }}</label>
-            <input 
+          <UEDField :label="t('settings.arguments')" :helper="t('settings.argsHint')">
+            <UEDInput
               v-model="formArgs" 
-              type="text" 
               placeholder="-y @example/agent"
             />
-            <small>{{ t('settings.argsHint') }}</small>
-          </div>
+          </UEDField>
 
           <div class="form-group">
             <EnvVarEditor v-model="formEnv" />
           </div>
 
-          <div v-if="formError" class="form-error">
+          <div v-if="formError" class="form-error ued-error-text">
             {{ formError }}
           </div>
 
           <div class="form-actions">
-            <button 
-              class="save-btn" 
+            <UEDButton
+              variant="primary"
               @click="handleSubmit"
               :disabled="isSubmitting || isDeleting"
             >
               {{ isSubmitting ? t('settings.saving') : t('settings.save') }}
-            </button>
-            <button class="cancel-btn" @click="resetForm" :disabled="isSubmitting || isDeleting">
+            </UEDButton>
+            <UEDButton variant="secondary" @click="resetForm" :disabled="isSubmitting || isDeleting">
               {{ t('common.cancel') }}
-            </button>
+            </UEDButton>
           </div>
-        </div>
+        </UEDCard>
 
         <div class="agents-list">
-          <div 
+          <UEDCard
             v-for="agent in agents" 
             :key="agent.name"
             class="agent-item"
@@ -302,33 +303,31 @@ async function confirmDelete() {
             <div class="agent-info">
               <div class="agent-name-row">
                 <div class="agent-name">{{ agent.name }}</div>
-                <span class="agent-badge">ACP</span>
+                <UEDStatus kind="badge">ACP</UEDStatus>
               </div>
               <div class="agent-command">
-                <code>{{ agent.command }} {{ agent.args }}</code>
+                <code class="ued-code">{{ agent.command }} {{ agent.args }}</code>
               </div>
             </div>
             <div class="agent-actions">
-              <button class="edit-btn" @click="startEdit(agent)" :disabled="isSubmitting || isDeleting">
+              <UEDButton variant="secondary" size="sm" @click="startEdit(agent)" :disabled="isSubmitting || isDeleting">
                 {{ t('settings.edit') }}
-              </button>
-              <button class="delete-btn" @click="handleDelete(agent.name)" :disabled="isSubmitting || isDeleting">
+              </UEDButton>
+              <UEDButton variant="danger" size="sm" @click="handleDelete(agent.name)" :disabled="isSubmitting || isDeleting">
                 {{ t('settings.delete') }}
-              </button>
+              </UEDButton>
             </div>
-          </div>
+          </UEDCard>
 
-          <div v-if="agents.length === 0" class="no-agents">
-            {{ t('settings.noAgents') }}
-          </div>
+          <UEDEmptyState v-if="agents.length === 0" :title="t('settings.noAgents')" />
         </div>
-      </section>
+      </UEDCard>
 
-      <section class="config-section">
-        <h3>{{ t('settings.configFile') }}</h3>
-        <p class="config-path">{{ configStore.configPath }}</p>
-        <small>{{ t('settings.configReloadHint') }}</small>
-      </section>
+      <UEDCard tag="section" class="config-section">
+        <h3 class="ued-title-2">{{ t('settings.configFile') }}</h3>
+        <p class="config-path ued-code">{{ configStore.configPath }}</p>
+        <small class="ued-meta">{{ t('settings.configReloadHint') }}</small>
+      </UEDCard>
     </div>
 
     <AppConfirmDialog
@@ -347,14 +346,19 @@ async function confirmDelete() {
 
 <style scoped>
 .settings-body {
-  padding: 1rem;
-  background: linear-gradient(180deg, #f9f7f2 0%, #f6f4ef 100%);
+  padding: 0;
+  background: linear-gradient(180deg, var(--ued-bg-window) 0%, var(--ued-bg-canvas) 100%);
 }
 
 .settings-content {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 260px;
   gap: 1rem;
+}
+
+.agents-section,
+.config-section {
+  min-width: 0;
 }
 
 .section-header {
@@ -364,139 +368,32 @@ async function confirmDelete() {
   margin-bottom: 0.95rem;
 }
 
-.section-header h3 {
-  margin: 0;
-  color: var(--text-primary);
-}
-
-.add-btn {
-  padding: 0.55rem 0.9rem;
-  border: 1px solid rgba(37, 99, 235, 0.16);
-  background: rgba(37, 99, 235, 0.08);
-  color: var(--bg-primary);
-  border-radius: 999px;
-  cursor: pointer;
-  font-size: 0.875rem;
-  font-weight: 600;
-}
-
-.add-btn:hover:not(:disabled) {
-  background: rgba(37, 99, 235, 0.14);
-}
-
-.add-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
 .action-error {
   margin-bottom: 0.9rem;
   padding: 0.75rem 0.85rem;
-  border-radius: 8px;
-  border: 1px solid rgba(220, 38, 38, 0.14);
-  background: rgba(220, 38, 38, 0.06);
-  color: var(--bg-danger);
+  border-radius: var(--ued-radius-md);
+  border: 1px solid color-mix(in srgb, var(--ued-danger) 18%, var(--ued-border-default));
+  background: var(--ued-danger-soft);
+  color: var(--ued-danger);
   font-size: 0.84rem;
   line-height: 1.5;
 }
 
 .agent-form {
-  background: #f8fafc;
-  padding: 1rem;
-  border-radius: 8px;
   margin-bottom: 1rem;
-  border: 1px solid var(--border-color);
-  box-shadow: none;
 }
 
 .agent-form h4 {
   margin: 0 0 1rem 0;
-  font-size: 1rem;
 }
 
 .form-group {
   margin-bottom: 0.75rem;
 }
 
-.form-group label {
-  display: block;
-  font-size: 0.875rem;
-  font-weight: 500;
-  margin-bottom: 0.25rem;
-}
-
-.form-group input {
-  width: 100%;
-  padding: 0.75rem 0.85rem;
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  font-size: 0.9rem;
-  background: #ffffff;
-  color: var(--text-primary);
-}
-
-.form-group input:focus {
-  outline: none;
-  border-color: rgba(37,99,235,.32);
-  box-shadow: 0 0 0 3px rgba(37,99,235,.08);
-}
-
-.form-group small {
-  display: block;
-  margin-top: 0.25rem;
-  font-size: 0.75rem;
-  color: var(--text-muted);
-}
-
-.form-error {
-  color: var(--bg-danger);
-  font-size: 0.875rem;
-  margin-bottom: 0.75rem;
-}
-
 .form-actions {
   display: flex;
   gap: 0.5rem;
-}
-
-.save-btn {
-  padding: 0.7rem 1rem;
-  background: var(--bg-primary);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 600;
-}
-
-.save-btn:hover:not(:disabled) {
-  background: var(--bg-primary-hover);
-  color: white;
-}
-
-.save-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.cancel-btn {
-  padding: 0.7rem 1rem;
-  background: #ffffff;
-  color: var(--text-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  cursor: pointer;
-}
-
-.cancel-btn:hover {
-  background: #f8fafc;
-}
-
-.cancel-btn:disabled,
-.edit-btn:disabled,
-.delete-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 .agents-list {
@@ -510,11 +407,6 @@ async function confirmDelete() {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 0.95rem 1rem;
-  background: #ffffff;
-  border-radius: 8px;
-  border: 1px solid var(--border-color);
-  box-shadow: none;
 }
 
 .agent-info {
@@ -533,27 +425,16 @@ async function confirmDelete() {
   font-weight: 600;
 }
 
-.agent-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.18rem 0.45rem;
-  border-radius: 999px;
-  font-size: 0.66rem;
-  font-weight: 700;
-  color: var(--text-accent);
-  background: rgba(37, 99, 235, 0.1);
-}
-
 .agent-command {
   font-size: 0.8rem;
-  color: var(--text-muted);
+  color: var(--ued-text-muted);
 }
 
 .agent-command code {
   display: inline-block;
-  background: #f8fafc;
+  background: var(--ued-bg-panel-muted);
   padding: 0.22rem 0.45rem;
-  border-radius: 8px;
+  border-radius: var(--ued-radius-sm);
   word-break: break-all;
 }
 
@@ -563,66 +444,18 @@ async function confirmDelete() {
   margin-left: 1rem;
 }
 
-.edit-btn,
-.delete-btn {
-  padding: 0.45rem 0.7rem;
-  border-radius: 8px;
-  font-size: 0.8rem;
-  cursor: pointer;
-}
-
-.edit-btn {
-  background: #ffffff;
-  border: 1px solid var(--border-color);
-  color: var(--text-secondary);
-}
-
-.edit-btn:hover {
-  background: #f8fafc;
-}
-
-.delete-btn {
-  background: rgba(220, 38, 38, 0.06);
-  border: 1px solid rgba(220, 38, 38, 0.14);
-  color: var(--bg-danger);
-}
-
-.delete-btn:hover {
-  background: rgba(220, 38, 38, 0.1);
-}
-
-.no-agents {
-  text-align: center;
-  padding: 2rem;
-  color: var(--text-muted);
-}
-
 .config-section {
-  padding: 1rem;
-  border-radius: 8px;
-  background: #ffffff;
-  border: 1px solid rgba(15, 23, 42, 0.06);
   align-self: start;
 }
 
-.config-section h3 {
-  margin: 0 0 0.5rem 0;
-}
-
 .config-path {
-  font-family: monospace;
   font-size: 0.8rem;
-  color: var(--text-secondary);
-  background: #ffffff;
+  color: var(--ued-text-secondary);
+  background: var(--ued-bg-panel-muted);
   padding: 0.75rem;
-  border-radius: 8px;
+  border-radius: var(--ued-radius-md);
   word-break: break-all;
   margin: 0.75rem 0 0.35rem;
-}
-
-.config-section small {
-  font-size: 0.75rem;
-  color: var(--text-muted);
 }
 
 @media (max-width: 900px) {

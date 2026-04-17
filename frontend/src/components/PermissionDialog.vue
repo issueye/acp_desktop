@@ -2,6 +2,9 @@
 import type { PermissionRequest } from '../lib/types';
 import { useI18n } from '../lib/i18n';
 import AppDialogShell from './AppDialogShell.vue';
+import UEDButton from './common/UEDButton.vue';
+import UEDCard from './common/UEDCard.vue';
+import UEDStatus from './common/UEDStatus.vue';
 
 defineProps<{
   request: PermissionRequest;
@@ -30,25 +33,25 @@ function handleCancel() {
     @close="handleCancel"
   >
     <template #header-extra>
-      <span class="icon">🔐</span>
+      <span class="icon ued-badge">🔐</span>
     </template>
 
     <div class="dialog-content">
       <div class="tool-meta">
-        <div class="tool-info">
+        <UEDCard muted class="tool-info">
           <span class="tool-label">Tool</span>
-          <span class="tool-kind">{{ request.toolCall.kind }}</span>
-        </div>
+          <UEDStatus kind="badge" tone="info" class="tool-kind">{{ request.toolCall.kind }}</UEDStatus>
+        </UEDCard>
 
-        <div class="tool-preview">
+        <UEDCard class="tool-preview" :padded="false">
           <div class="preview-head">
             <span class="preview-label">Command Preview</span>
           </div>
           <pre class="tool-command">{{ request.toolCall.title }}</pre>
-        </div>
+        </UEDCard>
       </div>
       
-      <div v-if="request.toolCall.locations?.length" class="locations">
+      <UEDCard v-if="request.toolCall.locations?.length" class="locations">
         <div class="locations-title">Paths</div>
         <div 
           v-for="(loc, index) in request.toolCall.locations" 
@@ -57,29 +60,28 @@ function handleCancel() {
         >
           📁 {{ loc.path }}
         </div>
-      </div>
+      </UEDCard>
     </div>
 
     <template #footer>
-      <button 
+      <UEDButton
         v-for="option in request.options" 
         :key="option.optionId"
         type="button"
-        :class="['option-btn', `option-${option.kind}`]"
+        :variant="option.kind.startsWith('reject') ? 'danger' : 'primary'"
         @click="handleSelect(option.optionId)"
       >
         {{ option.name }}
-      </button>
-      <button type="button" class="cancel-btn" @click="handleCancel">
+      </UEDButton>
+      <UEDButton type="button" variant="secondary" @click="handleCancel">
         {{ t('common.cancel') }}
-      </button>
+      </UEDButton>
     </template>
   </AppDialogShell>
 </template>
 
 <style scoped>
 .dialog-content {
-  padding: 1rem;
   display: flex;
   flex-direction: column;
   gap: 0.9rem;
@@ -100,10 +102,6 @@ function handleCancel() {
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  padding: 0.85rem 1rem;
-  border-radius: 8px;
-  background: #f8fafc;
-  border: 1px solid var(--border-color);
 }
 
 .tool-label {
@@ -111,25 +109,10 @@ function handleCancel() {
   font-size: 0.78rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--text-muted, #486176);
-}
-
-.tool-kind {
-  display: inline-flex;
-  align-items: center;
-  width: fit-content;
-  padding: 0.2rem 0.5rem;
-  border-radius: 999px;
-  font-size: 0.74rem;
-  color: var(--text-muted, #486176);
-  background: rgba(37, 99, 235, 0.08);
-  text-transform: capitalize;
+  color: var(--ued-text-muted);
 }
 
 .tool-preview {
-  border-radius: 8px;
-  border: 1px solid var(--border-color);
-  background: #ffffff;
   overflow: hidden;
 }
 
@@ -139,8 +122,8 @@ function handleCancel() {
   justify-content: space-between;
   gap: 0.75rem;
   padding: 0.7rem 0.9rem;
-  border-bottom: 1px solid var(--border-color);
-  background: #f8fafc;
+  border-bottom: 1px solid var(--ued-border-default);
+  background: var(--ued-bg-panel-muted);
 }
 
 .preview-label,
@@ -149,7 +132,7 @@ function handleCancel() {
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--text-muted, #486176);
+  color: var(--ued-text-muted);
 }
 
 .tool-command {
@@ -157,20 +140,17 @@ function handleCancel() {
   margin: 0;
   padding: 0.9rem;
   overflow: auto;
-  font-family: Consolas, 'SFMono-Regular', 'Courier New', monospace;
+  font-family: var(--ued-font-mono);
   font-size: 0.84rem;
   line-height: 1.55;
-  color: var(--text-primary, #102033);
-  background: #fffdfa;
+  color: var(--ued-text-primary);
+  background: var(--ued-bg-panel);
   white-space: pre-wrap;
   word-break: break-word;
 }
 
 .locations {
-  padding: 0.8rem 0.9rem;
-  background: #ffffff;
-  border-radius: 8px;
-  border: 1px solid var(--border-color);
+  min-width: 0;
 }
 
 .locations-title {
@@ -178,68 +158,15 @@ function handleCancel() {
 }
 
 .location {
-  font-family: monospace;
+  font-family: var(--ued-font-mono);
   font-size: 0.78rem;
   padding: 0.18rem 0;
-  color: var(--text-primary, #333);
+  color: var(--ued-text-primary);
   word-break: break-all;
 }
 
-.option-btn {
-  flex: 1;
-  min-width: 120px;
-  padding: 0.75rem 1rem;
-  border: none;
-  border-radius: 8px;
-  font-size: 0.9rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.15s, transform 0.15s;
-}
-
-.option-allow_once,
-.option-allow_always {
-  background: var(--bg-primary);
-  color: white;
-}
-
-.option-allow_once:hover,
-.option-allow_always:hover {
-  background: var(--bg-primary-hover);
-  transform: translateY(-1px);
-}
-
-.option-reject_once,
-.option-reject_always {
-  background: var(--bg-danger);
-  color: white;
-}
-
-.option-reject_once:hover,
-.option-reject_always:hover {
-  background: #b91c1c;
-  transform: translateY(-1px);
-}
-
-.cancel-btn {
-  flex: 1;
-  min-width: 120px;
-  padding: 0.75rem 1rem;
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  background: #ffffff;
-  font-size: 0.9rem;
-  cursor: pointer;
-}
-
-.cancel-btn:hover {
-  background: #f8fafc;
-  transform: translateY(-1px);
-}
-
 @media (max-width: 720px) {
-  .option-btn,
-  .cancel-btn {
+  :deep(.dialog-shell__footer > *) {
     min-width: 0;
   }
 }

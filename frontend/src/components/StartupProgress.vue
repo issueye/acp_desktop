@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useI18n } from '../lib/i18n';
+import UEDButton from './common/UEDButton.vue';
+import UEDCard from './common/UEDCard.vue';
 
 const props = defineProps<{
   agentName: string;
@@ -53,37 +55,31 @@ const isLongWait = computed(() => props.elapsedSeconds > 10);
 </script>
 
 <template>
-  <div class="startup-progress">
+  <UEDCard class="startup-progress">
     <div class="progress-header">
       <span class="agent-name">{{ t('startup.connectingTo', { agent: agentName }) }}</span>
-      <span class="elapsed-time">{{ formattedTime }}</span>
+      <span class="elapsed-time ued-code">{{ formattedTime }}</span>
     </div>
     
-    <div class="progress-status">
+    <UEDCard muted class="progress-status">
       <span class="phase-icon">{{ phaseIcon }}</span>
       <span class="phase-text">{{ phaseText }}</span>
-    </div>
+    </UEDCard>
     
-    <div v-if="isLongWait && !showDetails" class="first-run-hint">
+    <div v-if="isLongWait && !showDetails" class="first-run-hint ued-meta">
       {{ t('startup.firstRunHint') }}
     </div>
     
     <div class="progress-actions">
-      <button 
-        class="details-btn"
-        @click="emit('toggleDetails')"
-      >
+      <UEDButton variant="secondary" size="sm" @click="emit('toggleDetails')">
         {{ showDetails ? t('startup.hideDetails') : t('startup.showDetails') }}
-      </button>
-      <button 
-        class="cancel-btn"
-        @click="emit('cancel')"
-      >
+      </UEDButton>
+      <UEDButton variant="secondary" size="sm" @click="emit('cancel')">
         {{ t('common.cancel') }}
-      </button>
+      </UEDButton>
     </div>
     
-    <div v-if="showDetails" class="logs-container">
+    <UEDCard v-if="showDetails" class="logs-container" :padded="false">
       <div class="logs-header">{{ t('startup.output') }}</div>
       <div class="logs-content">
         <div 
@@ -97,18 +93,11 @@ const isLongWait = computed(() => props.elapsedSeconds > 10);
           {{ t('startup.waitingOutput') }}
         </div>
       </div>
-    </div>
-  </div>
+    </UEDCard>
+  </UEDCard>
 </template>
 
 <style scoped>
-.startup-progress {
-  padding: 1rem;
-  background: #fbfbfc;
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  border-radius: 8px;
-}
-
 .progress-header {
   display: flex;
   justify-content: space-between;
@@ -118,24 +107,18 @@ const isLongWait = computed(() => props.elapsedSeconds > 10);
 
 .agent-name {
   font-weight: 600;
-  color: var(--text-primary);
+  color: var(--ued-text-primary);
 }
 
 .elapsed-time {
   font-size: 0.8rem;
-  color: var(--text-muted);
-  font-family: monospace;
 }
 
 .progress-status {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.75rem 0.8rem;
-  background: #ffffff;
-  border-radius: 8px;
   margin-bottom: 0.75rem;
-  border: 1px solid rgba(15, 23, 42, 0.06);
 }
 
 .phase-icon {
@@ -143,17 +126,16 @@ const isLongWait = computed(() => props.elapsedSeconds > 10);
 }
 
 .phase-text {
-  color: var(--text-secondary);
+  color: var(--ued-text-secondary);
   font-size: 0.9rem;
 }
 
 .first-run-hint {
   font-size: 0.8rem;
-  color: var(--text-muted);
   margin-bottom: 0.75rem;
   padding: 0.65rem 0.75rem;
-  background: #fff8e8;
-  border-radius: 8px;
+  background: var(--ued-warning-soft);
+  border-radius: var(--ued-radius-md);
 }
 
 .progress-actions {
@@ -162,70 +144,38 @@ const isLongWait = computed(() => props.elapsedSeconds > 10);
   justify-content: space-between;
 }
 
-.details-btn {
-  padding: 0.48rem 0.85rem;
-  border: 1px solid var(--border-color);
-  border-radius: 999px;
-  background: #ffffff;
-  color: var(--text-secondary);
-  font-size: 0.8rem;
-  cursor: pointer;
-}
-
-.details-btn:hover {
-  background: #f8fafc;
-}
-
-.cancel-btn {
-  padding: 0.48rem 0.85rem;
-  border: 1px solid var(--border-color);
-  border-radius: 999px;
-  background: #ffffff;
-  color: var(--text-secondary);
-  font-size: 0.8rem;
-  cursor: pointer;
-}
-
-.cancel-btn:hover {
-  background: #f8fafc;
-  border-color: var(--bg-danger);
-  color: var(--bg-danger);
-}
-
 .logs-container {
   margin-top: 0.75rem;
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  border-radius: 8px;
   overflow: hidden;
 }
 
 .logs-header {
   padding: 0.5rem 0.65rem;
-  background: #ffffff;
+  background: var(--ued-bg-panel);
   font-size: 0.75rem;
   font-weight: 600;
-  color: var(--text-secondary);
-  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+  color: var(--ued-text-secondary);
+  border-bottom: 1px solid var(--ued-border-default);
 }
 
 .logs-content {
   max-height: 150px;
   overflow-y: auto;
   padding: 0.7rem;
-  background: #f6f7f9;
-  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+  background: var(--ued-bg-panel-muted);
+  font-family: var(--ued-font-mono);
   font-size: 0.7rem;
 }
 
 .log-line {
-  color: var(--text-code);
+  color: var(--ued-text-primary);
   white-space: pre-wrap;
   word-break: break-all;
   line-height: 1.4;
 }
 
 .no-logs {
-  color: var(--text-muted);
+  color: var(--ued-text-muted);
   font-style: italic;
 }
 </style>

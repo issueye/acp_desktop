@@ -551,29 +551,29 @@ function handleGlobalKeydown(event: KeyboardEvent) {
 
 <style>
 :root {
-  --bg-primary: #2563eb;
-  --bg-primary-hover: #1d4ed8;
-  --bg-danger: #dc2626;
-  --bg-warning: #fff4ce;
-  --bg-main: #f6f4ef;
-  --bg-sidebar: #f2ede3;
-  --bg-header: rgba(248, 246, 240, 0.96);
-  --bg-hover: rgba(37, 99, 235, 0.08);
-  --bg-user: #eef4ff;
-  --bg-assistant: #ffffff;
-  --bg-card: #fffdfa;
-  --bg-code: #f3f4f6;
-  --text-primary: #0f172a;
-  --text-secondary: #475569;
-  --text-muted: #748091;
-  --text-accent: #2563eb;
-  --text-code: #1f2937;
-  --border-color: rgba(15, 23, 42, 0.08);
-  --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.04);
-  --shadow-md: 0 12px 30px rgba(15, 23, 42, 0.08);
-  --shadow-lg: 0 20px 44px rgba(15, 23, 42, 0.12);
+  --bg-primary: var(--ued-accent);
+  --bg-primary-hover: var(--ued-accent-hover);
+  --bg-danger: var(--ued-danger);
+  --bg-warning: var(--ued-warning-soft);
+  --bg-main: var(--ued-bg-canvas);
+  --bg-sidebar: linear-gradient(180deg, #f7f9fc 0%, #eef2f7 100%);
+  --bg-header: color-mix(in srgb, var(--ued-bg-window) 94%, white);
+  --bg-hover: var(--ued-accent-soft);
+  --bg-user: color-mix(in srgb, var(--ued-accent) 8%, white);
+  --bg-assistant: var(--ued-bg-panel);
+  --bg-card: var(--ued-bg-panel);
+  --bg-code: var(--ued-bg-panel-muted);
+  --text-primary: var(--ued-text-primary);
+  --text-secondary: var(--ued-text-secondary);
+  --text-muted: var(--ued-text-muted);
+  --text-accent: var(--ued-accent);
+  --text-code: var(--ued-text-primary);
+  --border-color: var(--ued-border-default);
+  --shadow-sm: var(--ued-shadow-rest);
+  --shadow-md: var(--ued-shadow-panel);
+  --shadow-lg: var(--ued-shadow-dialog);
   --surface-blur: none;
-  font-family: 'Segoe UI Variable Text', 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
+  font-family: var(--ued-font-ui);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -587,13 +587,33 @@ input, textarea, select { user-select: text; }
 
 <style scoped>
 .app-shell { height: 100vh; padding: 0; }
-.window-frame { height: 100%; display: flex; flex-direction: column; overflow: hidden; border-radius: 0; background: var(--bg-main); border: none; box-shadow: none; }
-.window-body { flex: 1; min-height: 0; display: flex; gap: 0; padding: 0; background: var(--bg-main); }
-.sidebar-rail { width: 54px; border-right: 1px solid rgba(15, 23, 42, 0.06); background: var(--bg-sidebar); color: var(--text-secondary); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .4rem; cursor: pointer; }
-.content-stage { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 0; background: #ffffff; }
-.main-content { flex: 1; min-height: 0; overflow: hidden; background: #ffffff; }
-.error-banner { display: flex; align-items: center; gap: .75rem; padding: .9rem 1rem; background: rgba(220,38,38,.06); color: var(--bg-danger); border-bottom: 1px solid rgba(220,38,38,.12); }
-.error-icon { width: 26px; height: 26px; display: grid; place-items: center; border-radius: 50%; background: rgba(220,38,38,.1); font-weight: 700; }
+.window-frame { height: 100%; display: flex; flex-direction: column; overflow: hidden; border-radius: 0; background: var(--ued-bg-window); border: none; box-shadow: none; }
+.window-body { flex: 1; min-height: 0; display: flex; gap: 0; padding: 0; background: var(--ued-bg-window); }
+.sidebar-rail {
+  width: 54px;
+  border-right: 1px solid var(--ued-border-default);
+  background: var(--bg-sidebar);
+  color: var(--text-secondary);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: .4rem;
+  cursor: pointer;
+  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.65);
+}
+.content-stage { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 0; background: var(--ued-bg-panel); }
+.main-content { flex: 1; min-height: 0; overflow: hidden; background: linear-gradient(180deg, var(--ued-bg-panel) 0%, var(--ued-bg-window) 100%); }
+.error-banner {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  padding: .9rem 1rem;
+  background: var(--ued-danger-soft);
+  color: var(--ued-danger);
+  border-bottom: 1px solid color-mix(in srgb, var(--ued-danger) 18%, var(--ued-border-default));
+}
+.error-icon { width: 26px; height: 26px; display: grid; place-items: center; border-radius: 50%; background: color-mix(in srgb, var(--ued-danger) 10%, transparent); font-weight: 700; }
 .error-text { flex: 1; }
 .error-close { border: none; background: transparent; color: inherit; font-size: 1.1rem; cursor: pointer; }
 @media (max-width: 900px) {

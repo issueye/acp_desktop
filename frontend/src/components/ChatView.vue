@@ -8,6 +8,9 @@ import ModelPicker from './ModelPicker.vue';
 import CommandPalette from './CommandPalette.vue';
 import type { ChatMessage, ChatMessagePart, SlashCommand } from '../lib/types';
 import CurrentPlanPanel from './CurrentPlanPanel.vue';
+import UEDButton from './common/UEDButton.vue';
+import UEDInput from './common/UEDInput.vue';
+import UEDEmptyState from './common/UEDEmptyState.vue';
 
 const sessionStore = useSessionStore();
 const { t } = useI18n();
@@ -236,9 +239,11 @@ function getStatusIcon(status: string): string {
     <div ref="messagesContainer" class="messages-container">
       <div class="messages-stack">
         <div v-if="messages.length === 0 && !isLoading" class="chat-empty-state">
-          <div class="empty-icon">+</div>
-          <h3>{{ t('chat.emptyTitle') }}</h3>
-          <p>{{ t('chat.emptyDesc') }}</p>
+          <UEDEmptyState :title="t('chat.emptyTitle')" :text="t('chat.emptyDesc')">
+            <template #icon>
+              <div class="empty-icon">+</div>
+            </template>
+          </UEDEmptyState>
         </div>
 
         <div 
@@ -293,7 +298,9 @@ function getStatusIcon(status: string): string {
         <div v-if="isLoading" class="loading-indicator">
           <span class="spinner"></span>
           <span>{{ t('chat.thinking') }}</span>
-          <button class="cancel-btn" @click="handleCancel">{{ t('chat.cancel') }}</button>
+          <UEDButton class="cancel-btn" variant="secondary" size="sm" @click="handleCancel">
+            {{ t('chat.cancel') }}
+          </UEDButton>
         </div>
       </div>
     </div>
@@ -315,20 +322,24 @@ function getStatusIcon(status: string): string {
           @select="handleCommandSelect"
           @close="handleCommandClose"
         />
-        <textarea
+        <UEDInput
           v-model="inputText"
+          as="textarea"
+          class="chat-input"
           :placeholder="availableCommands.length > 0 ? t('chat.placeholderCommands') : t('chat.placeholder')"
           :disabled="isLoading"
           @keydown="handleKeyDown"
-          rows="3"
+          :rows="3"
         />
-        <button 
+        <UEDButton
           class="send-btn"
+          variant="primary"
+          size="lg"
           :disabled="!inputText.trim() || isLoading"
           @click="handleSend"
         >
           {{ t('chat.send') }}
-        </button>
+        </UEDButton>
       </div>
     </div>
   </div>
@@ -343,12 +354,12 @@ function getStatusIcon(status: string): string {
 
 .chat-header {
   padding: 0.66rem 1.15rem;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--ued-border-default);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  background: #fffdfa;
+  background: color-mix(in srgb, var(--ued-bg-panel) 90%, white);
 }
 
 .chat-title {
@@ -376,7 +387,7 @@ function getStatusIcon(status: string): string {
 
 .agent-name {
   font-size: 0.73rem;
-  color: var(--text-accent, #2563eb);
+  color: var(--ued-accent);
   font-weight: 600;
 }
 
@@ -384,7 +395,9 @@ function getStatusIcon(status: string): string {
   flex: 1;
   overflow-y: auto;
   padding: 1.4rem 1.4rem 1.2rem;
-  background: linear-gradient(180deg, #ffffff 0%, #fcfaf6 100%);
+  background:
+    radial-gradient(circle at top right, rgba(10, 100, 216, 0.04), transparent 24%),
+    linear-gradient(180deg, var(--ued-bg-panel) 0%, var(--ued-bg-window) 100%);
 }
 
 .messages-stack {
@@ -396,21 +409,7 @@ function getStatusIcon(status: string): string {
   min-height: 100%;
   display: grid;
   place-items: center;
-  text-align: center;
-  padding: 2rem;
-  color: var(--text-secondary, #486176);
-}
-
-.chat-empty-state h3 {
-  margin-top: 0.85rem;
-  font-size: 1.1rem;
-  color: var(--text-primary, #102033);
-}
-
-.chat-empty-state p {
-  max-width: 420px;
-  margin-top: 0.55rem;
-  line-height: 1.7;
+  padding: 2rem 0;
 }
 
 .empty-icon {
@@ -419,10 +418,10 @@ function getStatusIcon(status: string): string {
   display: grid;
   place-items: center;
   margin: 0 auto;
-  border-radius: 8px;
-  background: #eff6ff;
-  border: 1px solid rgba(37, 99, 235, 0.14);
-  color: var(--text-accent, #2563eb);
+  border-radius: var(--ued-radius-md);
+  background: var(--ued-accent-soft);
+  border: 1px solid color-mix(in srgb, var(--ued-accent) 18%, var(--ued-border-default));
+  color: var(--ued-accent);
   font-size: 1.5rem;
   font-weight: 700;
 }
@@ -430,18 +429,18 @@ function getStatusIcon(status: string): string {
 .message {
   margin-bottom: 0.95rem;
   padding: 0.95rem 1rem;
-  border-radius: 8px;
-  border: 1px solid rgba(15, 23, 42, 0.06);
-  box-shadow: none;
+  border-radius: var(--ued-radius-md);
+  border: 1px solid var(--ued-border-default);
+  box-shadow: var(--ued-shadow-rest);
 }
 
 .message-user {
-  background: #edf3ff;
+  background: color-mix(in srgb, var(--ued-accent) 7%, white);
   margin-left: 4rem;
 }
 
 .message-assistant {
-  background: #ffffff;
+  background: var(--ued-bg-panel);
   margin-right: 4rem;
 }
 
@@ -452,7 +451,7 @@ function getStatusIcon(status: string): string {
 .role {
   font-weight: 600;
   font-size: 0.75rem;
-  color: var(--text-muted, #486176);
+  color: var(--ued-text-muted);
 }
 
 .tool-calls-section {
@@ -467,10 +466,10 @@ function getStatusIcon(status: string): string {
   align-items: center;
   gap: 0.5rem;
   padding: 0.45rem 0.7rem;
-  border-radius: 8px;
+  border-radius: var(--ued-radius-md);
   font-size: 0.8rem;
-  background: #faf7f1;
-  border-left: 2px solid var(--border-color);
+  background: var(--ued-bg-panel-muted);
+  border-left: 2px solid var(--ued-border-default);
 }
 
 .tool-pending {
@@ -478,18 +477,18 @@ function getStatusIcon(status: string): string {
 }
 
 .tool-in_progress {
-  border-left-color: #2563eb;
-  background: rgba(37, 99, 235, 0.08);
+  border-left-color: var(--ued-accent);
+  background: var(--ued-accent-soft);
 }
 
 .tool-completed {
-  border-left-color: #059669;
-  background: rgba(5, 150, 105, 0.08);
+  border-left-color: var(--ued-success);
+  background: var(--ued-success-soft);
 }
 
 .tool-failed {
-  border-left-color: #dc2626;
-  background: rgba(220, 38, 38, 0.08);
+  border-left-color: var(--ued-danger);
+  background: var(--ued-danger-soft);
 }
 
 .tool-icon {
@@ -498,12 +497,12 @@ function getStatusIcon(status: string): string {
 
 .tool-name {
   font-weight: 500;
-  color: var(--text-primary);
+  color: var(--ued-text-primary);
 }
 
 .tool-location {
   flex: 1;
-  color: var(--text-muted);
+  color: var(--ued-text-muted);
   font-size: 0.75rem;
   white-space: nowrap;
   overflow: hidden;
@@ -515,16 +514,16 @@ function getStatusIcon(status: string): string {
   font-weight: 600;
 }
 
-.status-pending { color: #b45309; }
-.status-in_progress { color: #2563eb; }
-.status-completed { color: #059669; }
-.status-failed { color: #dc2626; }
+.status-pending { color: var(--ued-warning); }
+.status-in_progress { color: var(--ued-accent); }
+.status-completed { color: var(--ued-success); }
+.status-failed { color: var(--ued-danger); }
 
 .message-content {
   line-height: 1.7;
   overflow-wrap: break-word;
   word-wrap: break-word;
-  color: var(--text-primary, #102033);
+  color: var(--ued-text-primary);
 }
 
 .message-content :deep(p) {
@@ -542,10 +541,10 @@ function getStatusIcon(status: string): string {
 }
 
 .message-content :deep(pre) {
-  background: var(--bg-code, #282c34);
-  color: var(--text-code, #abb2bf);
+  background: var(--ued-bg-panel-muted);
+  color: var(--ued-text-primary);
   padding: 0.75rem;
-  border-radius: 4px;
+  border-radius: var(--ued-radius-sm);
   overflow-x: auto;
 }
 
@@ -559,17 +558,17 @@ function getStatusIcon(status: string): string {
   align-items: center;
   gap: 0.5rem;
   padding: 0.95rem 1rem;
-  color: var(--text-muted, #6d8295);
-  border-radius: 8px;
-  background: #ffffff;
-  border: 1px solid rgba(15, 23, 42, 0.06);
+  color: var(--ued-text-muted);
+  border-radius: var(--ued-radius-md);
+  background: var(--ued-bg-panel);
+  border: 1px solid var(--ued-border-default);
 }
 
 .spinner {
   width: 16px;
   height: 16px;
-  border: 2px solid var(--border-color, #ccc);
-  border-top-color: var(--text-accent, #0066cc);
+  border: 2px solid var(--ued-border-default);
+  border-top-color: var(--ued-accent);
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
@@ -578,20 +577,9 @@ function getStatusIcon(status: string): string {
   to { transform: rotate(360deg); }
 }
 
-.cancel-btn {
-  margin-left: auto;
-  padding: 0.35rem 0.7rem;
-  border: 1px solid var(--border-color);
-  border-radius: 999px;
-  background: #ffffff;
-  color: var(--text-secondary);
-  font-size: 0.8rem;
-  cursor: pointer;
-}
-
 .input-shell {
-  border-top: 1px solid var(--border-color);
-  background: #fffdfa;
+  border-top: 1px solid var(--ued-border-default);
+  background: color-mix(in srgb, var(--ued-bg-panel) 90%, white);
   padding: 1rem 1.2rem 1.15rem;
 }
 
@@ -609,55 +597,25 @@ function getStatusIcon(status: string): string {
   margin: 0 auto;
 }
 
-textarea {
+.chat-input {
   flex: 1;
-  min-height: 88px;
-  padding: 0.95rem 1rem;
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  font-size: 0.96rem;
-  font-family: inherit;
   resize: none;
-  background: #ffffff;
-  color: var(--text-primary);
+  min-height: 88px;
 }
 
-textarea:focus {
-  outline: none;
-  border-color: rgba(37,99,235,.32);
-  box-shadow: 0 0 0 3px rgba(37,99,235,.08);
+.cancel-btn {
+  margin-left: auto;
 }
 
 .send-btn {
   min-width: 98px;
-  height: 46px;
-  padding: 0 1.25rem;
-  background: var(--bg-primary);
-  color: white;
-  border: 1px solid rgba(37, 99, 235, 0.2);
-  border: none;
-  border-radius: 8px;
-  font-size: 0.95rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.15s, transform 0.15s;
-}
-
-.send-btn:hover:not(:disabled) {
-  background: var(--bg-primary-hover);
-  color: white;
-  transform: translateY(-1px);
-}
-
-.send-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+  align-self: stretch;
 }
 
 .thought-section {
   margin-bottom: 0.75rem;
-  border: 1px solid rgba(15, 23, 42, 0.06);
-  border-radius: 8px;
+  border: 1px solid var(--ued-border-default);
+  border-radius: var(--ued-radius-md);
   overflow: hidden;
 }
 
@@ -667,17 +625,17 @@ textarea:focus {
   gap: 0.5rem;
   width: 100%;
   padding: 0.65rem 0.85rem;
-  background: #faf7f1;
+  background: var(--ued-bg-panel-muted);
   border: none;
   cursor: pointer;
   font-size: 0.85rem;
-  color: var(--text-muted, #666);
+  color: var(--ued-text-muted);
   text-align: left;
   transition: background 0.15s ease;
 }
 
 .thought-toggle:hover {
-  background: #f4efe5;
+  background: var(--ued-bg-panel-hover);
 }
 
 .thought-icon {
@@ -693,15 +651,15 @@ textarea:focus {
 
 .thought-chevron {
   font-size: 0.7rem;
-  color: var(--text-muted, #999);
+  color: var(--ued-text-muted);
 }
 
 .thought-content {
   padding: 0.85rem 1rem 0.85rem 1.15rem;
-  background: #ffffff;
-  border-top: 1px solid var(--border-color);
+  background: var(--ued-bg-panel);
+  border-top: 1px solid var(--ued-border-default);
   font-size: 0.9rem;
-  color: var(--text-muted, #666);
+  color: var(--ued-text-muted);
   font-style: italic;
   line-height: 1.5;
 }
@@ -715,7 +673,7 @@ textarea:focus {
 }
 
 .thought-content :deep(code) {
-  background: #f3f4f6;
+  background: var(--ued-bg-panel-muted);
   padding: 0.125rem 0.25rem;
   border-radius: 3px;
   font-size: 0.85em;

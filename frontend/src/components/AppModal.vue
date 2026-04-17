@@ -84,16 +84,16 @@ onBeforeUnmount(() => {
   padding: 1.5rem;
   overflow: auto;
   background: rgba(15, 23, 42, 0.18);
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(2px);
 }
 
 .app-modal-panel {
   width: 100%;
   min-height: 0;
-  border-radius: 8px;
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  background: #fffdfa;
-  box-shadow: 0 20px 44px rgba(15, 23, 42, 0.12);
+  border-radius: var(--ued-radius-lg);
+  border: 1px solid var(--ued-border-default);
+  background: var(--ued-bg-panel);
+  box-shadow: var(--ued-shadow-dialog);
   overflow: hidden;
 }
 
