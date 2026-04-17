@@ -88,8 +88,6 @@ const hasEnvVars = computed(() => envVars.value.length > 0);
 
 <style scoped>
 .env-var-editor {
-  margin-top: 0.5rem;
-  padding: 0.9rem;
   border-radius: var(--ued-radius-md);
   background: var(--ued-bg-panel-muted);
   border: 1px solid var(--ued-border-default);
@@ -99,7 +97,7 @@ const hasEnvVars = computed(() => envVars.value.length > 0);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 0.7rem;
+  padding: 0.2rem 0.5rem;
 }
 
 .env-label {
@@ -111,10 +109,18 @@ const hasEnvVars = computed(() => envVars.value.length > 0);
 .env-list {
   display: flex;
   flex-direction: column;
-  gap: 0.65rem;
+  width: 100%;
 }
 
 .env-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0.2rem;
+}
+
+::v-deep(.ued-panel-body) {
+  width: 100%;
   display: flex;
   align-items: center;
   gap: 0.45rem;

@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useConfigStore } from '../stores/config';
 import { addAgent, removeAgent, updateAgent } from '../lib/wails';
 import { useI18n } from '../lib/i18n';
@@ -8,86 +8,52 @@ import AppConfirmDialog from './AppConfirmDialog.vue';
 import EnvVarEditor from './EnvVarEditor.vue';
 import UEDButton from './common/UEDButton.vue';
 import UEDCard from './common/UEDCard.vue';
-import UEDField from './common/UEDField.vue';
 import UEDInput from './common/UEDInput.vue';
 import UEDStatus from './common/UEDStatus.vue';
-import UEDEmptyState from './common/UEDEmptyState.vue';
-
 
 const props = defineProps({
-    startInAddMode: { type: Boolean, default: false },
+  startInAddMode: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(['close', 'notify']);
 
 const configStore = useConfigStore();
-const { t } = useI18n();
+const { t, locale } = useI18n();
 
-const agents = computed(() => {
-  return Object.entries(configStore.config.agents).map(([name, config]) => ({
+const CREATE_ROW_KEY = '__new__';
+
+const agents = computed(() =>
+  Object.entries(configStore.config.agents).map(([name, config]) => ({
     name,
     command: config.command,
     args: config.args.join(' '),
     env: config.env || {},
-  }));
-});
+  }))
+);
 
-// Form state
-const showAddForm = ref(false);
-const editingAgent = ref(null);
-const formName = ref('');
-const formCommand = ref('');
-const formArgs = ref('');
-const formEnv = ref({});
+const editingKey = ref('');
+const expandedEnvKey = ref('');
+const draft = ref(createDraft());
 const formError = ref('');
-const isSubmitting = ref(false);
 const actionError = ref('');
+const isSubmitting = ref(false);
 const showDeleteConfirm = ref(false);
 const pendingDeleteAgentName = ref('');
 const isDeleting = ref(false);
 
-function resetForm() {
-  formName.value = '';
-  formCommand.value = '';
-  formArgs.value = '';
-  formEnv.value = {};
-  formError.value = '';
-  actionError.value = '';
-  showAddForm.value = false;
-  editingAgent.value = null;
-}
+const isCreating = computed(() => editingKey.value === CREATE_ROW_KEY);
+const hasAgents = computed(() => agents.value.length > 0);
 
-function startAdd() {
-  resetForm();
-  showAddForm.value = true;
-}
-
-onMounted(() => {
-  if (props.startInAddMode) {
-    startAdd();
-  }
-});
-
-watch(
-  () => props.startInAddMode,
-  (enabled) => {
-    if (enabled) {
-      startAdd();
-    }
-  }
-);
-
-function startEdit(agent) {
-  resetForm();
-  editingAgent.value = agent.name;
-  formName.value = agent.name;
-  formCommand.value = agent.command;
-  formArgs.value = agent.args;
-  formEnv.value = { ...agent.env };
+function createDraft(agent) {
+  return {
+    name: agent?.name ?? '',
+    command: agent?.command ?? '',
+    args: agent?.args ?? '',
+    env: { ...(agent?.env || {}) },
+  };
 }
 
 function parseArgs(argsString) {
-  // Simple arg parsing - split on spaces but respect quotes
   const args = [];
   let current = '';
   let inQuotes = false;
@@ -109,57 +75,137 @@ function parseArgs(argsString) {
       current += char;
     }
   }
+
   if (current.trim()) {
     args.push(current.trim());
   }
+
   return args;
 }
 
-async function handleSubmit() {
+function resetEditor() {
+  editingKey.value = '';
+  expandedEnvKey.value = '';
+  draft.value = createDraft();
+  formError.value = '';
+}
+
+function startCreate() {
+  actionError.value = '';
+  formError.value = '';
+  editingKey.value = CREATE_ROW_KEY;
+  expandedEnvKey.value = CREATE_ROW_KEY;
+  draft.value = createDraft();
+}
+
+function startEdit(agent) {
+  actionError.value = '';
+  formError.value = '';
+  editingKey.value = agent.name;
+  expandedEnvKey.value = agent.name;
+  draft.value = createDraft(agent);
+}
+
+function startEnvEdit(agent) {
+  if (isEditingRow(agent.name)) {
+    toggleEnvEditor(agent.name);
+    return;
+  }
+  startEdit(agent);
+}
+
+function isEditingRow(name) {
+  return editingKey.value === name;
+}
+
+function isEnvExpanded(name) {
+  return expandedEnvKey.value === name;
+}
+
+function toggleEnvEditor(name) {
+  expandedEnvKey.value = expandedEnvKey.value === name ? '' : name;
+}
+
+function updateDraftField(field, value) {
+  draft.value = {
+    ...draft.value,
+    [field]: value,
+  };
+}
+
+function updateDraftEnv(value) {
+  draft.value = {
+    ...draft.value,
+    env: value,
+  };
+}
+
+function getEnvCount(env) {
+  return Object.keys(env || {}).length;
+}
+
+function getEnvSummary(env) {
+  const count = getEnvCount(env);
+  if (count === 0) {
+    return locale.value === 'zh-CN' ? '0 项' : '0 vars';
+  }
+  return locale.value === 'zh-CN' ? `${count} 项` : `${count} vars`;
+}
+
+async function saveDraft() {
   formError.value = '';
   actionError.value = '';
-  
-  if (!formName.value.trim()) {
+
+  if (!draft.value.name.trim()) {
     formError.value = t('settings.nameRequired');
     return;
   }
-  if (!formCommand.value.trim()) {
+
+  if (!draft.value.command.trim()) {
     formError.value = t('settings.commandRequired');
     return;
   }
 
-  // Validate agent name is not purely numeric (JavaScript object key ordering issue)
-  if (/^\d+$/.test(formName.value)) {
+  if (/^\d+$/.test(draft.value.name)) {
     formError.value = t('settings.nameNumeric');
     return;
   }
 
-  const args = parseArgs(formArgs.value);
-  isSubmitting.value = true;
+  if (isCreating.value && configStore.config.agents[draft.value.name.trim()]) {
+    formError.value = t('settings.duplicate');
+    return;
+  }
 
+  isSubmitting.value = true;
   try {
-    if (editingAgent.value) {
-      const newConfig = await updateAgent(formName.value, formCommand.value, args, formEnv.value);
+    const args = parseArgs(draft.value.args);
+    if (isCreating.value) {
+      const newConfig = await addAgent(
+        draft.value.name.trim(),
+        draft.value.command.trim(),
+        args,
+        draft.value.env
+      );
       configStore.updateFromEvent(newConfig);
       emit('notify', {
-        message: `${t('settings.edit')} Agent: ${formName.value}`,
+        message: `${t('settings.addAgent')}: ${draft.value.name.trim()}`,
         tone: 'success',
       });
     } else {
-      // Check for duplicates
-      if (configStore.config.agents[formName.value]) {
-        formError.value = t('settings.duplicate');
-        isSubmitting.value = false;
-        return;
-      }
-      const newConfig = await addAgent(formName.value, formCommand.value, args, formEnv.value);
+      const currentName = editingKey.value;
+      const newConfig = await updateAgent(
+        currentName,
+        draft.value.command.trim(),
+        args,
+        draft.value.env
+      );
       configStore.updateFromEvent(newConfig);
       emit('notify', {
-        message: `${t('settings.addAgent')}: ${formName.value}`,
+        message: `${t('settings.edit')} Agent: ${currentName}`,
         tone: 'success',
       });
     }
-    resetForm();
+    resetEditor();
   } catch (e) {
     formError.value = e instanceof Error ? e.message : String(e);
     emit('notify', {
@@ -171,7 +217,7 @@ async function handleSubmit() {
   }
 }
 
-async function handleDelete(name) {
+function handleDelete(name) {
   actionError.value = '';
   pendingDeleteAgentName.value = name;
   showDeleteConfirm.value = true;
@@ -192,8 +238,8 @@ async function confirmDelete() {
     const deletingName = pendingDeleteAgentName.value;
     const newConfig = await removeAgent(deletingName);
     configStore.updateFromEvent(newConfig);
-    if (editingAgent.value === deletingName) {
-      resetForm();
+    if (editingKey.value === deletingName) {
+      resetEditor();
     }
     cancelDelete();
     emit('notify', {
@@ -201,7 +247,6 @@ async function confirmDelete() {
       tone: 'success',
     });
   } catch (e) {
-    console.error('Failed to delete agent:', e);
     actionError.value = e instanceof Error ? e.message : String(e);
     emit('notify', {
       message: actionError.value,
@@ -211,6 +256,21 @@ async function confirmDelete() {
     isDeleting.value = false;
   }
 }
+
+onMounted(() => {
+  if (props.startInAddMode) {
+    startCreate();
+  }
+});
+
+watch(
+  () => props.startInAddMode,
+  (enabled) => {
+    if (enabled) {
+      startCreate();
+    }
+  }
+);
 </script>
 
 <template>
@@ -218,16 +278,23 @@ async function confirmDelete() {
     :model-value="true"
     :title="t('settings.title')"
     :eyebrow="t('app.settings')"
-    max-width="880px"
+    max-width="980px"
     body-class="settings-body"
     @update:modelValue="(value) => { if (!value) emit('close'); }"
     @close="emit('close')"
   >
     <div class="settings-content">
-      <UEDCard tag="section" class="agents-section">
+      <UEDCard tag="section" class="agents-section" :padded="false">
         <div class="section-header">
-          <h3 class="ued-title-2">{{ t('settings.agents') }}</h3>
-          <UEDButton variant="primary" @click="startAdd" :disabled="showAddForm || isSubmitting || isDeleting">
+          <div class="section-copy">
+            <h3 class="ued-title-2">{{ t('settings.agents') }}</h3>
+            <p class="ued-meta">{{ t('settings.argsHint') }}</p>
+          </div>
+          <UEDButton
+            variant="primary"
+            @click="startCreate"
+            :disabled="isSubmitting || isDeleting || isCreating"
+          >
             {{ t('settings.addAgent') }}
           </UEDButton>
         </div>
@@ -236,88 +303,207 @@ async function confirmDelete() {
           {{ actionError }}
         </div>
 
-        <UEDCard v-if="showAddForm || editingAgent" muted class="agent-form">
-          <h4 class="ued-title-2">{{ editingAgent ? t('settings.editAgent') : t('settings.addNewAgent') }}</h4>
-          
-          <UEDField :label="t('settings.name')">
-            <UEDInput
-              v-model="formName" 
-              :placeholder="t('settings.placeholder.agentName')"
-              :disabled="!!editingAgent"
-              :error="!!formError && !formName.trim()"
-            />
-          </UEDField>
+        <div class="agent-table-shell">
+          <div class="agent-table-scroll">
+            <table class="agent-table">
+              <thead>
+                <tr>
+                  <th>{{ t('settings.name') }}</th>
+                  <th>{{ t('settings.command') }}</th>
+                  <th>{{ t('settings.arguments') }}</th>
+                  <th>{{ t('env.title') }}</th>
+                  <th class="actions-column">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <template v-if="isCreating">
+                  <tr class="agent-row is-editing is-new">
+                    <td>
+                      <UEDInput
+                        :model-value="draft.name"
+                        :placeholder="t('settings.placeholder.agentName')"
+                        :error="!!formError && !draft.name.trim()"
+                        @update:modelValue="updateDraftField('name', $event)"
+                      />
+                    </td>
+                    <td>
+                      <UEDInput
+                        :model-value="draft.command"
+                        placeholder="npx"
+                        :error="!!formError && !draft.command.trim()"
+                        @update:modelValue="updateDraftField('command', $event)"
+                      />
+                    </td>
+                    <td>
+                      <UEDInput
+                        :model-value="draft.args"
+                        placeholder="-y @example/agent"
+                        @update:modelValue="updateDraftField('args', $event)"
+                      />
+                    </td>
+                    <td>
+                      <button
+                        class="env-toggle ued-btn ued-btn--secondary ued-btn--sm"
+                        type="button"
+                        @click="toggleEnvEditor(CREATE_ROW_KEY)"
+                      >
+                        {{ getEnvSummary(draft.env) }}
+                      </button>
+                    </td>
+                    <td class="actions-column">
+                      <div class="row-actions">
+                        <UEDButton
+                          variant="primary"
+                          size="sm"
+                          :disabled="isSubmitting || isDeleting"
+                          @click="saveDraft"
+                        >
+                          {{ isSubmitting ? t('settings.saving') : t('settings.save') }}
+                        </UEDButton>
+                        <UEDButton
+                          variant="secondary"
+                          size="sm"
+                          :disabled="isSubmitting || isDeleting"
+                          @click="resetEditor"
+                        >
+                          {{ t('common.cancel') }}
+                        </UEDButton>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr v-if="isEnvExpanded(CREATE_ROW_KEY)" class="env-detail-row">
+                    <td colspan="5">
+                      <EnvVarEditor :model-value="draft.env" @update:modelValue="updateDraftEnv" />
+                    </td>
+                  </tr>
+                  <tr v-if="formError" class="error-row">
+                    <td colspan="5" class="ued-error-text">{{ formError }}</td>
+                  </tr>
+                </template>
 
-          <UEDField :label="t('settings.command')">
-            <UEDInput
-              v-model="formCommand" 
-              placeholder="npx"
-              :error="!!formError && !formCommand.trim()"
-            />
-          </UEDField>
+                <template v-if="hasAgents">
+                  <template v-for="agent in agents" :key="agent.name">
+                    <tr class="agent-row" :class="{ 'is-editing': isEditingRow(agent.name) }">
+                      <td>
+                        <template v-if="isEditingRow(agent.name)">
+                          <div class="name-cell">
+                            <UEDInput :model-value="draft.name" disabled />
+                            <UEDStatus kind="badge" tone="info">ACP</UEDStatus>
+                          </div>
+                        </template>
+                        <template v-else>
+                          <div class="name-display">
+                            <strong>{{ agent.name }}</strong>
+                            <UEDStatus kind="badge">ACP</UEDStatus>
+                          </div>
+                        </template>
+                      </td>
 
-          <UEDField :label="t('settings.arguments')" :helper="t('settings.argsHint')">
-            <UEDInput
-              v-model="formArgs" 
-              placeholder="-y @example/agent"
-            />
-          </UEDField>
+                      <td>
+                        <template v-if="isEditingRow(agent.name)">
+                          <UEDInput
+                            :model-value="draft.command"
+                            placeholder="npx"
+                            :error="!!formError && !draft.command.trim()"
+                            @update:modelValue="updateDraftField('command', $event)"
+                          />
+                        </template>
+                        <template v-else>
+                          <code class="ued-code agent-code">{{ agent.command }}</code>
+                        </template>
+                      </td>
 
-          <div class="form-group">
-            <EnvVarEditor v-model="formEnv" />
+                      <td>
+                        <template v-if="isEditingRow(agent.name)">
+                          <UEDInput
+                            :model-value="draft.args"
+                            placeholder="-y @example/agent"
+                            @update:modelValue="updateDraftField('args', $event)"
+                          />
+                        </template>
+                        <template v-else>
+                          <span class="args-text">{{ agent.args || '-' }}</span>
+                        </template>
+                      </td>
+
+                      <td>
+                        <button
+                          class="env-toggle ued-btn ued-btn--secondary ued-btn--sm"
+                          type="button"
+                          @click="startEnvEdit(agent)"
+                        >
+                          {{ getEnvSummary(isEditingRow(agent.name) ? draft.env : agent.env) }}
+                        </button>
+                      </td>
+
+                      <td class="actions-column">
+                        <div class="row-actions">
+                          <template v-if="isEditingRow(agent.name)">
+                            <UEDButton
+                              variant="primary"
+                              size="sm"
+                              :disabled="isSubmitting || isDeleting"
+                              @click="saveDraft"
+                            >
+                              {{ isSubmitting ? t('settings.saving') : t('settings.save') }}
+                            </UEDButton>
+                            <UEDButton
+                              variant="secondary"
+                              size="sm"
+                              :disabled="isSubmitting || isDeleting"
+                              @click="resetEditor"
+                            >
+                              {{ t('common.cancel') }}
+                            </UEDButton>
+                          </template>
+                          <template v-else>
+                            <UEDButton
+                              variant="secondary"
+                              size="sm"
+                              :disabled="isSubmitting || isDeleting || isCreating"
+                              @click="startEdit(agent)"
+                            >
+                              {{ t('settings.edit') }}
+                            </UEDButton>
+                            <UEDButton
+                              variant="danger"
+                              size="sm"
+                              :disabled="isSubmitting || isDeleting"
+                              @click="handleDelete(agent.name)"
+                            >
+                              {{ t('settings.delete') }}
+                            </UEDButton>
+                          </template>
+                        </div>
+                      </td>
+                    </tr>
+
+                    <tr v-if="isEditingRow(agent.name) && isEnvExpanded(agent.name)" class="env-detail-row">
+                      <td colspan="5">
+                        <EnvVarEditor
+                          :model-value="draft.env"
+                          @update:modelValue="updateDraftEnv"
+                        />
+                      </td>
+                    </tr>
+
+                    <tr v-if="isEditingRow(agent.name) && formError" class="error-row">
+                      <td colspan="5" class="ued-error-text">{{ formError }}</td>
+                    </tr>
+                  </template>
+                </template>
+
+                <tr v-if="!hasAgents && !isCreating">
+                  <td colspan="5" class="empty-row">
+                    <div class="ued-empty">
+                      <div class="ued-title-2">{{ t('settings.noAgents') }}</div>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
-
-          <div v-if="formError" class="form-error ued-error-text">
-            {{ formError }}
-          </div>
-
-          <div class="form-actions">
-            <UEDButton
-              variant="primary"
-              @click="handleSubmit"
-              :disabled="isSubmitting || isDeleting"
-            >
-              {{ isSubmitting ? t('settings.saving') : t('settings.save') }}
-            </UEDButton>
-            <UEDButton variant="secondary" @click="resetForm" :disabled="isSubmitting || isDeleting">
-              {{ t('common.cancel') }}
-            </UEDButton>
-          </div>
-        </UEDCard>
-
-        <div class="agents-list">
-          <UEDCard
-            v-for="agent in agents" 
-            :key="agent.name"
-            class="agent-item"
-          >
-            <div class="agent-info">
-              <div class="agent-name-row">
-                <div class="agent-name">{{ agent.name }}</div>
-                <UEDStatus kind="badge">ACP</UEDStatus>
-              </div>
-              <div class="agent-command">
-                <code class="ued-code">{{ agent.command }} {{ agent.args }}</code>
-              </div>
-            </div>
-            <div class="agent-actions">
-              <UEDButton variant="secondary" size="sm" @click="startEdit(agent)" :disabled="isSubmitting || isDeleting">
-                {{ t('settings.edit') }}
-              </UEDButton>
-              <UEDButton variant="danger" size="sm" @click="handleDelete(agent.name)" :disabled="isSubmitting || isDeleting">
-                {{ t('settings.delete') }}
-              </UEDButton>
-            </div>
-          </UEDCard>
-
-          <UEDEmptyState v-if="agents.length === 0" :title="t('settings.noAgents')" />
         </div>
-      </UEDCard>
-
-      <UEDCard tag="section" class="config-section">
-        <h3 class="ued-title-2">{{ t('settings.configFile') }}</h3>
-        <p class="config-path ued-code">{{ configStore.configPath }}</p>
-        <small class="ued-meta">{{ t('settings.configReloadHint') }}</small>
       </UEDCard>
     </div>
 
@@ -342,9 +528,6 @@ async function confirmDelete() {
 }
 
 .settings-content {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 260px;
-  gap: 1rem;
 }
 
 .agents-section,
@@ -354,13 +537,19 @@ async function confirmDelete() {
 
 .section-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  margin-bottom: 0.95rem;
+  gap: 1rem;
+  padding: 1rem 1rem 0;
+}
+
+.section-copy {
+  display: grid;
+  gap: 0.2rem;
 }
 
 .action-error {
-  margin-bottom: 0.9rem;
+  margin: 1rem 1rem 0;
   padding: 0.75rem 0.85rem;
   border-radius: var(--ued-radius-md);
   border: 1px solid color-mix(in srgb, var(--ued-danger) 18%, var(--ued-border-default));
@@ -370,69 +559,98 @@ async function confirmDelete() {
   line-height: 1.5;
 }
 
-.agent-form {
-  margin-bottom: 1rem;
+.agent-table-shell {
+  padding: 1rem;
 }
 
-.agent-form h4 {
-  margin: 0 0 1rem 0;
+.agent-table-scroll {
+  overflow: auto;
+  border: 1px solid var(--ued-border-default);
+  border-radius: var(--ued-radius-md);
+  background: var(--ued-bg-panel);
 }
 
-.form-group {
-  margin-bottom: 0.75rem;
+.agent-table {
+  width: 100%;
+  min-width: 720px;
+  border-collapse: collapse;
 }
 
-.form-actions {
-  display: flex;
-  gap: 0.5rem;
+.agent-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 0.78rem 0.85rem;
+  background: var(--ued-bg-panel-muted);
+  border-bottom: 1px solid var(--ued-border-default);
+  color: var(--ued-text-muted);
+  font-size: var(--ued-text-caption);
+  font-weight: 700;
+  text-align: left;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
-.agents-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.7rem;
+.agent-table tbody td {
+  padding: 0.8rem 0.85rem;
+  border-top: 1px solid var(--ued-border-subtle);
+  vertical-align: top;
 }
 
-.agent-item {
+.agent-row.is-editing {
+  background: color-mix(in srgb, var(--ued-accent-soft) 46%, white);
+}
+
+.agent-row.is-new {
+  background: color-mix(in srgb, var(--ued-success-soft) 52%, white);
+}
+
+.name-display,
+.name-cell {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.agent-info {
-  flex: 1;
+  gap: 0.5rem;
   min-width: 0;
 }
 
-.agent-name-row {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 0.35rem;
+.name-display strong {
+  color: var(--ued-text-primary);
 }
 
-.agent-name {
-  font-weight: 600;
-}
-
-.agent-command {
-  font-size: 0.8rem;
-  color: var(--ued-text-muted);
-}
-
-.agent-command code {
+.agent-code,
+.args-text {
   display: inline-block;
-  background: var(--ued-bg-panel-muted);
-  padding: 0.22rem 0.45rem;
-  border-radius: var(--ued-radius-sm);
+  color: var(--ued-text-secondary);
   word-break: break-all;
 }
 
-.agent-actions {
+.env-toggle {
+  min-width: 84px;
+}
+
+.actions-column {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.row-actions {
   display: flex;
-  gap: 0.5rem;
-  margin-left: 1rem;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+
+.env-detail-row td {
+  padding: 0.7rem 0.85rem 0.95rem;
+  background: color-mix(in srgb, var(--ued-bg-panel-muted) 72%, white);
+}
+
+.error-row td {
+  padding-top: 0;
+  background: color-mix(in srgb, var(--ued-danger-soft) 40%, white);
+}
+
+.empty-row {
+  padding: 1.5rem;
 }
 
 .config-section {
@@ -453,14 +671,16 @@ async function confirmDelete() {
   .settings-content {
     grid-template-columns: 1fr;
   }
+}
 
-  .agent-item {
+@media (max-width: 780px) {
+  .section-header {
     flex-direction: column;
-    align-items: flex-start;
+    align-items: stretch;
   }
 
-  .agent-actions {
-    margin-left: 0;
+  .agent-table {
+    min-width: 860px;
   }
 }
 </style>

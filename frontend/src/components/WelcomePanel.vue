@@ -20,7 +20,6 @@ const { t } = useI18n();
 <template>
   <div class="welcome-screen">
     <UEDCard raised class="welcome-card">
-      <p class="ued-kicker">{{ t('app.welcomeEyebrow') }}</p>
       <h2 class="ued-title-1">{{ t('app.welcomeTitle') }}</h2>
       <p class="welcome-text ued-body">{{ t('app.welcomeDesc') }}</p>
 

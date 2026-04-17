@@ -139,7 +139,6 @@ onBeforeUnmount(() => {
           >
             <header v-if="hasHeader" class="ued-modal__header">
               <div class="ued-modal__heading">
-                <div v-if="kicker" class="ued-kicker">{{ kicker }}</div>
                 <h3 v-if="title" class="ued-modal__title">{{ title }}</h3>
                 <p v-if="description" class="ued-modal__description">{{ description }}</p>
               </div>

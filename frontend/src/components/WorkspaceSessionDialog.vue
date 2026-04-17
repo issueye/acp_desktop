@@ -152,7 +152,6 @@ function closeDialog() {
       <div class="workspace-layout">
         <div class="dialog-main">
           <UEDCard class="workspace-hero" raised>
-            <p class="ued-kicker">{{ t('app.sessionLauncher') }}</p>
             <div class="hero-copy">
               <h3 class="ued-title-2">{{ t('app.sessionSetupTitle') }}</h3>
               <p class="hero-text ued-body">{{ t('app.sessionSetupDesc') }}</p>
@@ -283,7 +282,6 @@ function closeDialog() {
         <aside class="dialog-side">
           <UEDCard class="launch-card" raised>
             <div class="launch-copy">
-              <p class="ued-kicker">{{ t('app.workspaceSummary') }}</p>
               <h3 class="ued-title-2">{{ t('app.newSession') }}</h3>
               <p class="launch-text ued-body">{{ t('app.sessionSetupDesc') }}</p>
             </div>
