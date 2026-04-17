@@ -693,7 +693,7 @@ function appendTextPart(message, type, text) {
       startupPhase.value = 'connecting';
 
       const initResponse = await client.initialize({
-        protocolVersion,
+        protocolVersion: PROTOCOL_VERSION,
         clientCapabilities: {
           fs: {
             readTextFile: true,
@@ -829,7 +829,7 @@ function appendTextPart(message, type, text) {
       upsertConnectedSession(runtime);
 
       const initResponse = await client.initialize({
-        protocolVersion,
+        protocolVersion: PROTOCOL_VERSION,
         clientCapabilities: {
           fs: {
             readTextFile: true,
