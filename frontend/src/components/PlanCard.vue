@@ -63,7 +63,7 @@ function getMarkerClass(status: PlanEntry['status']): string {
 
 .plan-entry {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 0.42rem;
   padding: 0.28rem 0;
   color: var(--ued-text-primary);

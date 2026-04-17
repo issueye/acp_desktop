@@ -968,6 +968,8 @@ export const useSessionStore = defineStore('session', () => {
       throw new Error('No active session');
     }
 
+    error.value = null;
+
     runtime.messages.push({
       ...createChatMessage('user'),
       content: text,
@@ -1005,6 +1007,11 @@ export const useSessionStore = defineStore('session', () => {
       touchSavedSession(runtime.session);
       syncRuntimeSnapshot(runtime);
       await saveSessionsToStore();
+    } catch (e) {
+      const nextError = e instanceof Error ? e.message : String(e);
+      error.value = nextError;
+      trackError(e instanceof Error ? e : new Error(nextError));
+      throw e;
     } finally {
       runtime.isLoading = false;
       notifyConnectedSessionChanged(runtime);

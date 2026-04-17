@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, nextTick, watch } from 'vue';
+import { ref, computed, nextTick, watch, onBeforeUnmount, onMounted, onUpdated } from 'vue';
 import { marked } from 'marked';
 import { useSessionStore } from '../stores/session';
 import { useI18n } from '../lib/i18n';
@@ -17,6 +17,8 @@ const { t } = useI18n();
 const inputText = ref('');
 const messagesContainer = ref<HTMLElement | null>(null);
 const commandPaletteRef = ref<InstanceType<typeof CommandPalette> | null>(null);
+const isPinnedToBottom = ref(true);
+let scrollFrameId: number | null = null;
 
 // Track expanded thought sections by message id
 const expandedThoughts = ref<Set<string>>(new Set());
@@ -48,12 +50,53 @@ const commandFilter = computed(() => {
   return inputText.value.slice(1); // Remove the leading "/"
 });
 
+function clearScheduledScroll() {
+  if (scrollFrameId !== null) {
+    cancelAnimationFrame(scrollFrameId);
+    scrollFrameId = null;
+  }
+}
+
+function getDistanceToBottom(): number {
+  const container = messagesContainer.value;
+  if (!container) return 0;
+  return container.scrollHeight - container.scrollTop - container.clientHeight;
+}
+
+function updatePinnedState() {
+  isPinnedToBottom.value = getDistanceToBottom() <= 48;
+}
+
+function scrollToBottom() {
+  const container = messagesContainer.value;
+  if (!container) return;
+  container.scrollTop = container.scrollHeight;
+  isPinnedToBottom.value = true;
+}
+
+function scheduleScrollToBottom(force = false) {
+  if (!force && !isPinnedToBottom.value) {
+    return;
+  }
+
+  clearScheduledScroll();
+  scrollFrameId = requestAnimationFrame(() => {
+    scrollFrameId = null;
+    scrollToBottom();
+  });
+}
+
+function handleMessagesScroll() {
+  if (isLoading.value) {
+    return;
+  }
+  updatePinnedState();
+}
+
 // Auto-scroll to bottom when new messages arrive
 watch(messages, async () => {
   await nextTick();
-  if (messagesContainer.value) {
-    messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
-  }
+  scheduleScrollToBottom(isLoading.value);
 }, { deep: true });
 
 watch(
@@ -71,6 +114,29 @@ watch(
   { deep: true }
 );
 
+watch(isLoading, async (loading) => {
+  await nextTick();
+  if (loading) {
+    scheduleScrollToBottom(true);
+    return;
+  }
+  updatePinnedState();
+});
+
+onMounted(() => {
+  updatePinnedState();
+});
+
+onUpdated(() => {
+  if (isLoading.value) {
+    scheduleScrollToBottom(true);
+  }
+});
+
+onBeforeUnmount(() => {
+  clearScheduledScroll();
+});
+
 async function handleSend() {
   const text = inputText.value.trim();
   if (!text || isLoading.value) return;
@@ -79,6 +145,7 @@ async function handleSend() {
   try {
     await sessionStore.sendPrompt(text);
   } catch (e) {
+    inputText.value = text;
     console.error('Failed to send prompt:', e);
   }
 }
@@ -143,13 +210,21 @@ function toggleThought(messageId: string): void {
   }
 }
 
-function renderMarkdown(content: string): string {
+function renderMarkdown(content: string | null | undefined): string {
+  if (typeof content !== 'string' || content.length === 0) {
+    return '';
+  }
   return marked.parse(content, { async: false }) as string;
 }
 
 function getMessageParts(message: ChatMessage): ChatMessagePart[] {
   if (message.parts?.length) {
-    return message.parts;
+    return message.parts.filter((part) => {
+      if (part.type === 'content' || part.type === 'thought') {
+        return typeof part.content === 'string' && part.content.length > 0;
+      }
+      return true;
+    });
   }
 
   const parts: ChatMessagePart[] = [];
@@ -236,7 +311,7 @@ function getStatusIcon(status: string): string {
       </div>
     </div>
     
-    <div ref="messagesContainer" class="messages-container">
+    <div ref="messagesContainer" class="messages-container" @scroll="handleMessagesScroll">
       <div class="messages-stack">
         <div v-if="messages.length === 0 && !isLoading" class="chat-empty-state">
           <UEDEmptyState :title="t('chat.emptyTitle')" :text="t('chat.emptyDesc')">
@@ -269,7 +344,10 @@ function getStatusIcon(status: string): string {
                   {{ isThoughtExpanded(getThoughtKey(message.id, partIndex)) ? '▲' : '▼' }}
                 </span>
               </button>
-              <div v-if="isThoughtExpanded(getThoughtKey(message.id, partIndex))" class="thought-content">
+              <div
+                v-if="isThoughtExpanded(getThoughtKey(message.id, partIndex)) && part.content"
+                class="thought-content"
+              >
                 <div v-html="renderMarkdown(part.content)" />
               </div>
             </div>
@@ -305,14 +383,15 @@ function getStatusIcon(status: string): string {
       </div>
     </div>
 
-    <CurrentPlanPanel
-      v-if="currentPlanEntries.length"
-      :entries="currentPlanEntries"
-      :collapsed="isPlanCollapsed"
-      @toggle="isPlanCollapsed = !isPlanCollapsed"
-    />
-    
     <div class="input-shell" :class="{ 'input-shell-with-plan': currentPlanEntries.length > 0 }">
+      <CurrentPlanPanel
+        v-if="currentPlanEntries.length"
+        class="input-plan-overlay"
+        :entries="currentPlanEntries"
+        :collapsed="isPlanCollapsed"
+        @toggle="isPlanCollapsed = !isPlanCollapsed"
+      />
+
       <div class="input-container">
         <CommandPalette
           ref="commandPaletteRef"
@@ -578,14 +657,14 @@ function getStatusIcon(status: string): string {
 }
 
 .input-shell {
+  position: relative;
   border-top: 1px solid var(--ued-border-default);
   background: color-mix(in srgb, var(--ued-bg-panel) 90%, white);
   padding: 1rem 1.2rem 1.15rem;
 }
 
 .input-shell.input-shell-with-plan {
-  border-top: none;
-  padding-top: 0.45rem;
+  border-top: 1px solid var(--ued-border-default);
 }
 
 .input-container {
@@ -595,6 +674,14 @@ function getStatusIcon(status: string): string {
   gap: 0.5rem;
   width: min(920px, 100%);
   margin: 0 auto;
+}
+
+.input-plan-overlay {
+  position: absolute;
+  right: 30%;
+  bottom: calc(100% + 0.1rem);
+  width: min(420px, calc(100vw - 48px));
+  z-index: 6;
 }
 
 .chat-input {
@@ -703,6 +790,13 @@ function getStatusIcon(status: string): string {
 
   .input-container {
     flex-direction: column;
+  }
+
+  .input-plan-overlay {
+    left: 1rem;
+    right: 1rem;
+    width: auto;
+    bottom: calc(100% + 0.5rem);
   }
 
   .send-btn {

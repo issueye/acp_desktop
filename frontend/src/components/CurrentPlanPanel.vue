@@ -72,20 +72,20 @@ const completedCount = computed(
 
 <style scoped>
 .current-plan-panel {
-  padding: 0.7rem 1.2rem 0.45rem;
-  background: color-mix(in srgb, var(--ued-bg-panel) 90%, white);
+  width: 100%;
 }
 
 .plan-panel-wrap {
-  width: min(920px, 100%);
-  margin: 0 auto;
+  width: 100%;
 }
 
 .plan-shell {
   border: 1px solid var(--ued-border-default);
   border-radius: var(--ued-radius-lg);
-  background: var(--ued-bg-panel);
-  box-shadow: var(--ued-shadow-rest);
+  background: color-mix(in srgb, var(--ued-bg-panel) 94%, white);
+  box-shadow: var(--ued-shadow-dialog);
+  backdrop-filter: blur(14px);
+  overflow: hidden;
 }
 
 .plan-toggle {
@@ -94,11 +94,11 @@ const completedCount = computed(
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  min-height: 38px;
+  min-height: 42px;
   padding: 0.6rem 0.8rem;
   border: none;
   border-radius: var(--ued-radius-lg) var(--ued-radius-lg) 0 0;
-  background: transparent;
+  background: color-mix(in srgb, var(--ued-bg-panel) 70%, white);
   cursor: pointer;
   text-align: left;
   transition: background 0.15s ease, color 0.15s ease;
@@ -124,8 +124,8 @@ const completedCount = computed(
 
 .plan-toggle-title {
   font-size: 0.8rem;
-  font-weight: 500;
-  color: var(--ued-text-secondary);
+  font-weight: 600;
+  color: var(--ued-text-primary);
 }
 
 .plan-toggle-icon {
@@ -148,5 +148,7 @@ const completedCount = computed(
 .plan-panel-body {
   padding: 0.15rem 0.8rem 0.75rem;
   border-top: 1px solid var(--ued-border-subtle);
+  max-height: min(40vh, 320px);
+  overflow: auto;
 }
 </style>

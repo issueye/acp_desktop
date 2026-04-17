@@ -27,6 +27,11 @@ import { useTrafficStore } from '../stores/traffic';
 
 // Event emitter for permission requests
 type PermissionResolver = (response: RequestPermissionResponse) => void;
+type JsonRpcErrorPayload = {
+  code?: number;
+  message?: string;
+  data?: unknown;
+};
 
 // Traffic store instance (lazily initialized)
 let trafficStore: ReturnType<typeof useTrafficStore> | null = null;
@@ -54,6 +59,16 @@ export class AcpClientBridge implements Client {
 
   constructor(agentId: string) {
     this.agentId = agentId;
+  }
+
+  private formatJsonRpcError(error: JsonRpcErrorPayload): Error {
+    const code = typeof error.code === 'number' ? ` (${error.code})` : '';
+    const message = error.message?.trim() || 'Unknown error';
+    const details =
+      error.data === undefined
+        ? ''
+        : `: ${typeof error.data === 'string' ? error.data : JSON.stringify(error.data)}`;
+    return new Error(`${message}${code}${details}`);
   }
 
   async connect(): Promise<void> {
@@ -97,7 +112,7 @@ export class AcpClientBridge implements Client {
           this.messageRejecters.delete(parsed.id);
           if (parsed.error) {
             console.error('JSON-RPC error:', parsed.error);
-            rejecter(new Error(parsed.error.message || 'Unknown error'));
+            rejecter(this.formatJsonRpcError(parsed.error as JsonRpcErrorPayload));
           } else {
             resolver(parsed.result);
           }
