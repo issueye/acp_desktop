@@ -381,6 +381,15 @@ function getStatusIcon(status: string): string {
           </UEDButton>
         </div>
       </div>
+
+      <Transition name="scroll-jump">
+        <div v-if="messages.length > 0 && !isPinnedToBottom" class="scroll-jump">
+          <UEDButton class="scroll-jump__button" variant="secondary" size="sm" @click="scrollToBottom">
+            <span aria-hidden="true">↓</span>
+            <span>置底</span>
+          </UEDButton>
+        </div>
+      </Transition>
     </div>
 
     <div class="input-shell" :class="{ 'input-shell-with-plan': currentPlanEntries.length > 0 }">
@@ -482,6 +491,30 @@ function getStatusIcon(status: string): string {
 .messages-stack {
   width: min(920px, 100%);
   margin: 0 auto;
+}
+
+.scroll-jump {
+  position: sticky;
+  bottom: 16px;
+  display: flex;
+  justify-content: flex-end;
+  width: min(920px, 100%);
+  margin: 0 auto;
+  padding-top: 0.25rem;
+  pointer-events: none;
+}
+
+.scroll-jump__button {
+  pointer-events: auto;
+  min-width: 92px;
+  border-color: color-mix(in srgb, var(--ued-accent) 20%, var(--ued-border-default));
+  background: color-mix(in srgb, var(--ued-bg-panel) 92%, white);
+  box-shadow: var(--ued-shadow-panel);
+  backdrop-filter: blur(14px);
+}
+
+.scroll-jump__button:hover {
+  transform: translateY(-1px);
 }
 
 .chat-empty-state {
@@ -656,6 +689,17 @@ function getStatusIcon(status: string): string {
   to { transform: rotate(360deg); }
 }
 
+.scroll-jump-enter-active,
+.scroll-jump-leave-active {
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.scroll-jump-enter-from,
+.scroll-jump-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
 .input-shell {
   position: relative;
   border-top: 1px solid var(--ued-border-default);
@@ -786,6 +830,10 @@ function getStatusIcon(status: string): string {
   .messages-container {
     padding-left: 1rem;
     padding-right: 1rem;
+  }
+
+  .scroll-jump {
+    bottom: 12px;
   }
 
   .input-container {
