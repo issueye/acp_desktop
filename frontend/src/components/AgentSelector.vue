@@ -6,14 +6,27 @@ import UEDCard from './common/UEDCard.vue';
 import UEDField from './common/UEDField.vue';
 import UEDSelect from './common/UEDSelect.vue';
 
+const props = withDefaults(defineProps<{
+  selected?: string;
+}>(), {
+  selected: '',
+});
+
 const emit = defineEmits<{
+  'update:selected': [value: string];
   select: [agentName: string];
 }>();
 
 const configStore = useConfigStore();
 const { t } = useI18n();
 
-const selectedAgent = defineModel<string>('selected', { default: '' });
+const selectedAgent = computed({
+  get: () => props.selected,
+  set: (value: string) => {
+    emit('update:selected', value);
+    emit('select', value);
+  },
+});
 
 const agents = computed(() => configStore.agentNames);
 const hasAgents = computed(() => configStore.hasAgents);
@@ -23,7 +36,6 @@ const configPath = computed(() => configStore.configPath);
 watch(agents, (newAgents) => {
   if (newAgents.length > 0 && !selectedAgent.value) {
     selectedAgent.value = newAgents[0];
-    emit('select', newAgents[0]);
   }
 }, { immediate: true });
 
@@ -36,7 +48,7 @@ watch(agents, (newAgents) => {
         id="agent-select"
         :model-value="selectedAgent"
         :disabled="!hasAgents"
-        @update:modelValue="selectedAgent = $event; emit('select', $event)"
+        @update:modelValue="selectedAgent = $event"
       >
         <option value="" disabled>
           {{ hasAgents ? t('agent.select') : t('agent.noneConfigured') }}

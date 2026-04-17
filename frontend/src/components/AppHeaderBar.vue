@@ -1,25 +1,17 @@
-<script setup lang="ts">
+<script setup>
 import { useI18n } from '../lib/i18n';
 
-defineProps<{
-  showSidebar: boolean;
-  locale: string;
-  currentSessionTitle: string;
-  activeStatusLabel: string;
-  cwdLabel?: string;
-  trafficMonitorOpen: boolean;
-  isLive: boolean;
-}>();
+defineProps({
+    showSidebar: { type: Boolean, required: true },
+    locale: { type: String, required: true },
+    currentSessionTitle: { type: String, required: true },
+    activeStatusLabel: { type: String, required: true },
+    cwdLabel: { type: String },
+    trafficMonitorOpen: { type: Boolean, required: true },
+    isLive: { type: Boolean, required: true },
+});
 
-const emit = defineEmits<{
-  toggleSidebar: [];
-  toggleTraffic: [];
-  toggleLocale: [];
-  openSettings: [];
-  minimise: [];
-  close: [];
-  headerDblclick: [];
-}>();
+const emit = defineEmits(['toggleSidebar', 'toggleTraffic', 'toggleLocale', 'openSettings', 'minimise', 'close', 'headerDblclick']);
 
 const { t } = useI18n();
 </script>

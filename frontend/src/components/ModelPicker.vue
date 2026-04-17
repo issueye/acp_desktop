@@ -1,17 +1,15 @@
-<script setup lang="ts">
+<script setup>
 import { computed } from 'vue';
-import type { ModelInfo } from '../lib/types';
+
 import UEDMenuPicker from './common/UEDMenuPicker.vue';
 
-const props = defineProps<{
-  models: ModelInfo[];
-  currentModelId: string;
-  disabled?: boolean;
-}>();
+const props = defineProps({
+    models: { type: Array, required: true },
+    currentModelId: { type: String, required: true },
+    disabled: { type: Boolean },
+});
 
-const emit = defineEmits<{
-  change: [modelId: string];
-}>();
+const emit = defineEmits(['change']);
 
 const items = computed(() =>
   props.models.map((model) => ({
@@ -22,7 +20,7 @@ const items = computed(() =>
   }))
 );
 
-function getModelIcon(modelId: string): string {
+function getModelIcon(modelId) {
   const lower = modelId.toLowerCase();
   if (lower.includes('claude')) return '🟣';
   if (lower.includes('gpt') || lower.includes('openai')) return '🟢';

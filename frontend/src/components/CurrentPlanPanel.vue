@@ -1,17 +1,15 @@
-<script setup lang="ts">
+<script setup>
 import { computed } from 'vue';
 import PlanCard from './PlanCard.vue';
-import type { PlanEntry } from '../lib/types';
+
 import { useI18n } from '../lib/i18n';
 
-const props = defineProps<{
-  entries: PlanEntry[];
-  collapsed: boolean;
-}>();
+const props = defineProps({
+    entries: { type: Array, required: true },
+    collapsed: { type: Boolean, required: true },
+});
 
-const emit = defineEmits<{
-  toggle: [];
-}>();
+const emit = defineEmits(['toggle']);
 
 const { t } = useI18n();
 const completedCount = computed(

@@ -1,22 +1,19 @@
-<script setup lang="ts">
-import type { AuthMethod } from '@agentclientprotocol/sdk';
+<script setup>
+
 import { useI18n } from '../lib/i18n';
 import AppDialogShell from './AppDialogShell.vue';
 import UEDButton from './common/UEDButton.vue';
 import UEDCard from './common/UEDCard.vue';
 
-defineProps<{
-  authMethods: AuthMethod[];
-  agentName: string;
-}>();
+defineProps({
+    authMethods: { type: Array, required: true },
+    agentName: { type: String, required: true },
+});
 
-const emit = defineEmits<{
-  (e: 'select', methodId: string): void;
-  (e: 'cancel'): void;
-}>();
+const emit = defineEmits(['select', 'cancel']);
 const { t } = useI18n();
 
-function handleSelect(methodId: string) {
+function handleSelect(methodId) {
   emit('select', methodId);
 }
 </script>

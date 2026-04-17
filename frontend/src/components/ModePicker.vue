@@ -1,17 +1,15 @@
-<script setup lang="ts">
+<script setup>
 import { computed } from 'vue';
-import type { SessionMode } from '../lib/types';
+
 import UEDMenuPicker from './common/UEDMenuPicker.vue';
 
-const props = defineProps<{
-  modes: SessionMode[];
-  currentModeId: string;
-  disabled?: boolean;
-}>();
+const props = defineProps({
+    modes: { type: Array, required: true },
+    currentModeId: { type: String, required: true },
+    disabled: { type: Boolean },
+});
 
-const emit = defineEmits<{
-  change: [modeId: string];
-}>();
+const emit = defineEmits(['change']);
 
 const items = computed(() =>
   props.modes.map((mode) => ({
@@ -22,7 +20,7 @@ const items = computed(() =>
   }))
 );
 
-function getModeIcon(modeId: string): string {
+function getModeIcon(modeId) {
   switch (modeId.toLowerCase()) {
     case 'ask': return '🎯';
     case 'architect': 

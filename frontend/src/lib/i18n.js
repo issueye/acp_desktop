@@ -1,11 +1,8 @@
 import { computed, ref } from 'vue';
 
-type Locale = 'en' | 'zh-CN';
-type Dict = Record<string, string>;
-
 const STORAGE_KEY = 'acp-ui-locale';
 
-const messages: Record<Locale, Dict> = {
+const messages = {
   en: {
     'app.desktopClient': 'Desktop Client',
     'app.settings': 'Settings',
@@ -307,7 +304,7 @@ const messages: Record<Locale, Dict> = {
     'settings.noAgents': '暂无 Agent，请先添加。',
     'settings.configFile': '配置文件',
     'settings.configReloadHint': '修改此文件后将自动热更新。',
-    'settings.confirmDeleteAgent': '确认删除 Agent “{name}”？',
+    'settings.confirmDeleteAgent': '确认删除 Agent "{name}"？',
     'settings.placeholder.agentName': '我的 Agent',
 
     'env.title': '环境变量',
@@ -318,7 +315,7 @@ const messages: Record<Locale, Dict> = {
   },
 };
 
-function detectInitialLocale(): Locale {
+function detectInitialLocale() {
   if (typeof window === 'undefined') {
     return 'en';
   }
@@ -333,15 +330,15 @@ function detectInitialLocale(): Locale {
   return 'en';
 }
 
-const localeRef = ref<Locale>(detectInitialLocale());
+const localeRef = ref(detectInitialLocale());
 
-function persistLocale(locale: Locale) {
+function persistLocale(locale) {
   if (typeof window !== 'undefined') {
     window.localStorage.setItem(STORAGE_KEY, locale);
   }
 }
 
-export function setLocale(locale: Locale) {
+export function setLocale(locale) {
   localeRef.value = locale;
   persistLocale(locale);
 }
@@ -350,16 +347,16 @@ export function toggleLocale() {
   setLocale(localeRef.value === 'en' ? 'zh-CN' : 'en');
 }
 
-function template(input: string, params?: Record<string, string | number>) {
+function template(input, params) {
   if (!params) {
     return input;
   }
-  return input.replace(/\{(\w+)\}/g, (_, key: string) =>
+  return input.replace(/\{(\w+)\}/g, (_, key) =>
     params[key] === undefined ? `{${key}}` : String(params[key])
   );
 }
 
-export function translate(key: string, params?: Record<string, string | number>) {
+export function translate(key, params) {
   const dict = messages[localeRef.value];
   const fallback = messages.en;
   const raw = dict[key] ?? fallback[key] ?? key;

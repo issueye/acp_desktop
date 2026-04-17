@@ -1,18 +1,10 @@
-<script setup lang="ts">
-withDefaults(
-  defineProps<{
-    label?: string;
-    helper?: string;
-    error?: string;
-    required?: boolean;
-  }>(),
-  {
-    label: '',
-    helper: '',
-    error: '',
-    required: false,
-  }
-);
+<script setup>
+defineProps({
+    label: { type: String, default: '' },
+    helper: { type: String, default: '' },
+    error: { type: String, default: '' },
+    required: { type: Boolean, default: false },
+});
 </script>
 
 <template>

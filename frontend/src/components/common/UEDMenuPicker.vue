@@ -1,34 +1,17 @@
-<script setup lang="ts">
+<script setup>
 import { computed, ref } from 'vue';
 import AppPopover from '../AppPopover.vue';
 
-export type UEDMenuPickerItem = {
-  id: string;
-  name: string;
-  description?: string;
-  icon?: string;
-};
+const props = defineProps({
+    items: { type: Array, required: true },
+    currentId: { type: String, required: true },
+    disabled: { type: Boolean, default: false },
+    minWidth: { type: String, default: '292px' },
+    maxWidth: { type: String, default: '420px' },
+    triggerMinWidth: { type: String, default: '172px' },
+});
 
-const props = withDefaults(
-  defineProps<{
-    items: UEDMenuPickerItem[];
-    currentId: string;
-    disabled?: boolean;
-    minWidth?: string;
-    maxWidth?: string;
-    triggerMinWidth?: string;
-  }>(),
-  {
-    disabled: false,
-    minWidth: '292px',
-    maxWidth: '420px',
-    triggerMinWidth: '172px',
-  }
-);
-
-const emit = defineEmits<{
-  change: [id: string];
-}>();
+const emit = defineEmits(['change']);
 
 const isOpen = ref(false);
 
@@ -42,7 +25,7 @@ function toggleDropdown() {
   }
 }
 
-function selectItem(id: string) {
+function selectItem(id) {
   if (id !== props.currentId) {
     emit('change', id);
   }

@@ -1,13 +1,8 @@
-<script setup lang="ts">
-withDefaults(
-  defineProps<{
-    title: string;
-    text?: string;
-  }>(),
-  {
-    text: '',
-  }
-);
+<script setup>
+defineProps({
+    title: { type: String, required: true },
+    text: { type: String, default: '' },
+});
 </script>
 
 <template>

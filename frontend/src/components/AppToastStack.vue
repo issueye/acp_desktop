@@ -1,19 +1,12 @@
-<script setup lang="ts">
+<script setup>
 import UEDStatus from './common/UEDStatus.vue';
 
-export interface AppToastItem {
-  id: string;
-  message: string;
-  tone?: 'success' | 'info' | 'warning' | 'danger';
-}
 
-defineProps<{
-  items: AppToastItem[];
-}>();
+defineProps({
+    items: { type: Array, required: true },
+});
 
-const emit = defineEmits<{
-  dismiss: [id: string];
-}>();
+const emit = defineEmits(['dismiss']);
 </script>
 
 <template>

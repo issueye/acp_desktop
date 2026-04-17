@@ -1,21 +1,18 @@
-<script setup lang="ts">
+<script setup>
 import { useI18n } from '../lib/i18n';
 import UEDButton from './common/UEDButton.vue';
 import UEDCard from './common/UEDCard.vue';
 import UEDStatus from './common/UEDStatus.vue';
 
-defineProps<{
-  hasAgents: boolean;
-  selectedAgentLabel: string;
-  workspaceLabel: string;
-  savedSessionCount: number;
-  isConnecting: boolean;
-}>();
+defineProps({
+    hasAgents: { type: Boolean, required: true },
+    selectedAgentLabel: { type: String, required: true },
+    workspaceLabel: { type: String, required: true },
+    savedSessionCount: { type: Number, required: true },
+    isConnecting: { type: Boolean, required: true },
+});
 
-const emit = defineEmits<{
-  openWorkspace: [];
-  openAddAgent: [];
-}>();
+const emit = defineEmits(['openWorkspace', 'openAddAgent']);
 
 const { t } = useI18n();
 </script>

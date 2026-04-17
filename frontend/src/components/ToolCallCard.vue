@@ -1,10 +1,9 @@
-<script setup lang="ts">
+<script setup>
 import { computed } from 'vue';
-import type { ToolCallInfo } from '../lib/types';
 
-const props = defineProps<{
-  toolCall: ToolCallInfo;
-}>();
+const props = defineProps({
+    toolCall: { type: Object, required: true },
+});
 
 const statusClass = computed(() => {
   switch (props.toolCall.status) {

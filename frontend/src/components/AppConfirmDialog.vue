@@ -1,26 +1,17 @@
-<script setup lang="ts">
+<script setup>
 import AppDialogShell from './AppDialogShell.vue';
 import UEDButton from './common/UEDButton.vue';
 
-withDefaults(
-  defineProps<{
-    modelValue: boolean;
-    title: string;
-    message: string;
-    confirmLabel: string;
-    cancelLabel: string;
-    tone?: 'default' | 'danger';
-  }>(),
-  {
-    tone: 'default',
-  }
-);
+defineProps({
+    modelValue: { type: Boolean, required: true },
+    title: { type: String, required: true },
+    message: { type: String, required: true },
+    confirmLabel: { type: String, required: true },
+    cancelLabel: { type: String, required: true },
+    tone: { type: String, default: 'default' },
+});
 
-const emit = defineEmits<{
-  'update:modelValue': [value: boolean];
-  confirm: [];
-  cancel: [];
-}>();
+const emit = defineEmits(['update:modelValue', 'confirm', 'cancel']);
 
 function handleCancel() {
   emit('update:modelValue', false);

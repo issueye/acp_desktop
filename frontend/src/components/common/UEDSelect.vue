@@ -1,25 +1,17 @@
-<script setup lang="ts">
+<script setup>
 import { useAttrs } from 'vue';
 
-withDefaults(
-  defineProps<{
-    modelValue?: string | number;
-    disabled?: boolean;
-  }>(),
-  {
-    modelValue: '',
-    disabled: false,
-  }
-);
+defineProps({
+    modelValue: { type: [String, Number], default: '' },
+    disabled: { type: Boolean, default: false },
+});
 
-const emit = defineEmits<{
-  'update:modelValue': [value: string];
-}>();
+const emit = defineEmits(['update:modelValue']);
 
 const attrs = useAttrs();
 
-function handleChange(event: Event) {
-  emit('update:modelValue', (event.target as HTMLSelectElement).value);
+function handleChange(event) {
+  emit('update:modelValue', (event.target).value);
 }
 </script>
 

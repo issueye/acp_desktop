@@ -1,33 +1,24 @@
-<script setup lang="ts">
+<script setup>
 import SessionList from './SessionList.vue';
-import type { SavedSession } from '../lib/types';
+
 import { useI18n } from '../lib/i18n';
 
-defineProps<{
-  isConnecting: boolean;
-  isConnected: boolean;
-  isDisconnectingCurrent: boolean;
-  savedSessionCount: number;
-  selectedAgent: string;
-  selectedCwdDisplay: string;
-  sessionSearchQuery: string;
-  pinnedSessionIds: string[];
-  activeSessionId: string;
-  connectedSessionIds: string[];
-  pendingSessionIds: string[];
-  deletingSessionIds: string[];
-}>();
+defineProps({
+    isConnecting: { type: Boolean, required: true },
+    isConnected: { type: Boolean, required: true },
+    isDisconnectingCurrent: { type: Boolean, required: true },
+    savedSessionCount: { type: Number, required: true },
+    selectedAgent: { type: String, required: true },
+    selectedCwdDisplay: { type: String, required: true },
+    sessionSearchQuery: { type: String, required: true },
+    pinnedSessionIds: { type: Array, required: true },
+    activeSessionId: { type: String, required: true },
+    connectedSessionIds: { type: Array, required: true },
+    pendingSessionIds: { type: Array, required: true },
+    deletingSessionIds: { type: Array, required: true },
+});
 
-const emit = defineEmits<{
-  openWorkspace: [];
-  'update:query': [value: string];
-  resume: [session: SavedSession];
-  activate: [sessionId: string];
-  disconnect: [sessionId?: string];
-  'delete': [sessionId: string];
-  togglePin: [sessionId: string];
-  openSettings: [];
-}>();
+const emit = defineEmits(['openWorkspace', 'update:query', 'resume', 'activate', 'disconnect', 'delete', 'togglePin', 'openSettings']);
 
 const { t } = useI18n();
 </script>
@@ -68,7 +59,7 @@ const { t } = useI18n();
         type="text"
         class="session-search"
         :placeholder="t('app.searchSessions')"
-        @input="emit('update:query', ($event.target as HTMLInputElement).value)"
+        @input="emit('update:query', ($event.target).value)"
       />
     </div>
 

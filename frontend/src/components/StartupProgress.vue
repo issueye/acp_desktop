@@ -1,21 +1,18 @@
-<script setup lang="ts">
+<script setup>
 import { computed } from 'vue';
 import { useI18n } from '../lib/i18n';
 import UEDButton from './common/UEDButton.vue';
 import UEDCard from './common/UEDCard.vue';
 
-const props = defineProps<{
-  agentName: string;
-  phase: string;
-  logs: string[];
-  elapsedSeconds: number;
-  showDetails: boolean;
-}>();
+const props = defineProps({
+    agentName: { type: String, required: true },
+    phase: { type: String, required: true },
+    logs: { type: Array, required: true },
+    elapsedSeconds: { type: Number, required: true },
+    showDetails: { type: Boolean, required: true },
+});
 
-const emit = defineEmits<{
-  cancel: [];
-  toggleDetails: [];
-}>();
+const emit = defineEmits(['cancel', 'toggleDetails']);
 const { t } = useI18n();
 
 const phaseIcon = computed(() => {

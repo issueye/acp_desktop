@@ -1,30 +1,17 @@
-<script setup lang="ts">
+<script setup>
 import { computed, useAttrs } from 'vue';
 
-const props = withDefaults(
-  defineProps<{
-    modelValue?: string | number;
-    as?: 'input' | 'textarea';
-    type?: string;
-    placeholder?: string;
-    disabled?: boolean;
-    rows?: number;
-    error?: boolean;
-  }>(),
-  {
-    modelValue: '',
-    as: 'input',
-    type: 'text',
-    placeholder: '',
-    disabled: false,
-    rows: 4,
-    error: false,
-  }
-);
+const props = defineProps({
+    modelValue: { type: [String, Number], default: '' },
+    as: { type: String, default: 'input' },
+    type: { type: String, default: 'text' },
+    placeholder: { type: String, default: '' },
+    disabled: { type: Boolean, default: false },
+    rows: { type: Number, default: 4 },
+    error: { type: Boolean, default: false },
+});
 
-const emit = defineEmits<{
-  'update:modelValue': [value: string];
-}>();
+const emit = defineEmits(['update:modelValue']);
 
 const attrs = useAttrs();
 
@@ -33,8 +20,8 @@ const classes = computed(() => [
   props.error ? 'is-error' : '',
 ]);
 
-function handleInput(event: Event) {
-  emit('update:modelValue', (event.target as HTMLInputElement | HTMLTextAreaElement).value);
+function handleInput(event) {
+  emit('update:modelValue', (event.target | HTMLTextAreaElement).value);
 }
 </script>
 

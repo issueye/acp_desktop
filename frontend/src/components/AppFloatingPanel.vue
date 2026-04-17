@@ -1,25 +1,15 @@
-<script setup lang="ts">
+<script setup>
 import { computed } from 'vue';
 
-const props = withDefaults(
-  defineProps<{
-    modelValue: boolean;
-    width?: string;
-    maxWidth?: string;
-    bottom?: string;
-    right?: string;
-    left?: string;
-    panelClass?: string | string[] | Record<string, boolean>;
-  }>(),
-  {
-    width: 'min(860px, calc(100vw - 360px))',
-    maxWidth: 'calc(100vw - 24px)',
-    bottom: '16px',
-    right: '16px',
-    left: 'auto',
-    panelClass: '',
-  }
-);
+const props = defineProps({
+    modelValue: { type: Boolean, required: true },
+    width: { type: String, default: 'min(860px, calc(100vw - 360px))' },
+    maxWidth: { type: String, default: 'calc(100vw - 24px)' },
+    bottom: { type: String, default: '16px' },
+    right: { type: String, default: '16px' },
+    left: { type: String, default: 'auto' },
+    panelClass: { type: [String, Array, Object], default: '' },
+});
 
 const panelStyle = computed(() => ({
   width: props.width,

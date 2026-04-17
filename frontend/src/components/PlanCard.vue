@@ -1,11 +1,10 @@
-<script setup lang="ts">
-import type { PlanEntry } from '../lib/types';
+<script setup>
 
-defineProps<{
-  entries: PlanEntry[];
-}>();
+defineProps({
+    entries: { type: Array, required: true },
+});
 
-function getMarkerClass(status: PlanEntry['status']): string {
+function getMarkerClass(status) {
   if (status === 'completed') return 'completed';
   if (status === 'in_progress') return 'in-progress';
   return 'pending';

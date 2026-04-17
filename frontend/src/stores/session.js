@@ -2,55 +2,17 @@
 import { defineStore } from 'pinia';
 import { computed, ref, watch } from 'vue';
 import { trackError, trackEvent } from '../lib/telemetry';
-import type {
-  ChatMessage,
-  ChatMessagePart,
-  ModelInfo,
-  PlanEntry,
-  PermissionRequest,
-  SavedSession,
-  SessionMode,
-  SessionProxyConfig,
-  SlashCommand,
-  ToolCallInfo,
-} from '../lib/types';
+
 import { AcpClientBridge, createAcpClient } from '../lib/acp-bridge';
-import {
-  getAppVersion,
-  killAgent,
-  loadStore,
-  onAgentStderr,
-  saveStore,
-  spawnAgent,
-} from '../lib/wails';
-import type {
-  AuthMethod,
-  LoadSessionResponse,
-  NewSessionResponse,
-  SessionNotification,
-} from '@agentclientprotocol/sdk';
+import { getAppVersion, killAgent, loadStore, onAgentStderr, saveStore, spawnAgent } from '../lib/wails';
 
 const STORE_PATH = 'sessions.json';
 const PROTOCOL_VERSION = 1;
 
 let appVersion = '0.1.0';
 
-interface ConnectedSessionState {
-  session: SavedSession;
-  client: AcpClientBridge;
-  isLoading: boolean;
-  messages: ChatMessage[];
-  currentPlanEntries: PlanEntry[];
-  toolCalls: Map<string, ToolCallInfo>;
-  availableModes: SessionMode[];
-  currentModeId: string;
-  availableCommands: SlashCommand[];
-  availableModels: ModelInfo[];
-  currentModelId: string;
-  stopPermissionWatch?: () => void;
-}
 
-function detectPhase(line: string): string | null {
+function detectPhase(line) {
   const lower = line.toLowerCase();
   if (lower.includes('download') || lower.includes('fetch') || lower.includes('get ')) {
     return 'downloading';
@@ -67,11 +29,11 @@ function detectPhase(line: string): string | null {
   return null;
 }
 
-function sanitizeProxyConfig(proxy?: SessionProxyConfig): SessionProxyConfig | undefined {
+function sanitizeProxyConfig(proxy) {
   if (!proxy) {
     return undefined;
   }
-  const cleaned: SessionProxyConfig = {
+  const cleaned = {
     enabled: !!proxy.enabled,
   };
   const http = proxy.httpProxy?.trim();
@@ -85,13 +47,13 @@ function sanitizeProxyConfig(proxy?: SessionProxyConfig): SessionProxyConfig | u
   return cleaned;
 }
 
-function buildProxyEnv(proxy?: SessionProxyConfig): Record<string, string> {
+function buildProxyEnv(proxy) {
   const normalized = sanitizeProxyConfig(proxy);
   if (!normalized || !normalized.enabled) {
     return {};
   }
-  const env: Record<string, string> = {};
-  const setPair = (key: string, value?: string) => {
+  const env = {};
+  const setPair = (key, value) => {
     if (!value) return;
     env[key] = value;
     env[key.toLowerCase()] = value;
@@ -119,9 +81,7 @@ function buildProxyEnv(proxy?: SessionProxyConfig): Record<string, string> {
   return env;
 }
 
-function normalizeModes(
-  modes?: NewSessionResponse['modes'] | LoadSessionResponse['modes']
-): { availableModes: SessionMode[]; currentModeId: string } {
+function normalizeModes(modes) {
   if (!modes) {
     return {
       availableModes: [],
@@ -138,9 +98,7 @@ function normalizeModes(
   };
 }
 
-function normalizeModels(
-  models?: NewSessionResponse['models'] | LoadSessionResponse['models']
-): { availableModels: ModelInfo[]; currentModelId: string } {
+function normalizeModels(models) {
   if (!models) {
     return {
       availableModels: [],
@@ -157,7 +115,7 @@ function normalizeModels(
   };
 }
 
-function cloneMessages(messages?: ChatMessage[]): ChatMessage[] {
+function cloneMessages(messages) {
   if (!Array.isArray(messages)) {
     return [];
   }
@@ -192,7 +150,7 @@ function cloneMessages(messages?: ChatMessage[]): ChatMessage[] {
   }));
 }
 
-function clonePlanEntries(entries?: PlanEntry[]): PlanEntry[] {
+function clonePlanEntries(entries) {
   if (!Array.isArray(entries)) {
     return [];
   }
@@ -200,18 +158,18 @@ function clonePlanEntries(entries?: PlanEntry[]): PlanEntry[] {
 }
 
 export const useSessionStore = defineStore('session', () => {
-  const savedSessions = ref<SavedSession[]>([]);
-  const connectedSessions = ref<Record<string, ConnectedSessionState>>({});
+  const savedSessions = ref([]);
+  const connectedSessions = ref({});
   const activeSessionId = ref('');
   const isConnected = computed(() => Object.keys(connectedSessions.value).length > 0);
   const isConnecting = ref(false);
-  const error = ref<string | null>(null);
-  const pendingPermission = ref<PermissionRequest | null>(null);
-  const pendingPermissionSessionId = ref<string | null>(null);
+  const error = ref(null);
+  const pendingPermission = ref(null);
+  const pendingPermissionSessionId = ref(null);
 
-  const pendingAuthMethods = ref<AuthMethod[]>([]);
+  const pendingAuthMethods = ref([]);
   const pendingAuthAgentName = ref('');
-  let authMethodResolver: ((methodId: string | null) => void) | null = null;
+  let authMethodResolver = null;
 
   const availableCommands = computed(() => {
     const active = connectedSessions.value[activeSessionId.value];
@@ -245,12 +203,12 @@ export const useSessionStore = defineStore('session', () => {
   let connectionAborted = false;
 
   const startupPhase = ref('starting');
-  const startupLogs = ref<string[]>([]);
+  const startupLogs = ref([]);
   const startupElapsed = ref(0);
-  let startupTimer: ReturnType<typeof setInterval> | null = null;
-  let stderrUnlisten: (() => void) | null = null;
+  let startupTimer = null;
+  let stderrUnlisten = null;
 
-  let storeData: Record<string, unknown> = {};
+  let storeData = {};
 
   const currentSession = computed(
     () => connectedSessions.value[activeSessionId.value]?.session ?? null
@@ -274,7 +232,7 @@ export const useSessionStore = defineStore('session', () => {
 
   async function initStore() {
     storeData = await loadStore(STORE_PATH);
-    const saved = storeData.sessions as SavedSession[] | undefined;
+    const saved = Array.isArray(storeData.sessions) ? storeData.sessions : undefined;
     if (saved) {
       savedSessions.value = saved.map((session) => ({
         ...session,
@@ -296,11 +254,11 @@ export const useSessionStore = defineStore('session', () => {
     await saveStore(STORE_PATH, storeData);
   }
 
-  function getConnectedSession(sessionId: string): ConnectedSessionState | null {
+  function getConnectedSession(sessionId) {
     return connectedSessions.value[sessionId] ?? null;
   }
 
-  function getConnectedSessionByAcpSessionId(sessionId: string): ConnectedSessionState | null {
+  function getConnectedSessionByAcpSessionId(sessionId) {
     return (
       Object.values(connectedSessions.value).find(
         (connectedSession) => connectedSession.session.sessionId === sessionId
@@ -308,7 +266,7 @@ export const useSessionStore = defineStore('session', () => {
     );
   }
 
-  function setActiveSession(sessionId: string): void {
+  function setActiveSession(sessionId) {
     if (!connectedSessions.value[sessionId]) {
       return;
     }
@@ -316,16 +274,16 @@ export const useSessionStore = defineStore('session', () => {
   }
 
   function createConnectedSessionState(
-    session: SavedSession,
-    client: AcpClientBridge
-  ): ConnectedSessionState {
+    session,
+    client
+  ) {
     return {
       session,
       client,
       isLoading: false,
       messages: [],
       currentPlanEntries: clonePlanEntries(session.currentPlanEntries),
-      toolCalls: new Map<string, ToolCallInfo>(),
+      toolCalls: new Map(),
       availableModes: [],
       currentModeId: '',
       availableCommands: [],
@@ -334,7 +292,7 @@ export const useSessionStore = defineStore('session', () => {
     };
   }
 
-  function upsertConnectedSession(runtime: ConnectedSessionState): void {
+  function upsertConnectedSession(runtime) {
     connectedSessions.value = {
       ...connectedSessions.value,
       [runtime.session.id]: runtime,
@@ -342,7 +300,7 @@ export const useSessionStore = defineStore('session', () => {
     setActiveSession(runtime.session.id);
   }
 
-  function notifyConnectedSessionChanged(runtime: ConnectedSessionState): void {
+  function notifyConnectedSessionChanged(runtime) {
     if (!connectedSessions.value[runtime.session.id]) {
       return;
     }
@@ -354,9 +312,9 @@ export const useSessionStore = defineStore('session', () => {
   }
 
   function applySessionCapabilities(
-    runtime: ConnectedSessionState,
-    response?: Pick<NewSessionResponse, 'modes' | 'models'> | Pick<LoadSessionResponse, 'modes' | 'models'>
-  ): void {
+    runtime,
+    response
+  ) {
     const normalizedModes = normalizeModes(response?.modes);
     runtime.availableModes = normalizedModes.availableModes;
     runtime.currentModeId = normalizedModes.currentModeId;
@@ -367,14 +325,14 @@ export const useSessionStore = defineStore('session', () => {
     notifyConnectedSessionChanged(runtime);
   }
 
-  function clearRuntimePermissionState(sessionId: string): void {
+  function clearRuntimePermissionState(sessionId) {
     if (pendingPermissionSessionId.value === sessionId) {
       pendingPermission.value = null;
       pendingPermissionSessionId.value = null;
     }
   }
 
-  function getRuntimeForPendingPermission(): ConnectedSessionState | null {
+  function getRuntimeForPendingPermission() {
     if (pendingPermissionSessionId.value) {
       const localRuntime = getConnectedSession(pendingPermissionSessionId.value);
       if (localRuntime) {
@@ -390,7 +348,7 @@ export const useSessionStore = defineStore('session', () => {
     return getConnectedSessionByAcpSessionId(acpSessionId);
   }
 
-  function attachPermissionWatcher(runtime: ConnectedSessionState): void {
+  function attachPermissionWatcher(runtime) {
     runtime.stopPermissionWatch = watch(
       () => runtime.client.pendingPermissionRequest.value,
       (newValue) => {
@@ -410,7 +368,7 @@ export const useSessionStore = defineStore('session', () => {
     );
   }
 
-  function removeConnectedSession(sessionId: string): void {
+  function removeConnectedSession(sessionId) {
     const runtime = connectedSessions.value[sessionId];
     if (runtime?.stopPermissionWatch) {
       runtime.stopPermissionWatch();
@@ -428,23 +386,23 @@ export const useSessionStore = defineStore('session', () => {
     }
   }
 
-  function touchSavedSession(session: SavedSession): void {
+  function touchSavedSession(session) {
     session.lastUpdated = Date.now();
   }
 
-  function syncRuntimeSnapshot(runtime: ConnectedSessionState): void {
+  function syncRuntimeSnapshot(runtime) {
     runtime.session.messages = cloneMessages(runtime.messages);
     runtime.session.currentPlanEntries = clonePlanEntries(runtime.currentPlanEntries);
   }
 
-  function refreshRuntimeCollections(runtime: ConnectedSessionState): void {
+  function refreshRuntimeCollections(runtime) {
     runtime.messages = [...runtime.messages];
     runtime.currentPlanEntries = [...runtime.currentPlanEntries];
   }
 
-  function ensureMessageParts(message: ChatMessage): ChatMessagePart[] {
+  function ensureMessageParts(message) {
     if (!message.parts) {
-      const parts: ChatMessagePart[] = [];
+      const parts = [];
       if (message.content) {
         parts.push({
           type: 'content',
@@ -466,7 +424,7 @@ export const useSessionStore = defineStore('session', () => {
       if (message.toolCalls?.length) {
         parts.push(
           ...message.toolCalls.map((toolCall) => ({
-            type: 'tool_call' as const,
+            type: 'tool_call',
             toolCall: {
               ...toolCall,
               locations: toolCall.locations?.map((location) => ({ ...location })),
@@ -479,7 +437,7 @@ export const useSessionStore = defineStore('session', () => {
     return message.parts;
   }
 
-  function createChatMessage(role: ChatMessage['role']): ChatMessage {
+  function createChatMessage(role) {
     return {
       id: crypto.randomUUID(),
       role,
@@ -489,10 +447,7 @@ export const useSessionStore = defineStore('session', () => {
     };
   }
 
-  function getOrCreateTrailingMessage(
-    runtime: ConnectedSessionState,
-    role: ChatMessage['role']
-  ): ChatMessage {
+  function getOrCreateTrailingMessage(runtime, role) {
     const lastMessage = runtime.messages[runtime.messages.length - 1];
     if (lastMessage && lastMessage.role === role) {
       ensureMessageParts(lastMessage);
@@ -504,11 +459,7 @@ export const useSessionStore = defineStore('session', () => {
     return nextMessage;
   }
 
-function appendTextPart(
-  message: ChatMessage,
-  type: Extract<ChatMessagePart, { type: 'content' | 'thought' }>['type'],
-  text: string
-): void {
+function appendTextPart(message, type, text) {
     const parts = ensureMessageParts(message);
     const lastPart = parts[parts.length - 1];
     if (lastPart && lastPart.type === type) {
@@ -528,7 +479,7 @@ function appendTextPart(
     message.thought = (message.thought || '') + text;
   }
 
-  function appendToolCallPart(message: ChatMessage, toolCall: ToolCallInfo): void {
+  function appendToolCallPart(message, toolCall) {
     const nextToolCall = {
       ...toolCall,
       locations: toolCall.locations?.map((location) => ({ ...location })),
@@ -544,13 +495,13 @@ function appendTextPart(
     message.toolCalls.push(nextToolCall);
   }
 
-  function upsertPlanMessage(runtime: ConnectedSessionState, entries: PlanEntry[]): void {
+  function upsertPlanMessage(runtime, entries) {
     const nextEntries = entries.map((entry) => ({ ...entry }));
     runtime.currentPlanEntries = nextEntries;
     runtime.session.currentPlanEntries = clonePlanEntries(nextEntries);
   }
 
-  function updateToolCallParts(messages: ChatMessage[], update: { toolCallId: string; status?: ToolCallInfo['status'] | null; title?: string | null; }): void {
+  function updateToolCallParts(messages, update) {
     for (const msg of messages) {
       if (msg.toolCalls) {
         const toolCall = msg.toolCalls.find((entry) => entry.toolCallId === update.toolCallId);
@@ -571,7 +522,7 @@ function appendTextPart(
     }
   }
 
-  function handleSessionUpdate(runtime: ConnectedSessionState, notification: SessionNotification) {
+  function handleSessionUpdate(runtime, notification) {
     const update = notification.update;
     const targetMessages = runtime.messages;
     const targetToolCalls = runtime.toolCalls;
@@ -627,13 +578,13 @@ function appendTextPart(
 
       case 'plan':
         if ('entries' in update && Array.isArray(update.entries)) {
-          upsertPlanMessage(runtime, update.entries as PlanEntry[]);
+          upsertPlanMessage(runtime, update.entries);
         }
         break;
 
       case 'current_mode_update':
         if ('modeId' in update && update.modeId) {
-          runtime.currentModeId = update.modeId as string;
+          runtime.currentModeId = update.modeId;
         }
         break;
 
@@ -667,10 +618,7 @@ function appendTextPart(
     notifyConnectedSessionChanged(runtime);
   }
 
-  async function promptForAuthMethod(
-    authMethods: AuthMethod[],
-    agentName: string
-  ): Promise<string | null> {
+  async function promptForAuthMethod(authMethods, agentName) {
     return new Promise((resolve) => {
       pendingAuthMethods.value = authMethods;
       pendingAuthAgentName.value = agentName;
@@ -678,7 +626,7 @@ function appendTextPart(
     });
   }
 
-  function selectAuthMethod(methodId: string): void {
+  function selectAuthMethod(methodId) {
     if (!authMethodResolver) {
       return;
     }
@@ -688,7 +636,7 @@ function appendTextPart(
     pendingAuthAgentName.value = '';
   }
 
-  function cancelAuthSelection(): void {
+  function cancelAuthSelection() {
     if (!authMethodResolver) {
       return;
     }
@@ -698,11 +646,7 @@ function appendTextPart(
     pendingAuthAgentName.value = '';
   }
 
-  async function createSession(
-    agentName: string,
-    cwd: string,
-    proxy?: SessionProxyConfig
-  ): Promise<void> {
+  async function createSession(agentName, cwd, proxy) {
     isConnecting.value = true;
     connectionAborted = false;
     error.value = null;
@@ -714,8 +658,8 @@ function appendTextPart(
       startupElapsed.value++;
     }, 1000);
 
-    let client: AcpClientBridge | null = null;
-    let runtime: ConnectedSessionState | null = null;
+    let client = null;
+    let runtime = null;
 
     try {
       const sanitizedProxy = sanitizeProxyConfig(proxy);
@@ -730,7 +674,7 @@ function appendTextPart(
         if (detectedPhase) {
           startupPhase.value = detectedPhase;
         }
-      })) as unknown as () => void;
+      }));
 
       if (connectionAborted) {
         await killAgent(agentInstance.id);
@@ -749,7 +693,7 @@ function appendTextPart(
       startupPhase.value = 'connecting';
 
       const initResponse = await client.initialize({
-        protocolVersion: PROTOCOL_VERSION,
+        protocolVersion,
         clientCapabilities: {
           fs: {
             readTextFile: true,
@@ -771,13 +715,13 @@ function appendTextPart(
         throw new Error('Connection cancelled');
       }
 
-      let sessionResponse: NewSessionResponse;
+      let sessionResponse;
       try {
         sessionResponse = await client.newSession({
           cwd,
           mcpServers: [],
         });
-      } catch (sessionError: unknown) {
+      } catch (sessionError) {
         const errorMessage =
           sessionError instanceof Error ? sessionError.message : String(sessionError);
         const isAuthRequired =
@@ -810,7 +754,7 @@ function appendTextPart(
         });
       }
 
-      const session: SavedSession = {
+      const session = {
         id: crypto.randomUUID(),
         agentName,
         sessionId: sessionResponse.sessionId,
@@ -823,7 +767,7 @@ function appendTextPart(
       };
 
       runtime = createConnectedSessionState(session, client);
-      client.onSessionUpdate = (notification) => handleSessionUpdate(runtime!, notification);
+      client.onSessionUpdate = (notification) => handleSessionUpdate(runtime, notification);
       applySessionCapabilities(runtime, sessionResponse);
       attachPermissionWatcher(runtime);
       upsertConnectedSession(runtime);
@@ -857,7 +801,7 @@ function appendTextPart(
     }
   }
 
-  async function resumeSession(savedSession: SavedSession): Promise<void> {
+  async function resumeSession(savedSession) {
     const existing = getConnectedSession(savedSession.id);
     if (existing) {
       touchSavedSession(existing.session);
@@ -868,8 +812,8 @@ function appendTextPart(
 
     error.value = null;
 
-    let client: AcpClientBridge | null = null;
-    let runtime: ConnectedSessionState | null = null;
+    let client = null;
+    let runtime = null;
 
     try {
       const agentInstance = await spawnAgent(
@@ -880,12 +824,12 @@ function appendTextPart(
       client = await createAcpClient(agentInstance);
 
       runtime = createConnectedSessionState(savedSession, client);
-      client.onSessionUpdate = (notification) => handleSessionUpdate(runtime!, notification);
+      client.onSessionUpdate = (notification) => handleSessionUpdate(runtime, notification);
       attachPermissionWatcher(runtime);
       upsertConnectedSession(runtime);
 
       const initResponse = await client.initialize({
-        protocolVersion: PROTOCOL_VERSION,
+        protocolVersion,
         clientCapabilities: {
           fs: {
             readTextFile: true,
@@ -901,14 +845,14 @@ function appendTextPart(
 
       const availableAuthMethods = initResponse.authMethods || [];
 
-      let loadResponse: LoadSessionResponse;
+      let loadResponse;
       try {
         loadResponse = await client.loadSession({
           sessionId: savedSession.sessionId,
           cwd: savedSession.cwd,
           mcpServers: [],
         });
-      } catch (sessionError: unknown) {
+      } catch (sessionError) {
         const errorMessage =
           sessionError instanceof Error ? sessionError.message : String(sessionError);
         const isAuthRequired =
@@ -970,7 +914,7 @@ function appendTextPart(
     }
   }
 
-  async function sendPrompt(text: string): Promise<void> {
+  async function sendPrompt(text) {
     const runtime = getConnectedSession(activeSessionId.value);
     if (!runtime) {
       throw new Error('No active session');
@@ -1027,7 +971,7 @@ function appendTextPart(
     }
   }
 
-  async function cancelOperation(): Promise<void> {
+  async function cancelOperation() {
     const runtime = getConnectedSession(activeSessionId.value);
     if (!runtime) {
       return;
@@ -1038,7 +982,7 @@ function appendTextPart(
     });
   }
 
-  async function cancelConnection(): Promise<void> {
+  async function cancelConnection() {
     connectionAborted = true;
 
     if (authMethodResolver) {
@@ -1052,7 +996,7 @@ function appendTextPart(
     error.value = null;
   }
 
-  function resolvePermission(optionId: string): void {
+  function resolvePermission(optionId) {
     const runtime = getRuntimeForPendingPermission();
     if (!runtime) {
       return;
@@ -1062,7 +1006,7 @@ function appendTextPart(
     pendingPermissionSessionId.value = null;
   }
 
-  function cancelPermission(): void {
+  function cancelPermission() {
     const runtime = getRuntimeForPendingPermission();
     if (!runtime) {
       return;
@@ -1072,7 +1016,7 @@ function appendTextPart(
     pendingPermissionSessionId.value = null;
   }
 
-  async function disconnect(sessionId = activeSessionId.value): Promise<void> {
+  async function disconnect(sessionId = activeSessionId.value) {
     const runtime = getConnectedSession(sessionId);
     if (!runtime) {
       return;
@@ -1094,7 +1038,7 @@ function appendTextPart(
     });
   }
 
-  async function deleteSession(sessionId: string): Promise<void> {
+  async function deleteSession(sessionId) {
     if (getConnectedSession(sessionId)) {
       await disconnect(sessionId);
     }
@@ -1102,7 +1046,7 @@ function appendTextPart(
     await saveSessionsToStore();
   }
 
-  async function setMode(modeId: string): Promise<void> {
+  async function setMode(modeId) {
     const runtime = getConnectedSession(activeSessionId.value);
     if (!runtime) {
       throw new Error('No active session');
@@ -1116,7 +1060,7 @@ function appendTextPart(
     notifyConnectedSessionChanged(runtime);
   }
 
-  async function setModel(modelId: string): Promise<void> {
+  async function setModel(modelId) {
     const runtime = getConnectedSession(activeSessionId.value);
     if (!runtime) {
       throw new Error('No active session');

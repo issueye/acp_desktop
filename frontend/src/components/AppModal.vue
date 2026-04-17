@@ -1,32 +1,18 @@
-<script setup lang="ts">
+<script setup>
 import { computed, onBeforeUnmount, onMounted } from 'vue';
 
-type ClassValue = string | string[] | Record<string, boolean> | Array<string | Record<string, boolean>>;
 
-const props = withDefaults(
-  defineProps<{
-    modelValue: boolean;
-    closeOnBackdrop?: boolean;
-    closeOnEscape?: boolean;
-    maxWidth?: string;
-    maxHeight?: string;
-    width?: string;
-    panelClass?: ClassValue;
-  }>(),
-  {
-    closeOnBackdrop: true,
-    closeOnEscape: true,
-    maxWidth: '560px',
-    maxHeight: 'calc(100dvh - 64px)',
-    width: '100%',
-    panelClass: '',
-  }
-);
+const props = defineProps({
+    modelValue: { type: Boolean, required: true },
+    closeOnBackdrop: { type: Boolean, default: true },
+    closeOnEscape: { type: Boolean, default: true },
+    maxWidth: { type: String, default: '560px' },
+    maxHeight: { type: String, default: 'calc(100dvh - 64px)' },
+    width: { type: String, default: '100%' },
+    panelClass: { type: [String, Array, Object], default: '' },
+});
 
-const emit = defineEmits<{
-  'update:modelValue': [value: boolean];
-  close: [];
-}>();
+const emit = defineEmits(['update:modelValue', 'close']);
 
 const panelStyle = computed(() => ({
   width: props.width,
@@ -46,7 +32,7 @@ function handleBackdropClick() {
   close();
 }
 
-function handleKeydown(event: KeyboardEvent) {
+function handleKeydown(event) {
   if (!props.modelValue || !props.closeOnEscape || event.key !== 'Escape') {
     return;
   }

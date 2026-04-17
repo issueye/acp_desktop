@@ -1,22 +1,19 @@
-<script setup lang="ts">
-import type { PermissionRequest } from '../lib/types';
+<script setup>
+
 import { useI18n } from '../lib/i18n';
 import AppDialogShell from './AppDialogShell.vue';
 import UEDButton from './common/UEDButton.vue';
 import UEDCard from './common/UEDCard.vue';
 import UEDStatus from './common/UEDStatus.vue';
 
-defineProps<{
-  request: PermissionRequest;
-}>();
+defineProps({
+    request: { type: Object, required: true },
+});
 
-const emit = defineEmits<{
-  select: [optionId: string];
-  cancel: [];
-}>();
+const emit = defineEmits(['select', 'cancel']);
 const { t } = useI18n();
 
-function handleSelect(optionId: string) {
+function handleSelect(optionId) {
   emit('select', optionId);
 }
 
@@ -68,12 +65,15 @@ function handleCancel() {
         v-for="option in request.options" 
         :key="option.optionId"
         type="button"
+        size="sm"
+        class="perm-btn"
         :variant="option.kind.startsWith('reject') ? 'danger' : 'primary'"
+        :title="option.name"
         @click="handleSelect(option.optionId)"
       >
         {{ option.name }}
       </UEDButton>
-      <UEDButton type="button" variant="secondary" @click="handleCancel">
+      <UEDButton type="button" size="sm" variant="secondary" class="perm-btn" @click="handleCancel">
         {{ t('common.cancel') }}
       </UEDButton>
     </template>
@@ -163,6 +163,17 @@ function handleCancel() {
   padding: 0.18rem 0;
   color: var(--ued-text-primary);
   word-break: break-all;
+}
+
+/* 权限弹窗按钮尺寸优化 */
+.perm-btn {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+:deep(.dialog-shell__footer) {
+  flex-wrap: wrap;
 }
 
 @media (max-width: 720px) {

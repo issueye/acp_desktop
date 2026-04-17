@@ -75,6 +75,8 @@
 
   --ued-page-padding: var(--page-padding, 16px);
   --ued-panel-padding: var(--panel-padding, 16px);
+  --ued-dialog-padding: var(--dialog-padding, 8px);
+
   --ued-section-gap: var(--section-gap, 16px);
   --ued-control-gap: var(--control-gap, 8px);
 
@@ -93,7 +95,7 @@
   --ued-control-height-md: 32px;
   --ued-control-height-lg: 36px;
   --ued-status-height: 22px;
-  --ued-icon-button-size: 32px;
+  --ued-icon-button-size: 24px;
 }
 
 .dark {

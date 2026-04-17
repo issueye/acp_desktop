@@ -1,40 +1,10 @@
-// ACP Client Bridge - Adapts Tauri IPC to ACP SDK
-import type {
-  Client,
-  SessionNotification,
-  RequestPermissionRequest,
-  RequestPermissionResponse,
-  WriteTextFileRequest,
-  WriteTextFileResponse,
-  ReadTextFileRequest,
-  ReadTextFileResponse,
-  InitializeRequest,
-  InitializeResponse,
-  NewSessionRequest,
-  NewSessionResponse,
-  LoadSessionRequest,
-  LoadSessionResponse,
-  PromptRequest,
-  PromptResponse,
-  CancelNotification,
-  AuthenticateRequest,
-  AuthenticateResponse,
-} from '@agentclientprotocol/sdk';
+// ACP Client Bridge - Adapts Wails IPC to ACP SDK
 import { readTextFile, writeTextFile, sendToAgent, onAgentMessage, killAgent } from './wails';
-import type { AgentInstance, PermissionRequest as LocalPermissionRequest } from './types';
-import { ref, type Ref } from 'vue';
+import { ref } from 'vue';
 import { useTrafficStore } from '../stores/traffic';
 
-// Event emitter for permission requests
-type PermissionResolver = (response: RequestPermissionResponse) => void;
-type JsonRpcErrorPayload = {
-  code?: number;
-  message?: string;
-  data?: unknown;
-};
-
 // Traffic store instance (lazily initialized)
-let trafficStore: ReturnType<typeof useTrafficStore> | null = null;
+let trafficStore = null;
 function getTrafficStore() {
   if (!trafficStore) {
     trafficStore = useTrafficStore();
@@ -42,26 +12,24 @@ function getTrafficStore() {
   return trafficStore;
 }
 
-export class AcpClientBridge implements Client {
-  private agentId: string;
-  private messageResolvers: Map<number, (response: unknown) => void> = new Map();
-  private messageRejecters: Map<number, (error: Error) => void> = new Map();
-  private pendingMethods: Map<number, string> = new Map(); // Track method names for responses
-  private nextRequestId = 0;
-  private unlistenMessage: (() => void) | null = null;
-  
-  // Permission request handling
-  public pendingPermissionRequest: Ref<LocalPermissionRequest | null> = ref(null);
-  private permissionResolver: PermissionResolver | null = null;
-
-  // Session update callback
-  public onSessionUpdate: ((notification: SessionNotification) => void) | null = null;
-
-  constructor(agentId: string) {
+export class AcpClientBridge {
+  constructor(agentId) {
     this.agentId = agentId;
+    this.messageResolvers = new Map();
+    this.messageRejecters = new Map();
+    this.pendingMethods = new Map(); // Track method names for responses
+    this.nextRequestId = 0;
+    this.unlistenMessage = null;
+
+    // Permission request handling
+    this.pendingPermissionRequest = ref(null);
+    this.permissionResolver = null;
+
+    // Session update callback
+    this.onSessionUpdate = null;
   }
 
-  private formatJsonRpcError(error: JsonRpcErrorPayload): Error {
+  formatJsonRpcError(error) {
     const code = typeof error.code === 'number' ? ` (${error.code})` : '';
     const message = error.message?.trim() || 'Unknown error';
     const details =
@@ -71,15 +39,15 @@ export class AcpClientBridge implements Client {
     return new Error(`${message}${code}${details}`);
   }
 
-  async connect(): Promise<void> {
+  async connect() {
     this.unlistenMessage = await onAgentMessage((msg) => {
       if (msg.agent_id === this.agentId) {
         this.handleMessage(msg.message);
       }
-    }) as unknown as () => void;
+    });
   }
 
-  async disconnect(): Promise<void> {
+  async disconnect() {
     if (this.unlistenMessage) {
       this.unlistenMessage();
       this.unlistenMessage = null;
@@ -87,7 +55,7 @@ export class AcpClientBridge implements Client {
     await killAgent(this.agentId);
   }
 
-  private handleMessage(message: string): void {
+  handleMessage(message) {
     try {
       const parsed = JSON.parse(message);
       const store = getTrafficStore();
@@ -112,7 +80,7 @@ export class AcpClientBridge implements Client {
           this.messageRejecters.delete(parsed.id);
           if (parsed.error) {
             console.error('JSON-RPC error:', parsed.error);
-            rejecter(this.formatJsonRpcError(parsed.error as JsonRpcErrorPayload));
+            rejecter(this.formatJsonRpcError(parsed.error));
           } else {
             resolver(parsed.result);
           }
@@ -148,20 +116,20 @@ export class AcpClientBridge implements Client {
     }
   }
 
-  private async handleRequest(id: number | string, method: string, params: unknown): Promise<void> {
-    let result: unknown;
-    let error: { code: number; message: string } | undefined;
+  async handleRequest(id, method, params) {
+    let result;
+    let error;
 
     try {
       switch (method) {
         case 'fs/read_text_file':
-          result = await this.readTextFile(params as ReadTextFileRequest);
+          result = await this.readTextFile(params);
           break;
         case 'fs/write_text_file':
-          result = await this.writeTextFile(params as WriteTextFileRequest);
+          result = await this.writeTextFile(params);
           break;
         case 'session/request_permission':
-          result = await this.requestPermission(params as RequestPermissionRequest);
+          result = await this.requestPermission(params);
           break;
         default:
           error = { code: -32601, message: `Method not found: ${method}` };
@@ -189,15 +157,15 @@ export class AcpClientBridge implements Client {
     await sendToAgent(this.agentId, JSON.stringify(response));
   }
 
-  private handleNotification(method: string, params: unknown): void {
+  handleNotification(method, params) {
     if (method === 'session/update') {
       if (this.onSessionUpdate) {
-        this.onSessionUpdate(params as SessionNotification);
+        this.onSessionUpdate(params);
       }
     }
   }
 
-  private getRequestTimeoutMs(method: string): number | null {
+  getRequestTimeoutMs(method) {
     switch (method) {
       case 'session/prompt':
         return null;
@@ -211,7 +179,7 @@ export class AcpClientBridge implements Client {
     }
   }
 
-  private async sendRequest<T>(method: string, params?: unknown): Promise<T> {
+  async sendRequest(method, params) {
     const id = this.nextRequestId++;
     const request = {
       jsonrpc: '2.0',
@@ -236,7 +204,7 @@ export class AcpClientBridge implements Client {
     return new Promise((resolve, reject) => {
       const timeoutMs = this.getRequestTimeoutMs(method);
       this.messageResolvers.set(id, (response) => {
-        resolve(response as T);
+        resolve(response);
       });
       this.messageRejecters.set(id, reject);
 
@@ -260,7 +228,7 @@ export class AcpClientBridge implements Client {
     });
   }
 
-  private async sendNotification(method: string, params?: unknown): Promise<void> {
+  async sendNotification(method, params) {
     const notification = {
       jsonrpc: '2.0',
       method,
@@ -280,42 +248,40 @@ export class AcpClientBridge implements Client {
   }
 
   // ACP Agent methods (client calls these to talk to agent)
-  async initialize(params: InitializeRequest): Promise<InitializeResponse> {
-    return this.sendRequest<InitializeResponse>('initialize', params);
+  async initialize(params) {
+    return this.sendRequest('initialize', params);
   }
 
-  async newSession(params: NewSessionRequest): Promise<NewSessionResponse> {
-    return this.sendRequest<NewSessionResponse>('session/new', params);
+  async newSession(params) {
+    return this.sendRequest('session/new', params);
   }
 
-  async loadSession(params: LoadSessionRequest): Promise<LoadSessionResponse> {
-    return this.sendRequest<LoadSessionResponse>('session/load', params);
+  async loadSession(params) {
+    return this.sendRequest('session/load', params);
   }
 
-  async prompt(params: PromptRequest): Promise<PromptResponse> {
-    return this.sendRequest<PromptResponse>('session/prompt', params);
+  async prompt(params) {
+    return this.sendRequest('session/prompt', params);
   }
 
-  async cancel(params: CancelNotification): Promise<void> {
+  async cancel(params) {
     await this.sendNotification('session/cancel', params);
   }
 
-  async setMode(params: { sessionId: string; modeId: string }): Promise<void> {
+  async setMode(params) {
     await this.sendRequest('session/set_mode', params);
   }
 
-  async unstable_setSessionModel(params: { sessionId: string; modelId: string }): Promise<void> {
+  async unstable_setSessionModel(params) {
     await this.sendRequest('session/set_model', params);
   }
 
-  async authenticate(params: AuthenticateRequest): Promise<AuthenticateResponse> {
-    return this.sendRequest<AuthenticateResponse>('authenticate', params);
+  async authenticate(params) {
+    return this.sendRequest('authenticate', params);
   }
 
   // ACP Client interface methods (agent calls these)
-  async requestPermission(
-    params: RequestPermissionRequest
-  ): Promise<RequestPermissionResponse> {
+  async requestPermission(params) {
     return new Promise((resolve) => {
       this.pendingPermissionRequest.value = {
         sessionId: params.sessionId,
@@ -323,7 +289,7 @@ export class AcpClientBridge implements Client {
           toolCallId: params.toolCall.toolCallId,
           title: params.toolCall.title ?? '',
           kind: params.toolCall.kind ?? 'other',
-          status: (params.toolCall.status as 'pending' | 'in_progress' | 'completed' | 'failed') ?? 'pending',
+          status: params.toolCall.status ?? 'pending',
           locations: params.toolCall.locations ?? undefined,
         },
         options: params.options.map((opt) => ({
@@ -336,7 +302,7 @@ export class AcpClientBridge implements Client {
     });
   }
 
-  resolvePermission(optionId: string): void {
+  resolvePermission(optionId) {
     if (this.permissionResolver) {
       this.permissionResolver({
         outcome: {
@@ -349,7 +315,7 @@ export class AcpClientBridge implements Client {
     }
   }
 
-  cancelPermission(): void {
+  cancelPermission() {
     if (this.permissionResolver) {
       this.permissionResolver({
         outcome: {
@@ -361,13 +327,11 @@ export class AcpClientBridge implements Client {
     }
   }
 
-  async sessionUpdate(_params: SessionNotification): Promise<void> {
+  async sessionUpdate(_params) {
     // This is called by the agent, we handle it in handleNotification
   }
 
-  async writeTextFile(
-    params: WriteTextFileRequest
-  ): Promise<WriteTextFileResponse> {
+  async writeTextFile(params) {
     try {
       await writeTextFile(params.path, params.content);
       console.log('writeTextFile completed:', params.path);
@@ -378,9 +342,7 @@ export class AcpClientBridge implements Client {
     }
   }
 
-  async readTextFile(
-    params: ReadTextFileRequest
-  ): Promise<ReadTextFileResponse> {
+  async readTextFile(params) {
     try {
       const content = await readTextFile(params.path, params.line, params.limit);
       console.log('readTextFile completed:', params.path);
@@ -393,9 +355,7 @@ export class AcpClientBridge implements Client {
 }
 
 // Factory function to create a connected ACP client
-export async function createAcpClient(
-  agentInstance: AgentInstance
-): Promise<AcpClientBridge> {
+export async function createAcpClient(agentInstance) {
   const client = new AcpClientBridge(agentInstance.id);
   await client.connect();
   return client;

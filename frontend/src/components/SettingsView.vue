@@ -1,4 +1,4 @@
-<script setup lang="ts">
+<script setup>
 import { ref, computed, onMounted, watch } from 'vue';
 import { useConfigStore } from '../stores/config';
 import { addAgent, removeAgent, updateAgent } from '../lib/wails';
@@ -13,21 +13,12 @@ import UEDInput from './common/UEDInput.vue';
 import UEDStatus from './common/UEDStatus.vue';
 import UEDEmptyState from './common/UEDEmptyState.vue';
 
-type ToastTone = 'success' | 'info' | 'warning' | 'danger';
 
-const props = withDefaults(
-  defineProps<{
-    startInAddMode?: boolean;
-  }>(),
-  {
-    startInAddMode: false,
-  }
-);
+const props = defineProps({
+    startInAddMode: { type: Boolean, default: false },
+});
 
-const emit = defineEmits<{
-  (e: 'close'): void;
-  (e: 'notify', payload: { message: string; tone?: ToastTone }): void;
-}>();
+const emit = defineEmits(['close', 'notify']);
 
 const configStore = useConfigStore();
 const { t } = useI18n();
@@ -43,11 +34,11 @@ const agents = computed(() => {
 
 // Form state
 const showAddForm = ref(false);
-const editingAgent = ref<string | null>(null);
+const editingAgent = ref(null);
 const formName = ref('');
 const formCommand = ref('');
 const formArgs = ref('');
-const formEnv = ref<Record<string, string>>({});
+const formEnv = ref({});
 const formError = ref('');
 const isSubmitting = ref(false);
 const actionError = ref('');
@@ -86,7 +77,7 @@ watch(
   }
 );
 
-function startEdit(agent: { name: string; command: string; args: string; env: Record<string, string> }) {
+function startEdit(agent) {
   resetForm();
   editingAgent.value = agent.name;
   formName.value = agent.name;
@@ -95,9 +86,9 @@ function startEdit(agent: { name: string; command: string; args: string; env: Re
   formEnv.value = { ...agent.env };
 }
 
-function parseArgs(argsString: string): string[] {
+function parseArgs(argsString) {
   // Simple arg parsing - split on spaces but respect quotes
-  const args: string[] = [];
+  const args = [];
   let current = '';
   let inQuotes = false;
   let quoteChar = '';
@@ -180,7 +171,7 @@ async function handleSubmit() {
   }
 }
 
-async function handleDelete(name: string) {
+async function handleDelete(name) {
   actionError.value = '';
   pendingDeleteAgentName.value = name;
   showDeleteConfirm.value = true;

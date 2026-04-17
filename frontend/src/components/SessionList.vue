@@ -1,36 +1,20 @@
-<script setup lang="ts">
+<script setup>
 import { computed, ref, watch } from 'vue';
 import { useSessionStore } from '../stores/session';
-import type { SavedSession } from '../lib/types';
+
 import { useI18n } from '../lib/i18n';
 import AppConfirmDialog from './AppConfirmDialog.vue';
 
-const props = withDefaults(
-  defineProps<{
-    query?: string;
-    pinnedSessionIds?: string[];
-    activeSessionId?: string;
-    connectedSessionIds?: string[];
-    pendingSessionIds?: string[];
-    deletingSessionIds?: string[];
-  }>(),
-  {
-    query: '',
-    pinnedSessionIds: () => [],
-    activeSessionId: '',
-    connectedSessionIds: () => [],
-    pendingSessionIds: () => [],
-    deletingSessionIds: () => [],
-  }
-);
+const props = defineProps({
+    query: { type: String, default: '' },
+    pinnedSessionIds: { type: Array, default: () => [] },
+    activeSessionId: { type: String, default: '' },
+    connectedSessionIds: { type: Array, default: () => [] },
+    pendingSessionIds: { type: Array, default: () => [] },
+    deletingSessionIds: { type: Array, default: () => [] },
+});
 
-const emit = defineEmits<{
-  resume: [session: SavedSession];
-  activate: [sessionId: string];
-  disconnect: [sessionId: string];
-  delete: [sessionId: string];
-  togglePin: [sessionId: string];
-}>();
+const emit = defineEmits(['resume', 'activate', 'disconnect', 'delete', 'togglePin']);
 
 const sessionStore = useSessionStore();
 const { t } = useI18n();
@@ -73,23 +57,23 @@ watch(
   { immediate: true }
 );
 
-function isPinned(sessionId: string): boolean {
+function isPinned(sessionId) {
   return props.pinnedSessionIds.includes(sessionId);
 }
 
-function isConnectedSession(sessionId: string): boolean {
+function isConnectedSession(sessionId) {
   return props.connectedSessionIds.includes(sessionId);
 }
 
-function isPendingSession(sessionId: string): boolean {
+function isPendingSession(sessionId) {
   return props.pendingSessionIds.includes(sessionId);
 }
 
-function isDeletingSession(sessionId: string): boolean {
+function isDeletingSession(sessionId) {
   return props.deletingSessionIds.includes(sessionId);
 }
 
-function getConnectActionLabel(sessionId: string): string {
+function getConnectActionLabel(sessionId) {
   if (isDeletingSession(sessionId)) {
     return t('session.deleting');
   }
@@ -99,21 +83,21 @@ function getConnectActionLabel(sessionId: string): string {
   return isPendingSession(sessionId) ? t('session.connecting') : t('session.connect');
 }
 
-function getSessionSummary(session: SavedSession): string {
+function getSessionSummary(session) {
   return [session.agentName, session.cwd, new Date(session.lastUpdated).toLocaleString()]
     .filter(Boolean)
     .join(' · ');
 }
 
-function handleResume(session: SavedSession) {
+function handleResume(session) {
   emit('resume', session);
 }
 
-function handleActivate(sessionId: string) {
+function handleActivate(sessionId) {
   emit('activate', sessionId);
 }
 
-function handleConnectAction(session: SavedSession, event: Event) {
+function handleConnectAction(session, event) {
   event.stopPropagation();
   if (isPendingSession(session.id) || isDeletingSession(session.id)) {
     return;
@@ -125,7 +109,7 @@ function handleConnectAction(session: SavedSession, event: Event) {
   handleResume(session);
 }
 
-function handleDelete(sessionId: string, event: Event) {
+function handleDelete(sessionId, event) {
   event.stopPropagation();
   if (isPendingSession(sessionId) || isDeletingSession(sessionId)) {
     return;
@@ -152,7 +136,7 @@ const pendingDeleteSession = computed(() =>
   sessions.value.find((session) => session.id === pendingDeleteSessionId.value) ?? null
 );
 
-function handleTogglePin(sessionId: string, event: Event) {
+function handleTogglePin(sessionId, event) {
   event.stopPropagation();
   if (isPendingSession(sessionId) || isDeletingSession(sessionId)) {
     return;
@@ -160,7 +144,7 @@ function handleTogglePin(sessionId: string, event: Event) {
   emit('togglePin', sessionId);
 }
 
-function setSelectedById(sessionId: string) {
+function setSelectedById(sessionId) {
   if (isPendingSession(sessionId) || isDeletingSession(sessionId)) {
     return;
   }
@@ -170,7 +154,7 @@ function setSelectedById(sessionId: string) {
   }
 }
 
-function handleKeyDown(event: KeyboardEvent) {
+function handleKeyDown(event) {
   if (sessions.value.length === 0) {
     return;
   }

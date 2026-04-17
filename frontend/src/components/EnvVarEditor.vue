@@ -1,25 +1,19 @@
-<script setup lang="ts">
+<script setup>
 import { ref, watch, computed } from 'vue';
 import { useI18n } from '../lib/i18n';
 import UEDButton from './common/UEDButton.vue';
 import UEDCard from './common/UEDCard.vue';
 import UEDInput from './common/UEDInput.vue';
 
-interface EnvVar {
-  key: string;
-  value: string;
-}
 
-const props = defineProps<{
-  modelValue: Record<string, string>;
-}>();
+const props = defineProps({
+    modelValue: { type: Object, required: true },
+});
 
-const emit = defineEmits<{
-  (e: 'update:modelValue', value: Record<string, string>): void;
-}>();
+const emit = defineEmits(['update:modelValue']);
 const { t } = useI18n();
 
-const envVars = ref<EnvVar[]>([]);
+const envVars = ref([]);
 
 // Convert Record to array for editing
 watch(
@@ -35,7 +29,7 @@ watch(
 
 // Emit changes when envVars change
 function emitUpdate() {
-  const result: Record<string, string> = {};
+  const result = {};
   for (const env of envVars.value) {
     if (env.key.trim()) {
       result[env.key.trim()] = env.value;
@@ -48,7 +42,7 @@ function addEnvVar() {
   envVars.value.push({ key: '', value: '' });
 }
 
-function removeEnvVar(index: number) {
+function removeEnvVar(index) {
   envVars.value.splice(index, 1);
   emitUpdate();
 }

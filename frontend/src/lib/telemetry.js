@@ -2,17 +2,17 @@
 import { ApplicationInsights } from '@microsoft/applicationinsights-web';
 import { getMachineId } from './wails';
 
-let appInsights: ApplicationInsights | null = null;
+let appInsights = null;
 let isEnabled = true;
-let machineId: string | null = null;
+let machineId = null;
 
 const CONNECTION_STRING = 'InstrumentationKey=70b098b2-fcae-4834-867f-69554662910c;IngestionEndpoint=https://eastus-8.in.applicationinsights.azure.com/;LiveEndpoint=https://eastus.livediagnostics.monitor.azure.com/;ApplicationId=d2f5a78f-257e-4748-bd25-509258a27bd2';
 
 /**
  * Initialize Application Insights telemetry
- * @param enabled Whether telemetry is enabled (respects user preference)
+ * @param {boolean} enabled Whether telemetry is enabled (respects user preference)
  */
-export async function initTelemetry(enabled: boolean = true) {
+export async function initTelemetry(enabled = true) {
   isEnabled = enabled;
   
   if (!enabled) {
@@ -59,7 +59,7 @@ export async function initTelemetry(enabled: boolean = true) {
 /**
  * Track a custom event
  */
-export function trackEvent(name: string, properties?: Record<string, string>) {
+export function trackEvent(name, properties) {
   if (!isEnabled || !appInsights) return;
   
   try {
@@ -72,7 +72,7 @@ export function trackEvent(name: string, properties?: Record<string, string>) {
 /**
  * Track an exception/error
  */
-export function trackError(error: Error, properties?: Record<string, string>) {
+export function trackError(error, properties) {
   if (!isEnabled || !appInsights) return;
   
   try {
@@ -85,7 +85,7 @@ export function trackError(error: Error, properties?: Record<string, string>) {
 /**
  * Track a metric value
  */
-export function trackMetric(name: string, value: number, properties?: Record<string, string>) {
+export function trackMetric(name, value, properties) {
   if (!isEnabled || !appInsights) return;
   
   try {
@@ -98,7 +98,7 @@ export function trackMetric(name: string, value: number, properties?: Record<str
 /**
  * Set whether telemetry is enabled
  */
-export function setTelemetryEnabled(enabled: boolean) {
+export function setTelemetryEnabled(enabled) {
   isEnabled = enabled;
   if (!enabled && appInsights) {
     // Flush any pending data before disabling
@@ -109,6 +109,6 @@ export function setTelemetryEnabled(enabled: boolean) {
 /**
  * Check if telemetry is enabled
  */
-export function isTelemetryEnabled(): boolean {
+export function isTelemetryEnabled() {
   return isEnabled;
 }

@@ -1,33 +1,19 @@
-<script setup lang="ts">
+<script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 
-const props = withDefaults(
-  defineProps<{
-    modelValue: boolean;
-    align?: 'left' | 'right';
-    side?: 'top' | 'bottom';
-    offset?: number;
-    minWidth?: string;
-    maxWidth?: string;
-    panelClass?: string | string[] | Record<string, boolean>;
-  }>(),
-  {
-    align: 'left',
-    side: 'bottom',
-    offset: 6,
-    minWidth: '',
-    maxWidth: '',
-    panelClass: '',
-  }
-);
+const props = defineProps({
+    modelValue: { type: Boolean, required: true },
+    align: { type: String, default: 'left' },
+    side: { type: String, default: 'bottom' },
+    offset: { type: Number, default: 6 },
+    minWidth: { type: String, default: '' },
+    maxWidth: { type: String, default: '' },
+    panelClass: { type: [String, Array, Object], default: '' },
+});
 
-const emit = defineEmits<{
-  'update:modelValue': [value: boolean];
-  open: [];
-  close: [];
-}>();
+const emit = defineEmits(['update:modelValue', 'open', 'close']);
 
-const rootRef = ref<HTMLElement | null>(null);
+const rootRef = ref(null);
 
 const panelStyle = computed(() => {
   const sideProp = props.side === 'bottom' ? 'top' : 'bottom';
@@ -40,7 +26,7 @@ const panelStyle = computed(() => {
   };
 });
 
-function setOpen(value: boolean) {
+function setOpen(value) {
   emit('update:modelValue', value);
   if (value) {
     emit('open');
@@ -60,15 +46,15 @@ function close() {
   setOpen(false);
 }
 
-function handleDocumentClick(event: MouseEvent) {
-  const target = event.target as Node | null;
+function handleDocumentClick(event) {
+  const target = event.target | null;
   if (!props.modelValue || !rootRef.value || (target && rootRef.value.contains(target))) {
     return;
   }
   close();
 }
 
-function handleKeydown(event: KeyboardEvent) {
+function handleKeydown(event) {
   if (props.modelValue && event.key === 'Escape') {
     close();
   }

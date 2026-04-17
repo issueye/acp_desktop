@@ -1,27 +1,13 @@
-<script setup lang="ts">
+<script setup>
 import { computed, useAttrs } from 'vue';
 
-type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'success' | 'link';
-type ButtonSize = 'sm' | 'md' | 'lg';
 
-const props = withDefaults(
-  defineProps<{
-    variant?: ButtonVariant;
-    size?: ButtonSize;
-    block?: boolean;
-    active?: boolean;
-    disabled?: boolean;
-    type?: 'button' | 'submit' | 'reset';
-  }>(),
-  {
-    variant: 'secondary',
-    size: 'md',
-    block: false,
-    active: false,
-    disabled: false,
-    type: 'button',
-  }
-);
+const props = defineProps({
+    block: { type: Boolean, default: false },
+    active: { type: Boolean, default: false },
+    disabled: { type: Boolean, default: false },
+    type: { type: String, default: 'button' },
+});
 
 const attrs = useAttrs();
 

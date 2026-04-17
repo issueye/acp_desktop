@@ -1,19 +1,10 @@
-<script setup lang="ts">
+<script setup>
 import { computed, useAttrs } from 'vue';
 
-type StatusTone = 'neutral' | 'success' | 'warning' | 'error' | 'info';
-type StatusKind = 'status' | 'badge' | 'chip';
 
-const props = withDefaults(
-  defineProps<{
-    tone?: StatusTone;
-    kind?: StatusKind;
-  }>(),
-  {
-    tone: 'neutral',
-    kind: 'badge',
-  }
-);
+const props = defineProps({
+
+});
 
 const attrs = useAttrs();
 

@@ -1,20 +1,12 @@
-<script setup lang="ts">
+<script setup>
 import { computed, useAttrs } from 'vue';
 
-const props = withDefaults(
-  defineProps<{
-    muted?: boolean;
-    raised?: boolean;
-    padded?: boolean;
-    tag?: string;
-  }>(),
-  {
-    muted: false,
-    raised: false,
-    padded: true,
-    tag: 'section',
-  }
-);
+const props = defineProps({
+    muted: { type: Boolean, default: false },
+    raised: { type: Boolean, default: false },
+    padded: { type: Boolean, default: true },
+    tag: { type: String, default: 'section' },
+});
 
 const attrs = useAttrs();
 

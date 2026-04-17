@@ -2,26 +2,12 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 
-export type TrafficDirection = 'in' | 'out';
-export type TrafficType = 'request' | 'response' | 'notification';
-
-export interface TrafficEntry {
-  id: string;
-  timestamp: number;
-  direction: TrafficDirection;
-  type: TrafficType;
-  method: string;
-  requestId?: number | string;
-  payload: unknown;
-  error?: boolean;
-}
-
 const MAX_ENTRIES = 500;
 
 export const useTrafficStore = defineStore('traffic', () => {
-  const entries = ref<TrafficEntry[]>([]);
+  const entries = ref([]);
   const isPaused = ref(false);
-  const filter = ref<'all' | 'requests' | 'responses' | 'notifications'>('all');
+  const filter = ref('all');
   const searchQuery = ref('');
 
   const filteredEntries = computed(() => {
@@ -52,10 +38,10 @@ export const useTrafficStore = defineStore('traffic', () => {
     return result;
   });
 
-  function addEntry(entry: Omit<TrafficEntry, 'id' | 'timestamp'>) {
+  function addEntry(entry) {
     if (isPaused.value) return;
     
-    const newEntry: TrafficEntry = {
+    const newEntry = {
       ...entry,
       id: crypto.randomUUID(),
       timestamp: Date.now(),
@@ -77,11 +63,11 @@ export const useTrafficStore = defineStore('traffic', () => {
     isPaused.value = !isPaused.value;
   }
 
-  function setFilter(newFilter: typeof filter.value) {
+  function setFilter(newFilter) {
     filter.value = newFilter;
   }
 
-  function setSearch(query: string) {
+  function setSearch(query) {
     searchQuery.value = query;
   }
 

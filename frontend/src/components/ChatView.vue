@@ -1,4 +1,4 @@
-<script setup lang="ts">
+<script setup>
 import { ref, computed, nextTick, watch, onBeforeUnmount, onMounted, onUpdated } from 'vue';
 import { marked } from 'marked';
 import { useSessionStore } from '../stores/session';
@@ -6,7 +6,7 @@ import { useI18n } from '../lib/i18n';
 import ModePicker from './ModePicker.vue';
 import ModelPicker from './ModelPicker.vue';
 import CommandPalette from './CommandPalette.vue';
-import type { ChatMessage, ChatMessagePart, SlashCommand } from '../lib/types';
+
 import CurrentPlanPanel from './CurrentPlanPanel.vue';
 import UEDButton from './common/UEDButton.vue';
 import UEDInput from './common/UEDInput.vue';
@@ -15,13 +15,13 @@ import UEDEmptyState from './common/UEDEmptyState.vue';
 const sessionStore = useSessionStore();
 const { t } = useI18n();
 const inputText = ref('');
-const messagesContainer = ref<HTMLElement | null>(null);
-const commandPaletteRef = ref<InstanceType<typeof CommandPalette> | null>(null);
+const messagesContainer = ref(null);
+const commandPaletteRef = ref(null);
 const isPinnedToBottom = ref(true);
-let scrollFrameId: number | null = null;
+let scrollFrameId = null;
 
 // Track expanded thought sections by message id
-const expandedThoughts = ref<Set<string>>(new Set());
+const expandedThoughts = ref(new Set());
 
 const messages = computed(() => sessionStore.messageList);
 const isLoading = computed(() => sessionStore.isLoading);
@@ -57,7 +57,7 @@ function clearScheduledScroll() {
   }
 }
 
-function getDistanceToBottom(): number {
+function getDistanceToBottom() {
   const container = messagesContainer.value;
   if (!container) return 0;
   return container.scrollHeight - container.scrollTop - container.clientHeight;
@@ -150,7 +150,7 @@ async function handleSend() {
   }
 }
 
-function handleKeyDown(event: KeyboardEvent) {
+function handleKeyDown(event) {
   // Let CommandPalette handle navigation keys when visible
   if (showCommandPalette.value && commandPaletteRef.value) {
     if (['ArrowDown', 'ArrowUp', 'Enter', 'Tab', 'Escape'].includes(event.key)) {
@@ -165,7 +165,7 @@ function handleKeyDown(event: KeyboardEvent) {
   }
 }
 
-function handleCommandSelect(command: SlashCommand) {
+function handleCommandSelect(command) {
   // Replace current input with the command
   if (command.hint) {
     inputText.value = `/${command.name} `;
@@ -182,7 +182,7 @@ function handleCancel() {
   sessionStore.cancelOperation();
 }
 
-async function handleModeChange(modeId: string) {
+async function handleModeChange(modeId) {
   try {
     await sessionStore.setMode(modeId);
   } catch (e) {
@@ -190,7 +190,7 @@ async function handleModeChange(modeId: string) {
   }
 }
 
-async function handleModelChange(modelId: string) {
+async function handleModelChange(modelId) {
   try {
     await sessionStore.setModel(modelId);
   } catch (e) {
@@ -198,11 +198,11 @@ async function handleModelChange(modelId: string) {
   }
 }
 
-function isThoughtExpanded(messageId: string): boolean {
+function isThoughtExpanded(messageId) {
   return expandedThoughts.value.has(messageId);
 }
 
-function toggleThought(messageId: string): void {
+function toggleThought(messageId) {
   if (expandedThoughts.value.has(messageId)) {
     expandedThoughts.value.delete(messageId);
   } else {
@@ -210,14 +210,14 @@ function toggleThought(messageId: string): void {
   }
 }
 
-function renderMarkdown(content: string | null | undefined): string {
+function renderMarkdown(content) {
   if (typeof content !== 'string' || content.length === 0) {
     return '';
   }
-  return marked.parse(content, { async: false }) as string;
+  return marked.parse(content, { async: false });
 }
 
-function getMessageParts(message: ChatMessage): ChatMessagePart[] {
+function getMessageParts(message) {
   if (message.parts?.length) {
     return message.parts.filter((part) => {
       if (part.type === 'content' || part.type === 'thought') {
@@ -227,7 +227,7 @@ function getMessageParts(message: ChatMessage): ChatMessagePart[] {
     });
   }
 
-  const parts: ChatMessagePart[] = [];
+  const parts = [];
   if (message.content) {
     parts.push({
       type: 'content',
@@ -249,7 +249,7 @@ function getMessageParts(message: ChatMessage): ChatMessagePart[] {
   if (message.toolCalls?.length) {
     parts.push(
       ...message.toolCalls.map((toolCall) => ({
-        type: 'tool_call' as const,
+        type: 'tool_call',
         toolCall,
       }))
     );
@@ -257,11 +257,11 @@ function getMessageParts(message: ChatMessage): ChatMessagePart[] {
   return parts;
 }
 
-function getThoughtKey(messageId: string, index: number): string {
+function getThoughtKey(messageId, index) {
   return `${messageId}-${index}`;
 }
 
-function getToolIcon(kind: string): string {
+function getToolIcon(kind) {
   switch (kind) {
     case 'read': return '📖';
     case 'edit': return '✏️';
@@ -275,7 +275,7 @@ function getToolIcon(kind: string): string {
   }
 }
 
-function getStatusIcon(status: string): string {
+function getStatusIcon(status) {
   switch (status) {
     case 'pending': return '⏳';
     case 'in_progress': return '⚙️';

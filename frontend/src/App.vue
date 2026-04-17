@@ -1,16 +1,9 @@
-<script setup lang="ts">
+<script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useConfigStore } from './stores/config';
 import { useSessionStore } from './stores/session';
 import { initTelemetry } from './lib/telemetry';
-import {
-  loadStore,
-  saveStore,
-  selectDirectory,
-  windowClose,
-  windowMinimise,
-  windowToggleMaximise,
-} from './lib/wails';
+import { loadStore, saveStore, selectDirectory, windowClose, windowMinimise, windowToggleMaximise } from './lib/wails';
 import { useI18n } from './lib/i18n';
 import ChatView from './components/ChatView.vue';
 import PermissionDialog from './components/PermissionDialog.vue';
@@ -23,8 +16,6 @@ import AppSidebar from './components/AppSidebar.vue';
 import WelcomePanel from './components/WelcomePanel.vue';
 import WorkspaceSessionDialog from './components/WorkspaceSessionDialog.vue';
 import AppToastStack from './components/AppToastStack.vue';
-import type { SavedSession, SessionProxyConfig } from './lib/types';
-import type { AppToastItem } from './components/AppToastStack.vue';
 
 const configStore = useConfigStore();
 const sessionStore = useSessionStore();
@@ -38,20 +29,20 @@ const showWorkspaceDialog = ref(false);
 const showTrafficMonitor = ref(false);
 const showStartupDetails = ref(false);
 const sessionSearchQuery = ref('');
-const pinnedSessionIds = ref<string[]>([]);
+const pinnedSessionIds = ref([]);
 const openSettingsInAddMode = ref(false);
 const proxyEnabled = ref(false);
 const httpProxy = ref('');
 const httpsProxy = ref('');
 const allProxy = ref('');
 const noProxy = ref('');
-const toastItems = ref<AppToastItem[]>([]);
-const pendingResumeSessionIds = ref<string[]>([]);
-const pendingDisconnectSessionIds = ref<string[]>([]);
-const pendingDeleteSessionIds = ref<string[]>([]);
+const toastItems = ref([]);
+const pendingResumeSessionIds = ref([]);
+const pendingDisconnectSessionIds = ref([]);
+const pendingDeleteSessionIds = ref([]);
 const isSelectingFolder = ref(false);
 
-let prefsStoreData: Record<string, unknown> = {};
+let prefsStoreData = {};
 const prefsStoreName = 'preferences.json';
 
 const isConnected = computed(() => sessionStore.isConnected);
@@ -90,11 +81,31 @@ const activeStatusLabel = computed(() => {
   return t('app.statusIdle');
 });
 
+function readStoredString(value) {
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (value == null) {
+    return '';
+  }
+  return String(value);
+}
+
+function readStoredBoolean(value, fallback = false) {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+  if (value == null) {
+    return fallback;
+  }
+  return Boolean(value);
+}
+
 async function persistPreferences() {
   await saveStore(prefsStoreName, prefsStoreData);
 }
 
-function pushToast(message: string, tone: AppToastItem['tone'] = 'success') {
+function pushToast(message, tone = 'success') {
   const id = crypto.randomUUID();
   toastItems.value = [...toastItems.value, { id, message, tone }];
   window.setTimeout(() => {
@@ -102,15 +113,15 @@ function pushToast(message: string, tone: AppToastItem['tone'] = 'success') {
   }, tone === 'danger' ? 4200 : 2600);
 }
 
-function dismissToast(id: string) {
+function dismissToast(id) {
   toastItems.value = toastItems.value.filter((item) => item.id !== id);
 }
 
-function getErrorMessage(errorLike: unknown): string {
+function getErrorMessage(errorLike) {
   return errorLike instanceof Error ? errorLike.message : String(errorLike);
 }
 
-function addPending(target: { value: string[] }, sessionId: string) {
+function addPending(target, sessionId) {
   if (!sessionId || target.value.includes(sessionId)) {
     return false;
   }
@@ -118,7 +129,7 @@ function addPending(target: { value: string[] }, sessionId: string) {
   return true;
 }
 
-function removePending(target: { value: string[] }, sessionId: string) {
+function removePending(target, sessionId) {
   target.value = target.value.filter((id) => id !== sessionId);
 }
 
@@ -135,22 +146,22 @@ function syncSelectionFromCurrentSession() {
 onMounted(async () => {
   prefsStoreData = await loadStore(prefsStoreName);
   pinnedSessionIds.value = Array.isArray(prefsStoreData.pinnedSessionIds)
-    ? (prefsStoreData.pinnedSessionIds as string[])
+    ? (prefsStoreData.pinnedSessionIds)
     : [];
-  proxyEnabled.value = (prefsStoreData.proxyEnabled as boolean | undefined) ?? false;
-  httpProxy.value = (prefsStoreData.httpProxy as string | undefined) ?? '';
-  httpsProxy.value = (prefsStoreData.httpsProxy as string | undefined) ?? '';
-  allProxy.value = (prefsStoreData.allProxy as string | undefined) ?? '';
-  noProxy.value = (prefsStoreData.noProxy as string | undefined) ?? '';
+  proxyEnabled.value = readStoredBoolean(prefsStoreData.proxyEnabled, false);
+  httpProxy.value = readStoredString(prefsStoreData.httpProxy);
+  httpsProxy.value = readStoredString(prefsStoreData.httpsProxy);
+  allProxy.value = readStoredString(prefsStoreData.allProxy);
+  noProxy.value = readStoredString(prefsStoreData.noProxy);
 
-  const telemetryEnabled = (prefsStoreData.telemetryEnabled as boolean | undefined) ?? true;
+  const telemetryEnabled = readStoredBoolean(prefsStoreData.telemetryEnabled, true);
   await initTelemetry(telemetryEnabled);
 
   await configStore.loadConfig();
   await configStore.setupHotReload();
   await sessionStore.initStore();
 
-  const savedCwd = prefsStoreData.lastCwd as string | undefined;
+  const savedCwd = readStoredString(prefsStoreData.lastCwd);
   if (savedCwd) selectedCwd.value = savedCwd;
 
   window.addEventListener('keydown', handleGlobalKeydown);
@@ -160,7 +171,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('keydown', handleGlobalKeydown);
 });
 
-async function handleAgentSelect(agentName: string) {
+async function handleAgentSelect(agentName) {
   selectedAgent.value = agentName;
 }
 
@@ -190,7 +201,7 @@ function closeWorkspaceDialog() {
   showStartupDetails.value = false;
 }
 
-function buildSessionProxyConfig(): SessionProxyConfig {
+function buildSessionProxyConfig() {
   return {
     enabled: proxyEnabled.value,
     httpProxy: httpProxy.value.trim() || undefined,
@@ -200,12 +211,12 @@ function buildSessionProxyConfig(): SessionProxyConfig {
   };
 }
 
-function applyProxyConfig(proxy?: SessionProxyConfig) {
+function applyProxyConfig(proxy) {
   proxyEnabled.value = !!proxy?.enabled;
-  httpProxy.value = proxy?.httpProxy ?? '';
-  httpsProxy.value = proxy?.httpsProxy ?? '';
-  allProxy.value = proxy?.allProxy ?? '';
-  noProxy.value = proxy?.noProxy ?? '';
+  httpProxy.value = readStoredString(proxy?.httpProxy);
+  httpsProxy.value = readStoredString(proxy?.httpsProxy);
+  allProxy.value = readStoredString(proxy?.allProxy);
+  noProxy.value = readStoredString(proxy?.noProxy);
 }
 
 async function persistProxyPreferences() {
@@ -235,7 +246,7 @@ async function handleCreateSession() {
   }
 }
 
-async function handleResumeSession(session: SavedSession) {
+async function handleResumeSession(session) {
   if (
     pendingResumeSessionIds.value.includes(session.id) ||
     pendingDisconnectSessionIds.value.includes(session.id) ||
@@ -260,7 +271,7 @@ async function handleResumeSession(session: SavedSession) {
   }
 }
 
-function handleActivateSession(sessionId: string) {
+function handleActivateSession(sessionId) {
   const session = sessionStore.savedSessions.find((item) => item.id === sessionId);
   sessionStore.setActiveSession(sessionId);
   if (!session) {
@@ -271,7 +282,7 @@ function handleActivateSession(sessionId: string) {
   applyProxyConfig(session.proxy);
 }
 
-async function handleDeleteSession(sessionId: string) {
+async function handleDeleteSession(sessionId) {
   if (
     pendingDeleteSessionIds.value.includes(sessionId) ||
     pendingResumeSessionIds.value.includes(sessionId) ||
@@ -299,7 +310,7 @@ async function handleDeleteSession(sessionId: string) {
   }
 }
 
-async function handleDisconnect(sessionId?: string) {
+async function handleDisconnect(sessionId) {
   const targetSessionId = sessionId || sessionStore.currentSession?.id || '';
   if (
     !targetSessionId ||
@@ -329,7 +340,7 @@ async function handleCancelConnection() {
   await sessionStore.cancelConnection();
 }
 
-function handlePermissionSelect(optionId: string) {
+function handlePermissionSelect(optionId) {
   sessionStore.resolvePermission(optionId);
 }
 
@@ -337,7 +348,7 @@ function handlePermissionCancel() {
   sessionStore.cancelPermission();
 }
 
-function handleAuthMethodSelect(methodId: string) {
+function handleAuthMethodSelect(methodId) {
   sessionStore.selectAuthMethod(methodId);
 }
 
@@ -349,7 +360,7 @@ function toggleSidebar() {
   showSidebar.value = !showSidebar.value;
 }
 
-async function handleToggleSessionPin(sessionId: string) {
+async function handleToggleSessionPin(sessionId) {
   if (pinnedSessionIds.value.includes(sessionId)) {
     pinnedSessionIds.value = pinnedSessionIds.value.filter((id) => id !== sessionId);
   } else {
@@ -364,7 +375,7 @@ function clearError() {
   configStore.clearError();
 }
 
-function formatCompactPath(path: string): string {
+function formatCompactPath(path) {
   const normalized = path.replace(/\\/g, '/');
   const parts = normalized.split('/').filter(Boolean);
   if (parts.length === 0) return '.';
@@ -391,7 +402,7 @@ function handleHeaderDoubleClick() {
   windowToggleMaximise();
 }
 
-function handleGlobalKeydown(event: KeyboardEvent) {
+function handleGlobalKeydown(event) {
   if (event.key !== 'Escape') return;
   if (showWorkspaceDialog.value && !isConnecting.value) {
     closeWorkspaceDialog();

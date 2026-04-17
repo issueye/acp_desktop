@@ -1,4 +1,4 @@
-<script setup lang="ts">
+<script setup>
 import { computed } from 'vue';
 import { useI18n } from '../lib/i18n';
 import AppDialogShell from './AppDialogShell.vue';
@@ -11,57 +11,36 @@ import UEDField from './common/UEDField.vue';
 import UEDInput from './common/UEDInput.vue';
 import UEDStatus from './common/UEDStatus.vue';
 
-const props = defineProps<{
-  modelValue: boolean;
-  hasAgents: boolean;
-  isConnecting: boolean;
-  isLoading: boolean;
-  isSelectingFolder: boolean;
-  selectedAgent: string;
-  selectedCwd: string;
-  selectedCwdLabel: string;
-  proxyEnabled: boolean;
-  httpProxy: string;
-  httpsProxy: string;
-  allProxy: string;
-  noProxy: string;
-  startupPhase: string;
-  startupLogs: string[];
-  startupElapsed: number;
-  showStartupDetails: boolean;
-}>();
+const props = defineProps({
+    modelValue: { type: Boolean, required: true },
+    hasAgents: { type: Boolean, required: true },
+    isConnecting: { type: Boolean, required: true },
+    isLoading: { type: Boolean, required: true },
+    isSelectingFolder: { type: Boolean, required: true },
+    selectedAgent: { type: String, required: true },
+    selectedCwd: { type: String, required: true },
+    selectedCwdLabel: { type: String, required: true },
+    proxyEnabled: { type: Boolean, required: true },
+    httpProxy: { type: String, required: true },
+    httpsProxy: { type: String, required: true },
+    allProxy: { type: String, required: true },
+    noProxy: { type: String, required: true },
+    startupPhase: { type: String, required: true },
+    startupLogs: { type: Array, required: true },
+    startupElapsed: { type: Number, required: true },
+    showStartupDetails: { type: Boolean, required: true },
+});
 
-const emit = defineEmits<{
-  'update:modelValue': [value: boolean];
-  'update:selectedAgent': [value: string];
-  'update:proxyEnabled': [value: boolean];
-  'update:httpProxy': [value: string];
-  'update:httpsProxy': [value: string];
-  'update:allProxy': [value: string];
-  'update:noProxy': [value: string];
-  'update:showStartupDetails': [value: boolean];
-  selectFolder: [];
-  createSession: [];
-  openAddAgent: [];
-  cancelConnection: [];
-}>();
+const emit = defineEmits(['update:modelValue', 'update:selectedAgent', 'update:proxyEnabled', 'update:httpProxy', 'update:httpsProxy', 'update:allProxy', 'update:noProxy', 'update:showStartupDetails', 'selectFolder', 'createSession', 'openAddAgent', 'cancelConnection']);
 
 const { t } = useI18n();
 
-type ValidationTone = 'warning' | 'danger';
-
-type ValidationItem = {
-  id: string;
-  message: string;
-  tone?: ValidationTone;
-};
-
 const selectedAgentModel = computed({
   get: () => props.selectedAgent,
-  set: (value: string) => emit('update:selectedAgent', value),
+  set: (value) => emit('update:selectedAgent', value),
 });
 
-function isValidProxyUrl(value: string): boolean {
+function isValidProxyUrl(value) {
   const trimmed = value.trim();
   if (!trimmed) {
     return true;
@@ -74,8 +53,8 @@ function isValidProxyUrl(value: string): boolean {
   }
 }
 
-const validationItems = computed<ValidationItem[]>(() => {
-  const items: ValidationItem[] = [];
+const validationItems = computed(() => {
+  const items = [];
 
   if (!props.selectedAgent) {
     items.push({
@@ -255,7 +234,7 @@ function closeDialog() {
                   :checked="proxyEnabled"
                   type="checkbox"
                   :disabled="isConnecting"
-                  @change="emit('update:proxyEnabled', ($event.target as HTMLInputElement).checked)"
+                  @change="emit('update:proxyEnabled', $event.target.checked)"
                 />
                 <span class="switch-track"><span class="switch-thumb"></span></span>
                 <span>{{ proxyEnabled ? t('app.proxyEnable') : t('app.proxyDisabled') }}</span>
@@ -298,16 +277,6 @@ function closeDialog() {
                 />
               </UEDField>
             </div>
-            <div v-if="validationItems.some((item) => item.id.startsWith('proxy-'))" class="validation-list">
-              <div
-                v-for="item in validationItems.filter((entry) => entry.id.startsWith('proxy-'))"
-                :key="item.id"
-                class="validation-item"
-                :class="item.tone || 'warning'"
-              >
-                {{ item.message }}
-              </div>
-            </div>
           </UEDCard>
         </div>
 
@@ -332,43 +301,6 @@ function closeDialog() {
                 <strong>{{ proxyEnabled ? t('app.proxyEnable') : t('app.proxyDisabled') }}</strong>
               </div>
             </UEDCard>
-            <div class="launch-note">
-              <span class="launch-note-mark">i</span>
-              <p>{{ validationItems.length === 0 ? t('app.validationReady') : t('app.sessionSetupDesc') }}</p>
-            </div>
-            <div v-if="validationItems.length > 0" class="validation-panel">
-              <strong>
-                {{
-                  hasValidationError
-                    ? t('app.validationProxyIssueTitle')
-                    : t('app.validationActionRequired')
-                }}
-              </strong>
-              <div class="validation-list compact">
-                <div
-                  v-for="item in validationItems"
-                  :key="item.id"
-                  class="validation-item"
-                  :class="item.tone || 'warning'"
-                >
-                  {{ item.message }}
-                </div>
-              </div>
-            </div>
-            <div v-if="!isConnecting" class="dialog-actions launch-actions">
-              <UEDButton variant="primary" size="lg" block :disabled="!canCreateSession" @click="emit('createSession')">
-                {{
-                  props.isSelectingFolder
-                    ? t('app.selectingFolder')
-                    : isLoading
-                      ? t('app.connecting')
-                      : t('app.newSession')
-                }}
-              </UEDButton>
-              <UEDButton variant="secondary" size="lg" block @click="closeDialog">
-                {{ t('common.cancel') }}
-              </UEDButton>
-            </div>
           </UEDCard>
 
           <StartupProgress
@@ -382,6 +314,32 @@ function closeDialog() {
             @toggle-details="emit('update:showStartupDetails', !showStartupDetails)"
           />
         </aside>
+      </div>
+    </template>
+
+    <template v-if="!isConnecting" #footer>
+      <div class="dialog-footer-actions">
+        <UEDButton variant="secondary" size="lg" @click="closeDialog">
+          {{ t('common.cancel') }}
+        </UEDButton>
+        <UEDButton
+          v-if="hasAgents"
+          variant="primary"
+          size="lg"
+          :disabled="!canCreateSession"
+          @click="emit('createSession')"
+        >
+          {{
+            props.isSelectingFolder
+              ? t('app.selectingFolder')
+              : isLoading
+                ? t('app.connecting')
+                : t('app.newSession')
+          }}
+        </UEDButton>
+        <UEDButton v-else variant="primary" size="lg" @click="emit('openAddAgent')">
+          {{ t('settings.addAgent') }}
+        </UEDButton>
       </div>
     </template>
   </AppDialogShell>
@@ -417,6 +375,7 @@ function closeDialog() {
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
+  margin-bottom: 0.7rem;
 }
 
 .workspace-hero {
@@ -592,13 +551,6 @@ function closeDialog() {
   min-width: 0;
 }
 
-.validation-panel {
-  padding: 0.9rem 0.95rem;
-  border-radius: var(--ued-radius-md);
-  background: var(--ued-bg-panel-muted);
-  border: 1px solid var(--ued-border-default);
-}
-
 .validation-panel strong {
   display: block;
   margin-bottom: 0.7rem;
@@ -648,7 +600,8 @@ function closeDialog() {
 }
 
 .summary-card {
-  margin-top: 0.2rem;
+  margin-top: 0.7rem;
+  margin-bottom: 0.7rem;
 }
 
 .summary-line {
@@ -692,10 +645,11 @@ function closeDialog() {
   line-height: 1.55;
 }
 
-.launch-actions {
+.dialog-footer-actions {
   display: flex;
-  flex-direction: column;
   gap: 0.75rem;
+  width: 100%;
+  justify-content: flex-end;
 }
 
 .empty-workspace {
@@ -726,6 +680,10 @@ function closeDialog() {
   .hero-metrics,
   .proxy-grid {
     grid-template-columns: 1fr;
+  }
+
+  .dialog-footer-actions {
+    flex-wrap: wrap;
   }
 }
 </style>

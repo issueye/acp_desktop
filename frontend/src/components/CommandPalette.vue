@@ -1,17 +1,13 @@
-<script setup lang="ts">
+<script setup>
 import { computed, ref, watch } from 'vue';
-import type { SlashCommand } from '../lib/types';
 
-const props = defineProps<{
-  commands: SlashCommand[];
-  filter: string;
-  visible: boolean;
-}>();
+const props = defineProps({
+    commands: { type: Array, required: true },
+    filter: { type: String, required: true },
+    visible: { type: Boolean, required: true },
+});
 
-const emit = defineEmits<{
-  select: [command: SlashCommand];
-  close: [];
-}>();
+const emit = defineEmits(['select', 'close']);
 
 const selectedIndex = ref(0);
 
@@ -30,7 +26,7 @@ watch([() => props.filter, () => props.visible], () => {
   selectedIndex.value = 0;
 });
 
-function handleKeyDown(event: KeyboardEvent) {
+function handleKeyDown(event) {
   if (!props.visible || filteredCommands.value.length === 0) return;
   
   switch (event.key) {
@@ -64,7 +60,7 @@ function handleKeyDown(event: KeyboardEvent) {
 // Expose keyboard handler for parent to call
 defineExpose({ handleKeyDown });
 
-function selectCommand(cmd: SlashCommand) {
+function selectCommand(cmd) {
   emit('select', cmd);
 }
 </script>

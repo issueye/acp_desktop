@@ -1,15 +1,12 @@
-<script setup lang="ts">
+<script setup>
 import { ref, watch, nextTick, onUnmounted } from 'vue';
-import { useTrafficStore, type TrafficEntry } from '../stores/traffic';
+import { useTrafficStore } from '../stores/traffic';
 
-const emit = defineEmits<{
-  close: [];
-  resize: [height: number];
-}>();
+const emit = defineEmits(['close', 'resize']);
 
 const trafficStore = useTrafficStore();
-const expandedIds = ref<Set<string>>(new Set());
-const logContainer = ref<HTMLElement | null>(null);
+const expandedIds = ref(new Set());
+const logContainer = ref(null);
 const autoScroll = ref(true);
 
 // Resize handling
@@ -18,7 +15,7 @@ const panelHeight = ref(220);
 const MIN_HEIGHT = 100;
 const MAX_HEIGHT = window.innerHeight * 0.7;
 
-function startResize(e: MouseEvent) {
+function startResize(e) {
   isResizing.value = true;
   e.preventDefault();
   document.addEventListener('mousemove', doResize);
@@ -27,7 +24,7 @@ function startResize(e: MouseEvent) {
   document.body.style.userSelect = 'none';
 }
 
-function doResize(e: MouseEvent) {
+function doResize(e) {
   if (!isResizing.value) return;
   const newHeight = window.innerHeight - e.clientY;
   panelHeight.value = Math.min(MAX_HEIGHT, Math.max(MIN_HEIGHT, newHeight));
@@ -47,7 +44,7 @@ onUnmounted(() => {
   document.removeEventListener('mouseup', stopResize);
 });
 
-function formatTime(timestamp: number): string {
+function formatTime(timestamp) {
   const date = new Date(timestamp);
   return date.toLocaleTimeString('en-US', { 
     hour12: false, 
@@ -57,7 +54,7 @@ function formatTime(timestamp: number): string {
   }) + '.' + String(date.getMilliseconds()).padStart(3, '0');
 }
 
-function toggleExpand(id: string) {
+function toggleExpand(id) {
   if (expandedIds.value.has(id)) {
     expandedIds.value.delete(id);
   } else {
@@ -67,7 +64,7 @@ function toggleExpand(id: string) {
   expandedIds.value = new Set(expandedIds.value);
 }
 
-function formatJson(payload: unknown): string {
+function formatJson(payload) {
   try {
     return JSON.stringify(payload, null, 2);
   } catch {
@@ -75,17 +72,17 @@ function formatJson(payload: unknown): string {
   }
 }
 
-function getEntryClass(entry: TrafficEntry): string {
+function getEntryClass(entry) {
   const classes = ['entry', entry.direction];
   if (entry.error) classes.push('error');
   return classes.join(' ');
 }
 
-function getDirectionIcon(entry: TrafficEntry): string {
+function getDirectionIcon(entry) {
   return entry.direction === 'out' ? '→' : '←';
 }
 
-function getTypeLabel(entry: TrafficEntry): string {
+function getTypeLabel(entry) {
   if (entry.type === 'notification') {
     return '(notification)';
   } else if (entry.type === 'response') {
@@ -109,7 +106,7 @@ function handleScroll() {
   autoScroll.value = scrollTop + clientHeight >= scrollHeight - 50;
 }
 
-function handleCopy(entry: TrafficEntry) {
+function handleCopy(entry) {
   navigator.clipboard.writeText(formatJson(entry.payload));
 }
 </script>
@@ -151,7 +148,7 @@ function handleCopy(entry: TrafficEntry) {
             class="search-input"
             placeholder="Search..."
             :value="trafficStore.searchQuery"
-            @input="trafficStore.setSearch(($event.target as HTMLInputElement).value)"
+            @input="trafficStore.setSearch($event.target.value)"
           />
           <button 
             v-if="trafficStore.searchQuery"
@@ -170,7 +167,7 @@ function handleCopy(entry: TrafficEntry) {
         <select 
           class="filter-select"
           :value="trafficStore.filter"
-          @change="trafficStore.setFilter(($event.target as HTMLSelectElement).value as any)"
+          @change="trafficStore.setFilter($event.target.value)"
         >
           <option value="all">All</option>
           <option value="requests">Requests</option>

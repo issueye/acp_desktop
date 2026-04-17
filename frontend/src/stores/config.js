@@ -1,14 +1,13 @@
 // Agent configuration store with hot-reload support
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import type { AgentsConfig, AgentConfig } from '../lib/types';
 import { getConfig, reloadConfig, getConfigPath, onConfigChanged } from '../lib/wails';
 
 export const useConfigStore = defineStore('config', () => {
-  const config = ref<AgentsConfig>({ agents: {} });
-  const configPath = ref<string>('');
+  const config = ref({ agents: {} });
+  const configPath = ref('');
   const loading = ref(false);
-  const error = ref<string | null>(null);
+  const error = ref(null);
 
   const agentNames = computed(() => Object.keys(config.value.agents));
   
@@ -39,7 +38,7 @@ export const useConfigStore = defineStore('config', () => {
     }
   }
 
-  function getAgent(name: string): AgentConfig | undefined {
+  function getAgent(name) {
     return config.value.agents[name];
   }
 
@@ -52,7 +51,7 @@ export const useConfigStore = defineStore('config', () => {
   }
 
   // Update config from event (for settings updates)
-  function updateFromEvent(newConfig: AgentsConfig) {
+  function updateFromEvent(newConfig) {
     config.value = newConfig;
   }
 
