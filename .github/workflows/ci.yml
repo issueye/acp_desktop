@@ -1,5 +1,8 @@
 name: CI
 
+env:
+  WAILS_VERSION: v2.11.0
+
 on:
   push:
     branches:
@@ -58,5 +61,8 @@ jobs:
       - name: Run Go tests
         run: go test ./app ./internal/...
 
-      - name: Build desktop entrypoint
-        run: go build .
+      - name: Install Wails CLI
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@${{ env.WAILS_VERSION }}
+
+      - name: Build desktop app
+        run: wails build -clean
