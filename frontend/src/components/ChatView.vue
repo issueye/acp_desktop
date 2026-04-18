@@ -392,9 +392,41 @@ function getStatusIcon(status) {
 
       <Transition name="scroll-jump">
         <div v-if="messages.length > 0 && !isPinnedToBottom" class="scroll-jump">
-          <UEDButton class="scroll-jump__button" variant="secondary" size="sm" @click="scrollToBottom">
-            <span aria-hidden="true">↓</span>
-            <span>置底</span>
+          <UEDButton
+            class="scroll-jump__button"
+            variant="secondary"
+            size="sm"
+            title="置底"
+            aria-label="置底"
+            @click="scrollToBottom"
+          >
+            <svg
+              class="scroll-jump__icon"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              aria-hidden="true"
+            >
+              <path
+                d="M12 5.5V17.5"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+              />
+              <path
+                d="M7.5 13L12 17.5L16.5 13"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+              <path
+                d="M6 19.5H18"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+              />
+            </svg>
           </UEDButton>
         </div>
       </Transition>
@@ -402,32 +434,47 @@ function getStatusIcon(status) {
 
     <div class="input-shell" :class="{ 'input-shell-with-plan': currentPlanEntries.length > 0 }">
       <div class="input-container">
-        <CommandPalette
-          ref="commandPaletteRef"
-          :commands="availableCommands"
-          :filter="commandFilter"
-          :visible="showCommandPalette"
-          @select="handleCommandSelect"
-          @close="handleCommandClose"
-        />
-        <UEDInput
-          v-model="inputText"
-          as="textarea"
-          class="chat-input"
-          :placeholder="availableCommands.length > 0 ? t('chat.placeholderCommands') : t('chat.placeholder')"
-          :disabled="isLoading"
-          @keydown="handleKeyDown"
-          :rows="3"
-        />
-        <UEDButton
-          class="send-btn"
-          variant="primary"
-          size="lg"
-          :disabled="!inputText.trim() || isLoading"
-          @click="handleSend"
-        >
-          {{ t('chat.send') }}
-        </UEDButton>
+        <div class="composer-shell">
+          <CommandPalette
+            ref="commandPaletteRef"
+            :commands="availableCommands"
+            :filter="commandFilter"
+            :visible="showCommandPalette"
+            @select="handleCommandSelect"
+            @close="handleCommandClose"
+          />
+          <UEDInput
+            v-model="inputText"
+            as="textarea"
+            class="chat-input"
+            :placeholder="availableCommands.length > 0 ? t('chat.placeholderCommands') : t('chat.placeholder')"
+            :disabled="isLoading"
+            @keydown="handleKeyDown"
+            :rows="3"
+          />
+          <UEDButton
+            class="send-btn"
+            variant="primary"
+            size="lg"
+            :disabled="!inputText.trim() || isLoading"
+            :title="t('chat.send')"
+            :aria-label="t('chat.send')"
+            @click="handleSend"
+          >
+            <svg
+              class="send-btn__icon"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              aria-hidden="true"
+            >
+              <path
+                d="M5.326 18.694L19.43 12 5.326 5.306l1.502 5.163 6.11 1.531-6.11 1.531-1.502 5.163Z"
+                fill="currentColor"
+              />
+            </svg>
+          </UEDButton>
+        </div>
       </div>
     </div>
   </div>
@@ -515,7 +562,11 @@ function getStatusIcon(status) {
 
 .scroll-jump__button {
   pointer-events: auto;
-  min-width: 92px;
+  width: 42px;
+  min-width: 42px;
+  height: 42px;
+  padding: 0;
+  border-radius: 999px;
   border-color: color-mix(in srgb, var(--ued-accent) 20%, var(--ued-border-default));
   background: color-mix(in srgb, var(--ued-bg-panel) 92%, white);
   box-shadow: var(--ued-shadow-panel);
@@ -524,6 +575,12 @@ function getStatusIcon(status) {
 
 .scroll-jump__button:hover {
   transform: translateY(-1px);
+}
+
+.scroll-jump__icon {
+  width: 18px;
+  height: 18px;
+  display: block;
 }
 
 .chat-empty-state {
@@ -721,18 +778,24 @@ function getStatusIcon(status) {
 }
 
 .input-container {
-  position: relative;
-  display: flex;
-  align-items: flex-end;
-  gap: 0.5rem;
   width: min(920px, 100%);
   margin: 0 auto;
 }
 
+.composer-shell {
+  position: relative;
+  width: 100%;
+}
+
 .chat-input {
-  flex: 1;
+  display: block;
+  width: 100%;
   resize: none;
-  min-height: 88px;
+  min-height: 104px;
+  padding: 0.9rem 7rem 3.15rem 0.95rem;
+  line-height: 1.6;
+  border-radius: 14px;
+  box-shadow: var(--ued-shadow-rest);
 }
 
 .cancel-btn {
@@ -740,8 +803,22 @@ function getStatusIcon(status) {
 }
 
 .send-btn {
-  min-width: 98px;
-  align-self: stretch;
+  position: absolute;
+  right: 0.8rem;
+  bottom: 0.8rem;
+  width: 42px;
+  min-width: 42px;
+  height: 42px;
+  padding: 0;
+  border-radius: 999px;
+  z-index: 2;
+  box-shadow: var(--ued-shadow-panel);
+}
+
+.send-btn__icon {
+  width: 18px;
+  height: 18px;
+  display: block;
 }
 
 .thought-section {
@@ -848,12 +925,9 @@ function getStatusIcon(status) {
     bottom: 12px;
   }
 
-  .input-container {
-    flex-direction: column;
-  }
-
   .send-btn {
-    width: 100%;
+    right: 0.7rem;
+    bottom: 0.7rem;
   }
 }
 </style>

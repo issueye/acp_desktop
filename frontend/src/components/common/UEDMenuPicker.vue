@@ -65,12 +65,13 @@ const currentItem = computed(() =>
 );
 
 const filteredItems = computed(() => {
+  const items = Array.isArray(props.items) ? props.items : [];
   const normalizedQuery = normalizeSearchText(searchDraft.value);
   if (!props.searchable || !normalizedQuery) {
-    return props.items;
+    return items;
   }
 
-  return props.items
+  return items
     .map((item) => {
       const nameScore = getFuzzyScore(normalizedQuery, item.name);
       const idScore = getFuzzyScore(normalizedQuery, item.id);
@@ -132,10 +133,9 @@ watch(isOpen, async (open) => {
         <div v-if="searchable" class="ued-menu-picker__search">
           <UEDInput
             ref="searchInputRef"
-            :model-value="searchDraft"
+            v-model="searchDraft"
             :placeholder="searchPlaceholder"
             class="ued-menu-picker__search-input"
-            @update:modelValue="searchDraft = $event"
           />
         </div>
 
