@@ -30,6 +30,7 @@ func main() {
 		MinWidth:                 1080,
 		MinHeight:                720,
 		Frameless:                true,
+		HideWindowOnClose:        true,
 		BackgroundColour:         options.NewRGB(8, 12, 18),
 		AssetServer:              &assetserver.Options{Assets: assets},
 		OnStartup:                app.Startup,

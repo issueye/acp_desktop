@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -22,6 +23,11 @@ type App struct {
 	configManager *config.Manager
 	agentManager  *agent.Manager
 	storeManager  *store.Manager
+	tray          trayController
+}
+
+type trayController interface {
+	Close()
 }
 
 func New(appName, version string) (*App, error) {
@@ -51,9 +57,15 @@ func New(appName, version string) (*App, error) {
 func (a *App) Startup(ctx context.Context) {
 	a.ctx = ctx
 	a.configManager.StartWatcher()
+	if err := a.initTray(); err != nil {
+		log.Printf("tray initialization failed: %v", err)
+	}
 }
 
 func (a *App) Shutdown(ctx context.Context) {
+	if a.tray != nil {
+		a.tray.Close()
+	}
 	a.configManager.Close()
 	a.agentManager.Shutdown()
 }
