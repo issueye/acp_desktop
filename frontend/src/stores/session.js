@@ -702,7 +702,7 @@ function appendTextPart(message, type, text) {
         },
         clientInfo: {
           name: 'acp-ui',
-          title: 'ACP UI',
+          title: 'ACP DESKTOP',
           version: appVersion,
         },
       });
@@ -838,7 +838,7 @@ function appendTextPart(message, type, text) {
         },
         clientInfo: {
           name: 'acp-ui',
-          title: 'ACP UI',
+          title: 'ACP DESKTOP',
           version: appVersion,
         },
       });

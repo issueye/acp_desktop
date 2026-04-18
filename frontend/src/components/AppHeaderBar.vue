@@ -1,6 +1,7 @@
 <script setup>
 import { useI18n } from '../lib/i18n';
 import UEDButton from './common/UEDButton.vue';
+import brandMark from '../assets/acp-desktop-mark.svg';
 
 defineProps({
     locale: { type: String, required: true },
@@ -19,9 +20,11 @@ const { t } = useI18n();
 <template>
   <header class="window-header drag-region" @dblclick="emit('headerDblclick')">
     <div class="window-brand">
-      <div class="brand-mark" aria-hidden="true"></div>
+      <div class="brand-mark" aria-hidden="true">
+        <img class="brand-mark__image" :src="brandMark" alt="" />
+      </div>
       <div class="brand-copy">
-        <strong>ACP UI</strong>
+        <strong>ACP DESKTOP</strong>
       </div>
     </div>
 
@@ -85,20 +88,15 @@ const { t } = useI18n();
 .brand-mark {
   width: 28px;
   height: 28px;
-  border-radius: 8px;
-  background: linear-gradient(180deg, var(--ued-bg-panel), var(--ued-accent-soft));
-  border: 1px solid color-mix(in srgb, var(--ued-accent) 18%, var(--ued-border-default));
-  position: relative;
-  box-shadow: var(--ued-shadow-rest);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
 }
 
-.brand-mark::before {
-  content: '';
-  position: absolute;
-  inset: 8px;
-  border-radius: 50%;
-  background: var(--text-accent);
-  opacity: 0.9;
+.brand-mark__image {
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 
 .brand-copy {

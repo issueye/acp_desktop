@@ -1,8 +1,8 @@
-# ACP UI Wails Migration Implementation Plan
+# ACP DESKTOP Wails Migration Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Replace the current Tauri (Rust) desktop runtime with a Go + Wails runtime while preserving ACP UI feature parity and release quality.
+**Goal:** Replace the current Tauri (Rust) desktop runtime with a Go + Wails runtime while preserving ACP DESKTOP feature parity and release quality.
 
 **Architecture:** Keep the existing Vue 3 + Pinia frontend and replace the desktop integration layer only. Move Tauri commands/events from `src-tauri/src/*.rs` to Go services bound through Wails. Keep JSON-RPC ACP flow and UI state logic intact by swapping `src/lib/tauri.ts` with a Wails bridge and runtime event listeners.
 
@@ -86,7 +86,7 @@ Expected: FAIL with `undefined: buildAppOptions`
 ```go
 func buildAppOptions() *options.App {
     return &options.App{
-        Title: "ACP UI",
+        Title: "ACP DESKTOP",
         Width: 1200,
         Height: 800,
         Bind: []interface{}{app.New()},

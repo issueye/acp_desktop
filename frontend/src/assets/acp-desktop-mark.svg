@@ -1,0 +1,28 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect x="4" y="4" width="56" height="56" rx="16" fill="url(#acp-bg)" />
+  <rect x="4.5" y="4.5" width="55" height="55" rx="15.5" stroke="url(#acp-border)" />
+  <rect x="14" y="16" width="36" height="32" rx="10" fill="#FCFDFE" />
+  <rect x="14" y="16" width="36" height="32" rx="10" stroke="#D8E0EB" />
+  <path d="M24 16V48" stroke="#E6ECF3" />
+  <circle cx="20" cy="22" r="2.5" fill="#6C89BC" />
+  <rect x="18" y="29" width="4" height="11" rx="2" fill="#E8EEF6" />
+  <rect x="28" y="23" width="16" height="3.5" rx="1.75" fill="#CBD7E7" />
+  <rect x="28" y="30" width="12" height="3.5" rx="1.75" fill="#D9E2EE" />
+  <rect x="28" y="37" width="9" height="3.5" rx="1.75" fill="#E4EBF4" />
+  <path d="M41.5 43.5C45.6421 43.5 49 40.1421 49 36C49 31.8579 45.6421 28.5 41.5 28.5C37.3579 28.5 34 31.8579 34 36C34 40.1421 37.3579 43.5 41.5 43.5Z" fill="url(#acp-orbit)" />
+  <path d="M44.8 34.7L40.9 39.2L38.3 36.6" stroke="white" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" />
+  <defs>
+    <linearGradient id="acp-bg" x1="10" y1="8" x2="54" y2="58" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F9FBFD" />
+      <stop offset="1" stop-color="#EAF0F7" />
+    </linearGradient>
+    <linearGradient id="acp-border" x1="12" y1="6" x2="52" y2="58" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#DCE4EF" />
+      <stop offset="1" stop-color="#C6D2E3" />
+    </linearGradient>
+    <linearGradient id="acp-orbit" x1="36.5" y1="30" x2="48.5" y2="42.5" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#7EA0D6" />
+      <stop offset="1" stop-color="#4E6FA8" />
+    </linearGradient>
+  </defs>
+</svg>
