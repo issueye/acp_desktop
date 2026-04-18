@@ -4,8 +4,7 @@ import (
 	"embed"
 	"log"
 
-	appcore "acp_go_ui/app"
-
+	appcore "github.com/issueye/acp_desktop/app"
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"

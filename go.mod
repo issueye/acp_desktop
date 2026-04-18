@@ -1,4 +1,4 @@
-module acp_go_ui
+module github.com/issueye/acp_desktop
 
 go 1.22.0
 

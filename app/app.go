@@ -9,10 +9,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"acp_go_ui/internal/agent"
-	"acp_go_ui/internal/config"
-	"acp_go_ui/internal/store"
-	"acp_go_ui/internal/system"
+	"github.com/issueye/acp_desktop/internal/agent"
+	"github.com/issueye/acp_desktop/internal/config"
+	"github.com/issueye/acp_desktop/internal/store"
+	"github.com/issueye/acp_desktop/internal/system"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )

@@ -12,7 +12,7 @@ import (
 	"strings"
 	"sync"
 
-	"acp_go_ui/internal/config"
+	"github.com/issueye/acp_desktop/internal/config"
 )
 
 type AgentInstance struct {
