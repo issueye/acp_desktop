@@ -3,7 +3,6 @@ import { useI18n } from '../lib/i18n';
 import UEDButton from './common/UEDButton.vue';
 
 defineProps({
-    showSidebar: { type: Boolean, required: true },
     locale: { type: String, required: true },
     currentSessionTitle: { type: String, required: true },
     activeStatusLabel: { type: String, required: true },
@@ -12,7 +11,7 @@ defineProps({
     isLive: { type: Boolean, required: true },
 });
 
-const emit = defineEmits(['toggleSidebar', 'toggleTraffic', 'toggleLocale', 'openSettings', 'minimise', 'close', 'headerDblclick']);
+const emit = defineEmits(['toggleTraffic', 'toggleLocale', 'openSettings', 'minimise', 'close', 'headerDblclick']);
 
 const { t } = useI18n();
 </script>
@@ -20,13 +19,6 @@ const { t } = useI18n();
 <template>
   <header class="window-header drag-region" @dblclick="emit('headerDblclick')">
     <div class="window-brand">
-      <button
-        class="header-icon-button ued-icon-btn no-drag"
-        :title="showSidebar ? t('app.collapseSidebar') : t('app.expandSidebar')"
-        @click="emit('toggleSidebar')"
-      >
-        {{ showSidebar ? '◀' : '▶' }}
-      </button>
       <div class="brand-mark" aria-hidden="true"></div>
       <div class="brand-copy">
         <strong>ACP UI</strong>

@@ -23,52 +23,70 @@ const panelSummaryLabel = computed(
 
 <template>
   <section class="current-plan-panel" :class="{ 'is-collapsed': collapsed }">
-    <div class="plan-panel-wrap">
-      <div class="plan-shell">
-        <button
-          type="button"
-          class="plan-toggle ued-btn ued-btn--ghost"
-          :aria-expanded="!collapsed"
-          :aria-label="collapsed ? panelSummaryLabel : undefined"
-          :title="collapsed ? panelSummaryLabel : undefined"
-          @click="emit('toggle')"
-        >
-          <div class="plan-toggle-summary">
-            <svg class="plan-toggle-mark" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-              <path
-                d="M3.5 4.5h5M3.5 8h7M3.5 11.5h4"
-                stroke="currentColor"
-                stroke-width="1.3"
-                stroke-linecap="round"
-              />
-              <path
-                d="M11.25 4.25l1 1 1.75-2"
-                stroke="currentColor"
-                stroke-width="1.3"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              />
-            </svg>
-            <span class="plan-toggle-title">
-              {{ panelSummaryLabel }}
-            </span>
-          </div>
-          <span class="plan-toggle-icon" :class="{ collapsed }" aria-hidden="true">
-            <svg viewBox="0 0 16 16" fill="none">
-              <path
-                d="M5.25 9.75L8 7l2.75 2.75"
-                stroke="currentColor"
-                stroke-width="1.35"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              />
-            </svg>
-          </span>
-        </button>
+    <button
+      type="button"
+      class="plan-floating-toggle"
+      :aria-expanded="!collapsed"
+      :aria-label="collapsed ? panelSummaryLabel : t('chat.currentPlan')"
+      :title="collapsed ? panelSummaryLabel : t('chat.currentPlan')"
+      @click="emit('toggle')"
+    >
+      <svg
+        class="plan-floating-toggle__icon"
+        viewBox="0 0 24 24"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        aria-hidden="true"
+      >
+        <path
+          v-if="collapsed"
+          d="M14.5 6.5L9 12L14.5 17.5"
+          stroke="currentColor"
+          stroke-width="1.9"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+        <path
+          v-else
+          d="M9.5 6.5L15 12L9.5 17.5"
+          stroke="currentColor"
+          stroke-width="1.9"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+      </svg>
+      <span v-if="collapsed" class="plan-floating-toggle__badge">
+        {{ entries.length }}
+      </span>
+    </button>
 
-        <div v-if="!collapsed" class="plan-panel-body">
-          <PlanCard :entries="entries" />
+    <div v-if="!collapsed" class="plan-shell">
+      <div class="plan-panel-header">
+        <div class="plan-panel-summary">
+          <svg class="plan-toggle-mark" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path
+              d="M3.5 4.5h5M3.5 8h7M3.5 11.5h4"
+              stroke="currentColor"
+              stroke-width="1.3"
+              stroke-linecap="round"
+            />
+            <path
+              d="M11.25 4.25l1 1 1.75-2"
+              stroke="currentColor"
+              stroke-width="1.3"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+          <div class="plan-panel-copy">
+            <strong>{{ t('chat.currentPlan') }}</strong>
+            <span>{{ panelSummaryLabel }}</span>
+          </div>
         </div>
+      </div>
+
+      <div class="plan-panel-body">
+        <PlanCard :entries="entries" />
       </div>
     </div>
   </section>
@@ -76,19 +94,12 @@ const panelSummaryLabel = computed(
 
 <style scoped>
 .current-plan-panel {
-  width: 100%;
+  position: relative;
+  width: min(380px, calc(100vw - 32px));
+  min-height: 60px;
   display: flex;
   justify-content: flex-end;
-}
-
-.plan-panel-wrap {
-  width: 100%;
-  display: flex;
-  justify-content: flex-end;
-}
-
-.current-plan-panel.is-collapsed .plan-panel-wrap {
-  width: auto;
+  pointer-events: none;
 }
 
 .plan-shell {
@@ -101,57 +112,79 @@ const panelSummaryLabel = computed(
   backdrop-filter: blur(14px);
   overflow: hidden;
   transform-origin: right center;
-  transition:
-    width 0.26s cubic-bezier(0.22, 1, 0.36, 1),
-    box-shadow 0.26s ease,
-    border-color 0.26s ease,
-    transform 0.26s cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: auto;
 }
 
-.current-plan-panel.is-collapsed .plan-shell {
-  width: 48px;
-  box-shadow: 0 12px 28px rgba(16, 24, 40, 0.18);
-  transform: translateX(2px);
-}
-
-.plan-toggle {
-  width: 100%;
-  display: flex;
+.plan-floating-toggle {
+  position: absolute;
+  top: 50%;
+  right: -14px;
+  z-index: 2;
+  width: 30px;
+  height: 60px;
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  min-height: 42px;
-  padding: 0.6rem 0.8rem;
-  border-radius: var(--ued-radius-lg) var(--ued-radius-lg) 0 0;
-  background: color-mix(in srgb, var(--ued-bg-panel) 70%, white);
-  text-align: left;
-  transition:
-    background 0.15s ease,
-    color 0.15s ease,
-    padding 0.26s cubic-bezier(0.22, 1, 0.36, 1),
-    min-height 0.26s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.current-plan-panel.is-collapsed .plan-toggle {
   justify-content: center;
-  min-height: 48px;
   padding: 0;
+  border: 1px solid color-mix(in srgb, var(--ued-border-default) 82%, white);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ued-bg-panel) 88%, white);
+  color: var(--ued-text-muted);
+  box-shadow: 0 8px 24px rgba(19, 31, 52, 0.08);
+  backdrop-filter: blur(10px);
+  cursor: pointer;
+  pointer-events: auto;
+  transform: translateY(-50%);
+  transition:
+    background-color 0.16s ease,
+    border-color 0.16s ease,
+    box-shadow 0.16s ease,
+    color 0.16s ease,
+    right 0.2s ease;
 }
 
-.plan-toggle:hover {
-  background: var(--ued-bg-panel-hover);
+.plan-floating-toggle:hover {
+  color: var(--ued-accent);
+  border-color: color-mix(in srgb, var(--ued-accent) 26%, var(--ued-border-default));
+  background: color-mix(in srgb, var(--ued-bg-panel) 94%, white);
+  box-shadow: 0 10px 28px rgba(19, 31, 52, 0.12);
 }
 
-.plan-toggle-summary {
+.plan-floating-toggle__icon {
+  width: 16px;
+  height: 16px;
+  display: block;
+}
+
+.plan-floating-toggle__badge {
+  position: absolute;
+  left: -4px;
+  bottom: -3px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 0.24rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--ued-accent);
+  color: var(--ued-text-on-accent);
+  font-size: 0.64rem;
+  font-weight: 700;
+  box-shadow: 0 0 0 2px var(--ued-bg-window);
+}
+
+.plan-panel-header {
+  padding: 0.75rem 0.85rem 0.55rem;
+  border-bottom: 1px solid var(--ued-border-subtle);
+  background: color-mix(in srgb, var(--ued-bg-panel) 84%, white);
+}
+
+.plan-panel-summary {
   min-width: 0;
   display: flex;
   align-items: center;
   gap: 0.45rem;
-  transition: gap 0.26s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.current-plan-panel.is-collapsed .plan-toggle-summary {
-  gap: 0;
 }
 
 .plan-toggle-mark {
@@ -159,64 +192,50 @@ const panelSummaryLabel = computed(
   height: 16px;
   flex-shrink: 0;
   color: var(--ued-accent);
-  transition:
-    color 0.18s ease,
-    transform 0.26s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.current-plan-panel.is-collapsed .plan-toggle-mark {
-  transform: scale(1.02);
+.plan-panel-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.08rem;
 }
 
-.plan-toggle-title {
+.plan-panel-copy strong {
   font-size: 0.8rem;
   font-weight: 600;
   color: var(--ued-text-primary);
+  line-height: 1.35;
+}
+
+.plan-panel-copy span {
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: var(--ued-text-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  transition:
-    opacity 0.16s ease,
-    max-width 0.26s cubic-bezier(0.22, 1, 0.36, 1),
-    transform 0.26s cubic-bezier(0.22, 1, 0.36, 1);
-  max-width: 260px;
-}
-
-.current-plan-panel.is-collapsed .plan-toggle-title {
-  opacity: 0;
-  max-width: 0;
-  transform: translateX(8px);
-}
-
-.plan-toggle-icon {
-  width: 15px;
-  height: 15px;
-  flex-shrink: 0;
-  color: var(--ued-text-muted);
-  transition:
-    transform 0.18s ease,
-    opacity 0.16s ease,
-    width 0.26s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.plan-toggle-icon svg {
-  width: 100%;
-  height: 100%;
-}
-
-.current-plan-panel.is-collapsed .plan-toggle-icon {
-  opacity: 0;
-  width: 0;
-}
-
-.plan-toggle-icon.collapsed {
-  transform: rotate(180deg);
 }
 
 .plan-panel-body {
-  padding: 0.15rem 0.8rem 0.75rem;
-  border-top: 1px solid var(--ued-border-subtle);
+  padding: 0.35rem 0.8rem 0.75rem;
   max-height: min(40vh, 320px);
   overflow: auto;
+}
+
+@media (max-width: 720px) {
+  .current-plan-panel {
+    width: min(340px, calc(100vw - 24px));
+  }
+
+  .plan-shell {
+    width: min(340px, calc(100vw - 24px));
+  }
+
+  .plan-floating-toggle {
+    width: 28px;
+    height: 54px;
+    right: -12px;
+  }
 }
 </style>

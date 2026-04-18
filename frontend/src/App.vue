@@ -422,14 +422,12 @@ function handleGlobalKeydown(event) {
   <div class="app-shell">
     <div class="window-frame">
       <AppHeaderBar
-        :show-sidebar="showSidebar"
         :locale="locale"
         :current-session-title="currentSessionTitle"
         :active-status-label="activeStatusLabel"
         :cwd-label="selectedCwd ? selectedCwdCompact : ''"
         :traffic-monitor-open="showTrafficMonitor"
         :is-live="isConnected || isConnecting"
-        @toggle-sidebar="toggleSidebar"
         @toggle-traffic="showTrafficMonitor = !showTrafficMonitor"
         @toggle-locale="toggleLocale"
         @open-settings="openSettings()"
@@ -463,11 +461,6 @@ function handleGlobalKeydown(event) {
           @open-settings="openSettings()"
         />
 
-        <button v-else class="sidebar-rail ued-btn ued-btn--ghost no-drag" :title="t('app.expandSidebar')" @click="toggleSidebar">
-          <span>▶</span>
-          <span>{{ savedSessionCount }}</span>
-        </button>
-
         <div class="content-stage">
           <main class="main-content">
             <div v-if="error" class="error-banner">
@@ -490,6 +483,46 @@ function handleGlobalKeydown(event) {
             />
           </main>
         </div>
+
+        <button
+          class="floating-sidebar-toggle no-drag"
+          :class="{ 'is-open': showSidebar }"
+          :style="{
+            left: showSidebar ? '320px' : '12px',
+            transform: showSidebar ? 'translate(-50%, -50%)' : 'translateY(-50%)',
+          }"
+          :title="showSidebar ? t('app.collapseSidebar') : t('app.expandSidebar')"
+          :aria-label="showSidebar ? t('app.collapseSidebar') : t('app.expandSidebar')"
+          @click="toggleSidebar"
+        >
+          <svg
+            class="floating-sidebar-toggle__icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true"
+          >
+            <path
+              v-if="showSidebar"
+              d="M14.5 6.5L9 12L14.5 17.5"
+              stroke="currentColor"
+              stroke-width="1.9"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+            <path
+              v-else
+              d="M9.5 6.5L15 12L9.5 17.5"
+              stroke="currentColor"
+              stroke-width="1.9"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+          <span v-if="!showSidebar && savedSessionCount > 0" class="floating-sidebar-toggle__badge">
+            {{ savedSessionCount }}
+          </span>
+        </button>
       </div>
     </div>
 
@@ -609,29 +642,69 @@ input, textarea, select { user-select: text; }
 <style scoped>
 .app-shell { height: 100vh; padding: 0; }
 .window-frame { height: 100%; display: flex; flex-direction: column; overflow: hidden; border-radius: 0; background: var(--ued-bg-window); border: none; box-shadow: none; }
-.window-body { flex: 1; min-height: 0; display: flex; gap: 0; padding: 0; background: var(--ued-bg-window); }
-.sidebar-rail {
-  width: 54px;
-  min-height: 100%;
-  border-right: 1px solid var(--ued-border-default);
-  background: var(--bg-sidebar);
-  color: var(--text-secondary);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: .4rem;
-  border-radius: 0;
-  transform: none;
-  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.65);
-}
-
-.sidebar-rail:hover,
-.sidebar-rail:active {
-  transform: none;
-}
+.window-body { position: relative; flex: 1; min-height: 0; display: flex; gap: 0; padding: 0; background: var(--ued-bg-window); }
 .content-stage { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 0; background: var(--ued-bg-panel); }
 .main-content { flex: 1; min-height: 0; overflow: hidden; background: linear-gradient(180deg, var(--ued-bg-panel) 0%, var(--ued-bg-window) 100%); }
+.floating-sidebar-toggle {
+  position: absolute;
+  top: 50%;
+  z-index: 9;
+  width: 30px;
+  height: 60px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--ued-border-default) 82%, white);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ued-bg-panel) 88%, white);
+  color: var(--ued-text-muted);
+  box-shadow: 0 8px 24px rgba(19, 31, 52, 0.08);
+  backdrop-filter: blur(10px);
+  cursor: pointer;
+  transition:
+    background-color 0.16s ease,
+    border-color 0.16s ease,
+    box-shadow 0.16s ease,
+    color 0.16s ease,
+    left 0.2s ease;
+}
+
+.floating-sidebar-toggle:hover {
+  color: var(--ued-accent);
+  border-color: color-mix(in srgb, var(--ued-accent) 26%, var(--ued-border-default));
+  background: color-mix(in srgb, var(--ued-bg-panel) 94%, white);
+  box-shadow: 0 10px 28px rgba(19, 31, 52, 0.12);
+}
+
+.floating-sidebar-toggle.is-open {
+  background: color-mix(in srgb, var(--ued-bg-panel) 92%, white);
+}
+
+.floating-sidebar-toggle__icon {
+  width: 16px;
+  height: 16px;
+  display: block;
+}
+
+.floating-sidebar-toggle__badge {
+  position: absolute;
+  right: -4px;
+  bottom: -3px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 0.24rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--ued-accent);
+  color: var(--ued-text-on-accent);
+  font-size: 0.64rem;
+  font-weight: 700;
+  box-shadow: 0 0 0 2px var(--ued-bg-window);
+}
+
 .error-banner {
   display: flex;
   align-items: center;
@@ -647,5 +720,9 @@ input, textarea, select { user-select: text; }
 @media (max-width: 900px) {
   .app-shell { padding: 0; }
   .window-body { padding: 0; }
+  .floating-sidebar-toggle {
+    width: 28px;
+    height: 54px;
+  }
 }
 </style>

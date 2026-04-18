@@ -700,7 +700,7 @@ function toggleToolCall(toolCallId) {
   position: absolute;
   top: 78px;
   right: 4px;
-  width: min(380px, calc(100vw - 32px));
+  width: auto;
   z-index: 7;
 }
 
@@ -1288,7 +1288,7 @@ function toggleToolCall(toolCallId) {
   .chat-plan-floating {
     top: 118px;
     right: 12px;
-    width: min(340px, calc(100vw - 24px));
+    width: auto;
   }
 
   .scroll-jump {
