@@ -469,9 +469,24 @@ function getToolStatusLabel(status) {
           </template>
         </div>
 
-        <div v-if="isLoading" class="loading-indicator">
-          <span class="spinner"></span>
-          <span>{{ t('chat.thinking') }}</span>
+        <div v-if="isLoading" class="loading-indicator" role="status" aria-live="polite">
+          <span class="loading-indicator__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path
+                d="M9.5 18.5H14.5M10 21H14M8.25 14.75C7 13.74 6.2 12.19 6.2 10.45C6.2 7.44 8.76 5 12 5C15.24 5 17.8 7.44 17.8 10.45C17.8 12.19 17 13.74 15.75 14.75C15.18 15.21 14.82 15.89 14.82 16.63V17H9.18V16.63C9.18 15.89 8.82 15.21 8.25 14.75Z"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </span>
+          <span class="loading-indicator__label">{{ t('chat.thinking') }}</span>
+          <span class="loading-indicator__dots" aria-hidden="true">
+            <span></span>
+            <span></span>
+            <span></span>
+          </span>
           <UEDButton class="cancel-btn" variant="secondary" size="sm" @click="handleCancel">
             {{ t('chat.cancel') }}
           </UEDButton>
@@ -880,25 +895,67 @@ function getToolStatusLabel(status) {
 .loading-indicator {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.95rem 1rem;
+  gap: 0.42rem;
+  padding: 0.45rem 0;
   color: var(--ued-text-muted);
-  border-radius: var(--ued-radius-md);
-  background: var(--ued-bg-panel);
-  border: 1px solid var(--ued-border-default);
+  background: transparent;
+  border: none;
 }
 
-.spinner {
-  width: 16px;
-  height: 16px;
-  border: 2px solid var(--ued-border-default);
-  border-top-color: var(--ued-accent);
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
+.loading-indicator__icon {
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  color: var(--ued-text-muted);
 }
 
-@keyframes spin {
-  to { transform: rotate(360deg); }
+.loading-indicator__icon svg {
+  width: 13px;
+  height: 13px;
+  display: block;
+}
+
+.loading-indicator__label {
+  font-size: 0.78rem;
+  font-weight: 500;
+}
+
+.loading-indicator__dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.18rem;
+  min-width: 18px;
+}
+
+.loading-indicator__dots span {
+  width: 3px;
+  height: 3px;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0.28;
+  animation: loading-pulse 1.2s ease-in-out infinite;
+}
+
+.loading-indicator__dots span:nth-child(2) {
+  animation-delay: 0.16s;
+}
+
+.loading-indicator__dots span:nth-child(3) {
+  animation-delay: 0.32s;
+}
+
+@keyframes loading-pulse {
+  0%,
+  100% {
+    opacity: 0.22;
+    transform: translateY(0);
+  }
+
+  50% {
+    opacity: 0.72;
+    transform: translateY(-1px);
+  }
 }
 
 .scroll-jump-enter-active,
