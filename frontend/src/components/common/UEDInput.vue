@@ -1,5 +1,5 @@
 <script setup>
-import { computed, useAttrs } from 'vue';
+import { computed, ref, useAttrs } from 'vue';
 
 const props = defineProps({
     modelValue: { type: [String, Number], default: '' },
@@ -11,9 +11,10 @@ const props = defineProps({
     error: { type: Boolean, default: false },
 });
 
-const emit = defineEmits(['update:modelValue']);
+const emit = defineEmits(['update:modelValue', 'keydown']);
 
 const attrs = useAttrs();
+const controlRef = ref(null);
 
 const classes = computed(() => [
   props.as === 'textarea' ? 'ued-textarea' : 'ued-input',
@@ -21,13 +22,27 @@ const classes = computed(() => [
 ]);
 
 function handleInput(event) {
-  emit('update:modelValue', (event.target | HTMLTextAreaElement).value);
+  const target = event.target;
+  emit('update:modelValue', target ? target.value : '');
 }
+
+function handleKeydown(event) {
+  emit('keydown', event);
+}
+
+function focus() {
+  controlRef.value?.focus();
+}
+
+defineExpose({
+  focus,
+});
 </script>
 
 <template>
   <textarea
     v-if="as === 'textarea'"
+    ref="controlRef"
     v-bind="attrs"
     :class="classes"
     :rows="rows"
@@ -35,9 +50,11 @@ function handleInput(event) {
     :disabled="disabled"
     :value="modelValue"
     @input="handleInput"
+    @keydown="handleKeydown"
   />
   <input
     v-else
+    ref="controlRef"
     v-bind="attrs"
     :class="classes"
     :type="type"
@@ -45,5 +62,6 @@ function handleInput(event) {
     :disabled="disabled"
     :value="modelValue"
     @input="handleInput"
+    @keydown="handleKeydown"
   />
 </template>

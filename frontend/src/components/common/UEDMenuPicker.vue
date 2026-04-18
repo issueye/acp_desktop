@@ -18,22 +18,73 @@ const props = defineProps({
 const emit = defineEmits(['change']);
 
 const isOpen = ref(false);
-const searchQuery = ref('');
+const searchDraft = ref('');
 const searchInputRef = ref(null);
+
+function normalizeSearchText(value) {
+  return String(value ?? '').trim().toLowerCase();
+}
+
+function getFuzzyScore(query, value) {
+  const normalizedQuery = normalizeSearchText(query);
+  const normalizedValue = normalizeSearchText(value);
+
+  if (!normalizedQuery) {
+    return 0;
+  }
+
+  const directIndex = normalizedValue.indexOf(normalizedQuery);
+  if (directIndex >= 0) {
+    return 1000 - directIndex;
+  }
+
+  let queryIndex = 0;
+  let streak = 0;
+  let score = 0;
+
+  for (let i = 0; i < normalizedValue.length && queryIndex < normalizedQuery.length; i++) {
+    if (normalizedValue[i] !== normalizedQuery[queryIndex]) {
+      streak = 0;
+      continue;
+    }
+
+    score += streak > 0 ? 24 : 10;
+    streak += 1;
+    queryIndex += 1;
+  }
+
+  if (queryIndex !== normalizedQuery.length) {
+    return -1;
+  }
+
+  return score - normalizedValue.length * 0.01;
+}
 
 const currentItem = computed(() =>
   props.items.find((item) => item.id === props.currentId) ?? null
 );
 
 const filteredItems = computed(() => {
-  const normalizedQuery = String(searchQuery.value ?? '').trim().toLowerCase();
+  const normalizedQuery = normalizeSearchText(searchDraft.value);
   if (!props.searchable || !normalizedQuery) {
     return props.items;
   }
-  return props.items.filter((item) => {
-    const haystack = `${item.name ?? ''} ${item.description ?? ''} ${item.id ?? ''}`.toLowerCase();
-    return haystack.includes(normalizedQuery);
-  });
+
+  return props.items
+    .map((item) => {
+      const nameScore = getFuzzyScore(normalizedQuery, item.name);
+      const idScore = getFuzzyScore(normalizedQuery, item.id);
+      const descriptionScore = getFuzzyScore(normalizedQuery, item.description);
+      const bestScore = Math.max(nameScore, idScore, descriptionScore);
+
+      return {
+        item,
+        score: bestScore,
+      };
+    })
+    .filter(({ score }) => score >= 0)
+    .sort((left, right) => right.score - left.score)
+    .map(({ item }) => item);
 });
 
 function toggleDropdown() {
@@ -55,7 +106,7 @@ watch(isOpen, async (open) => {
     searchInputRef.value?.focus();
     return;
   }
-  searchQuery.value = '';
+  searchDraft.value = '';
 });
 </script>
 
@@ -81,10 +132,10 @@ watch(isOpen, async (open) => {
         <div v-if="searchable" class="ued-menu-picker__search">
           <UEDInput
             ref="searchInputRef"
-            :model-value="searchQuery"
+            :model-value="searchDraft"
             :placeholder="searchPlaceholder"
             class="ued-menu-picker__search-input"
-            @update:modelValue="searchQuery = $event"
+            @update:modelValue="searchDraft = $event"
           />
         </div>
 

@@ -47,7 +47,7 @@ function close() {
 }
 
 function handleDocumentClick(event) {
-  const target = event.target | null;
+  const target = event.target;
   if (!props.modelValue || !rootRef.value || (target && rootRef.value.contains(target))) {
     return;
   }

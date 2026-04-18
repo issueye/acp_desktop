@@ -46,7 +46,7 @@ const emit = defineEmits(['dismiss']);
 .toast-stack {
   position: fixed;
   right: 16px;
-  bottom: 16px;
+  top: 16px;
   z-index: 1200;
   display: flex;
   flex-direction: column;
@@ -62,10 +62,10 @@ const emit = defineEmits(['dismiss']);
   min-height: 48px;
   padding: 0.7rem 0.75rem 0.7rem 0;
   border-radius: var(--ued-radius-md);
-  border: 1px solid var(--ued-border-default);
-  background: color-mix(in srgb, var(--ued-bg-panel) 92%, white);
+  border: 1px solid color-mix(in srgb, var(--ued-border-default) 72%, white);
+  background: color-mix(in srgb, var(--ued-bg-panel) 68%, transparent);
   box-shadow: var(--ued-shadow-panel);
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(14px) saturate(1.1);
 }
 
 .toast-accent {
@@ -79,7 +79,7 @@ const emit = defineEmits(['dismiss']);
 }
 
 .toast-item.info {
-  background: color-mix(in srgb, var(--ued-info-soft) 90%, white);
+  background: color-mix(in srgb, var(--ued-info-soft) 58%, transparent);
 }
 
 .toast-item.success .toast-accent {
@@ -87,7 +87,7 @@ const emit = defineEmits(['dismiss']);
 }
 
 .toast-item.success {
-  background: color-mix(in srgb, var(--ued-success-soft) 90%, white);
+  background: color-mix(in srgb, var(--ued-success-soft) 58%, transparent);
 }
 
 .toast-item.warning .toast-accent {
@@ -95,7 +95,7 @@ const emit = defineEmits(['dismiss']);
 }
 
 .toast-item.warning {
-  background: color-mix(in srgb, var(--ued-warning-soft) 90%, white);
+  background: color-mix(in srgb, var(--ued-warning-soft) 58%, transparent);
 }
 
 .toast-item.danger .toast-accent {
@@ -103,7 +103,7 @@ const emit = defineEmits(['dismiss']);
 }
 
 .toast-item.danger {
-  background: color-mix(in srgb, var(--ued-danger-soft) 92%, white);
+  background: color-mix(in srgb, var(--ued-danger-soft) 60%, transparent);
 }
 
 .toast-icon {
