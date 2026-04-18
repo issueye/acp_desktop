@@ -75,6 +75,10 @@ The task panel displays the current plan on the right side of the chat window, w
 4. During execution, review tool calls, thinking state, and the current task plan on the right.
 5. Disconnect when finished, then resume the session later from the saved sessions list.
 
+## Documentation
+
+- [ACP protocol interaction guide](./docs/acp-protocol-interaction.md)
+
 ## Project Structure
 
 ```text
