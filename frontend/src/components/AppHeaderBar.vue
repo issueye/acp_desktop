@@ -1,7 +1,6 @@
 <script setup>
 import { useI18n } from '../lib/i18n';
-import UEDButton from './common/UEDButton.vue';
-import brandMark from '../assets/acp-desktop-mark.svg';
+import brandMark from '../../../assets/logo.png';
 
 defineProps({
     locale: { type: String, required: true },
@@ -46,16 +45,84 @@ const { t } = useI18n();
         class="header-icon-button ued-icon-btn"
         :class="{ 'ued-icon-btn--active': trafficMonitorOpen }"
         :title="t('app.trafficMonitor')"
+        :aria-label="t('app.trafficMonitor')"
         @click="emit('toggleTraffic')"
       >
-        ~
+        <svg class="header-action-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path
+            d="M4.75 13.25C6.75 10.25 8.75 10.25 10.75 13.25C12.75 16.25 14.75 16.25 16.75 13.25C17.55 12.05 18.35 11.3 19.25 11"
+            stroke="currentColor"
+            stroke-width="1.7"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
       </button>
-      <UEDButton class="header-chip" variant="secondary" size="sm" :title="t('app.language')" @click="emit('toggleLocale')">
-        {{ locale === 'zh-CN' ? t('app.langLabelZh') : t('app.langLabelEn') }}
-      </UEDButton>
-      <button class="header-icon-button ued-icon-btn" :title="t('app.settings')" @click="emit('openSettings')">⚙</button>
-      <button class="header-icon-button ued-icon-btn" :title="t('app.minimise')" @click="emit('minimise')">_</button>
-      <button class="header-icon-button ued-icon-btn ued-icon-btn--danger close-button" :title="t('app.close')" @click="emit('close')">×</button>
+      <button
+        class="header-icon-button ued-icon-btn"
+        :title="`${t('app.language')}: ${locale === 'zh-CN' ? t('app.langLabelZh') : t('app.langLabelEn')}`"
+        :aria-label="t('app.language')"
+        @click="emit('toggleLocale')"
+      >
+        <svg class="header-action-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <circle cx="12" cy="12" r="7.25" stroke="currentColor" stroke-width="1.7" />
+          <path
+            d="M4.75 12H19.25M12 4.75C14 6.7 15.05 9.12 15.05 12C15.05 14.88 14 17.3 12 19.25C10 17.3 8.95 14.88 8.95 12C8.95 9.12 10 6.7 12 4.75Z"
+            stroke="currentColor"
+            stroke-width="1.7"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+      </button>
+      <button
+        class="header-icon-button ued-icon-btn"
+        :title="t('app.settings')"
+        :aria-label="t('app.settings')"
+        @click="emit('openSettings')"
+      >
+        <svg class="header-action-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path
+            d="M10.1 5.25L10.55 3.9H13.45L13.9 5.25C14.08 5.8 14.67 6.1 15.22 5.9L16.55 5.42L18 7.92L16.92 8.8C16.47 9.17 16.47 9.83 16.92 10.2L18 11.08L16.55 13.58L15.22 13.1C14.67 12.9 14.08 13.2 13.9 13.75L13.45 15.1H10.55L10.1 13.75C9.92 13.2 9.33 12.9 8.78 13.1L7.45 13.58L6 11.08L7.08 10.2C7.53 9.83 7.53 9.17 7.08 8.8L6 7.92L7.45 5.42L8.78 5.9C9.33 6.1 9.92 5.8 10.1 5.25Z"
+            stroke="currentColor"
+            stroke-width="1.55"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            transform="translate(0 2.5)"
+          />
+          <circle cx="12" cy="12" r="2.15" stroke="currentColor" stroke-width="1.55" />
+        </svg>
+      </button>
+      <button
+        class="header-icon-button ued-icon-btn"
+        :title="t('app.minimise')"
+        :aria-label="t('app.minimise')"
+        @click="emit('minimise')"
+      >
+        <svg class="header-action-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path
+            d="M7 15.5H17"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+          />
+        </svg>
+      </button>
+      <button
+        class="header-icon-button ued-icon-btn ued-icon-btn--danger close-button"
+        :title="t('app.close')"
+        :aria-label="t('app.close')"
+        @click="emit('close')"
+      >
+        <svg class="header-action-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path
+            d="M8 8L16 16M16 8L8 16"
+            stroke="currentColor"
+            stroke-width="1.85"
+            stroke-linecap="round"
+          />
+        </svg>
+      </button>
     </div>
   </header>
 </template>
@@ -168,24 +235,21 @@ const { t } = useI18n();
   gap: 0.4rem;
 }
 
-.header-chip {
-  min-width: 46px;
-  padding: 0 0.65rem;
-  font-size: 0.74rem;
-  font-weight: 700;
-}
-
 .header-icon-button {
   width: 30px;
   height: 30px;
   display: grid;
   place-items: center;
-  font-size: 0.88rem;
 }
 
-.header-chip:hover,
 .header-icon-button:hover {
   transform: translateY(-1px);
+}
+
+.header-action-icon {
+  width: 16px;
+  height: 16px;
+  display: block;
 }
 
 .close-button:hover {

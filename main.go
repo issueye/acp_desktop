@@ -18,7 +18,7 @@ var assets embed.FS
 var version = "dev"
 
 func main() {
-	app, err := appcore.New("acp-ui", version)
+	app, err := appcore.New("acp_desktop", version)
 	if err != nil {
 		log.Fatalf("failed to initialize app: %v", err)
 	}
