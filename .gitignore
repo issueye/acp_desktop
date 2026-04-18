@@ -25,9 +25,6 @@ bin
 *.rpm
 *.syso
 
-# Go module checksums
-go.sum
-
 # Environment files (may contain secrets)
 .env
 .env.*

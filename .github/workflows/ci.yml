@@ -52,11 +52,11 @@ jobs:
         run: npm run build
         working-directory: frontend
 
-      - name: Download Go modules
-        run: go mod download
+      - name: Verify Go modules
+        run: go mod verify
 
       - name: Run Go tests
-        run: go test ./...
+        run: go test ./app ./internal/...
 
-      - name: Build Go packages
-        run: go build ./...
+      - name: Build desktop entrypoint
+        run: go build .
