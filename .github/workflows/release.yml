@@ -3,6 +3,9 @@ name: Release
 env:
   WAILS_VERSION: v2.11.0
 
+permissions:
+  contents: write
+
 on:
   workflow_dispatch:
     inputs:
@@ -75,9 +78,25 @@ jobs:
       - name: Build desktop app
         run: go run github.com/wailsapp/wails/v2/cmd/wails@${{ env.WAILS_VERSION }} build -clean -ldflags "-X main.version=${{ env.VERSION_LABEL }}"
 
+      - name: Package build artifact
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist-artifacts | Out-Null
+          $archive = "dist-artifacts/acp-desktop-${{ matrix.artifact }}-${{ env.VERSION_LABEL }}.zip"
+          Compress-Archive -Path "build/bin/*" -DestinationPath $archive -Force
+
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
           name: acp-desktop-${{ matrix.artifact }}-${{ env.VERSION_LABEL }}
-          path: build/bin/**
+          path: dist-artifacts/*
           if-no-files-found: error
+
+      - name: Upload release asset
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ACP DESKTOP ${{ github.ref_name }}
+          prerelease: ${{ contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') || contains(github.ref_name, 'rc') }}
+          files: dist-artifacts/*
