@@ -1038,6 +1038,22 @@ function appendTextPart(message, type, text) {
     });
   }
 
+  async function refreshCurrentSession() {
+    const sessionId = activeSessionId.value;
+    if (!sessionId) {
+      throw new Error('No active session');
+    }
+
+    await disconnect(sessionId);
+
+    const savedSession = savedSessions.value.find((session) => session.id === sessionId);
+    if (!savedSession) {
+      throw new Error('Session snapshot not found');
+    }
+
+    await resumeSession(savedSession);
+  }
+
   async function deleteSession(sessionId) {
     if (getConnectedSession(sessionId)) {
       await disconnect(sessionId);
@@ -1114,6 +1130,7 @@ function appendTextPart(message, type, text) {
     selectAuthMethod,
     cancelAuthSelection,
     disconnect,
+    refreshCurrentSession,
     deleteSession,
     setMode,
     setModel,

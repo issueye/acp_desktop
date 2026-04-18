@@ -18,6 +18,7 @@ const inputText = ref('');
 const messagesContainer = ref(null);
 const commandPaletteRef = ref(null);
 const isPinnedToBottom = ref(true);
+const isRefreshingSession = ref(false);
 let scrollFrameId = null;
 
 // Track expanded thought sections by message id
@@ -199,6 +200,21 @@ async function handleModelChange(modelId) {
   }
 }
 
+async function handleRefreshSession() {
+  if (!currentSession.value || isLoading.value || isRefreshingSession.value) {
+    return;
+  }
+
+  isRefreshingSession.value = true;
+  try {
+    await sessionStore.refreshCurrentSession();
+  } catch (e) {
+    console.error('Failed to refresh session:', e);
+  } finally {
+    isRefreshingSession.value = false;
+  }
+}
+
 function isThoughtExpanded(messageId) {
   return expandedThoughts.value.has(messageId);
 }
@@ -316,6 +332,24 @@ function toggleToolCall(toolCallId) {
         <span class="agent-name">{{ currentSession?.agentName }}</span>
       </div>
       <div class="header-right">
+        <button
+          class="chat-header-action ued-icon-btn"
+          :class="{ 'is-spinning': isRefreshingSession }"
+          :title="t('chat.refresh')"
+          :aria-label="t('chat.refresh')"
+          :disabled="!currentSession || isLoading || isRefreshingSession"
+          @click="handleRefreshSession"
+        >
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <path
+              d="M18 8.5V5.5M18 5.5H15M18 5.5L14.75 8.75C13.97 7.97 12.89 7.5 11.7 7.5C9.32 7.5 7.35 9.39 7.25 11.77M6 15.5V18.5M6 18.5H9M6 18.5L9.25 15.25C10.03 16.03 11.11 16.5 12.3 16.5C14.68 16.5 16.65 14.61 16.75 12.23"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </button>
         <ModelPicker 
           v-if="availableModels.length > 0"
           :models="availableModels"
@@ -673,6 +707,21 @@ function toggleToolCall(toolCallId) {
   gap: 0.55rem;
   flex-wrap: wrap;
   justify-content: flex-end;
+}
+
+.chat-header-action {
+  width: 32px;
+  height: 32px;
+}
+
+.chat-header-action svg {
+  width: 15px;
+  height: 15px;
+  display: block;
+}
+
+.chat-header-action.is-spinning svg {
+  animation: chat-refresh-spin 0.9s linear infinite;
 }
 
 .agent-name {
@@ -1069,6 +1118,12 @@ function toggleToolCall(toolCallId) {
   }
 }
 
+@keyframes chat-refresh-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .scroll-jump-enter-active,
 .scroll-jump-leave-active {
   transition: opacity 0.18s ease, transform 0.18s ease;
@@ -1092,7 +1147,6 @@ function toggleToolCall(toolCallId) {
 }
 
 .input-container {
-  width: min(920px, 100%);
   margin: 0 auto;
 }
 
