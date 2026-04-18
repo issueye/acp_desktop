@@ -22,6 +22,7 @@ let scrollFrameId = null;
 
 // Track expanded thought sections by message id
 const expandedThoughts = ref(new Set());
+const expandedToolCalls = ref(new Set());
 
 const messages = computed(() => sessionStore.messageList);
 const isLoading = computed(() => sessionStore.isLoading);
@@ -284,6 +285,27 @@ function getToolStatusLabel(status) {
     default: return 'Unknown';
   }
 }
+
+function getToolCallText(toolCall) {
+  return typeof toolCall?.title === 'string' ? toolCall.title.trim() : '';
+}
+
+function isToolCallCollapsible(toolCall) {
+  const text = getToolCallText(toolCall);
+  return text.length > 180 || text.includes('\n');
+}
+
+function isToolCallExpanded(toolCallId) {
+  return expandedToolCalls.value.has(toolCallId);
+}
+
+function toggleToolCall(toolCallId) {
+  if (expandedToolCalls.value.has(toolCallId)) {
+    expandedToolCalls.value.delete(toolCallId);
+  } else {
+    expandedToolCalls.value.add(toolCallId);
+  }
+}
 </script>
 
 <template>
@@ -384,7 +406,13 @@ function getToolStatusLabel(status) {
             </div>
 
             <div v-else-if="part.type === 'tool_call'" class="tool-calls-section">
-              <div :class="['tool-call-inline', `tool-${part.toolCall.status}`]">
+              <div
+                :class="[
+                  'tool-call-inline',
+                  `tool-${part.toolCall.status}`,
+                  { 'is-expanded': isToolCallExpanded(part.toolCall.toolCallId) },
+                ]"
+              >
                 <span class="tool-icon" :title="getToolKindLabel(part.toolCall.kind)" aria-hidden="true">
                   <svg v-if="part.toolCall.kind === 'read'" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path d="M6.75 6.75C6.75 5.78 7.53 5 8.5 5H18V17H8.5C7.53 17 6.75 17.78 6.75 18.75M6.75 6.75V18.75M6.75 6.75H5.75C4.78 6.75 4 7.53 4 8.5V17C4 17.97 4.78 18.75 5.75 18.75H6.75" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
@@ -420,7 +448,26 @@ function getToolStatusLabel(status) {
                 </span>
                 <div class="tool-main">
                   <div class="tool-topline">
-                    <span class="tool-name">{{ part.toolCall.title }}</span>
+                    <span
+                      :class="[
+                        'tool-name',
+                        {
+                          'is-collapsible': isToolCallCollapsible(part.toolCall),
+                          'is-expanded': isToolCallExpanded(part.toolCall.toolCallId),
+                        },
+                      ]"
+                      :title="getToolCallText(part.toolCall)"
+                    >
+                      {{ getToolCallText(part.toolCall) }}
+                    </span>
+                    <button
+                      v-if="isToolCallCollapsible(part.toolCall)"
+                      type="button"
+                      class="tool-expand-toggle"
+                      @click="toggleToolCall(part.toolCall.toolCallId)"
+                    >
+                      {{ isToolCallExpanded(part.toolCall.toolCallId) ? '收起' : '展开' }}
+                    </button>
                   </div>
                   <div
                     v-if="part.toolCall.locations?.length"
@@ -589,6 +636,7 @@ function getToolStatusLabel(status) {
   display: flex;
   flex-direction: column;
   height: 100%;
+  font-family: var(--ued-font-ui);
 }
 
 .chat-header {
@@ -610,7 +658,10 @@ function getToolStatusLabel(status) {
 
 .chat-header h2 {
   margin: 0;
-  font-size: 0.96rem;
+  font-size: 1.04rem;
+  line-height: 1.3;
+  font-weight: 600;
+  letter-spacing: -0.01em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -625,9 +676,10 @@ function getToolStatusLabel(status) {
 }
 
 .agent-name {
-  font-size: 0.73rem;
+  font-size: 0.76rem;
+  line-height: 1.45;
   color: var(--ued-accent);
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .messages-container {
@@ -730,8 +782,10 @@ function getToolStatusLabel(status) {
 }
 
 .role {
-  font-weight: 600;
-  font-size: 0.75rem;
+  font-weight: 500;
+  font-size: 0.76rem;
+  line-height: 1.4;
+  letter-spacing: 0.01em;
   color: var(--ued-text-muted);
 }
 
@@ -747,11 +801,16 @@ function getToolStatusLabel(status) {
   grid-template-columns: 20px minmax(0, 1fr) auto;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.22rem 0;
-  font-size: 0.78rem;
-  background: transparent;
+  padding: 0.38rem 0.5rem;
+  font-size: 0.8rem;
+  background: color-mix(in srgb, var(--ued-bg-panel-muted) 44%, white);
   border: none;
   box-shadow: none;
+  border-radius: 10px;
+}
+
+.tool-call-inline.is-expanded {
+  align-items: start;
 }
 
 .tool-pending {
@@ -792,20 +851,62 @@ function getToolStatusLabel(status) {
   display: flex;
   flex-direction: column;
   gap: 0.08rem;
+  padding: 0.08rem 0;
 }
 
 .tool-topline {
   min-width: 0;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.4rem;
   flex-wrap: wrap;
 }
 
 .tool-name {
   font-weight: 500;
+  line-height: 1.45;
   color: var(--ued-text-primary);
   min-width: 0;
+  flex: 1;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: pre-wrap;
+  padding: 0.04rem 0;
+}
+
+.tool-name.is-collapsible {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.tool-name.is-expanded {
+  display: block;
+  -webkit-line-clamp: initial;
+  overflow: visible;
+  padding: 0.45rem 0.55rem;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--ued-accent-soft) 32%, white);
+  border: 1px solid color-mix(in srgb, var(--ued-border-subtle) 62%, transparent);
+  line-height: 1.62;
+}
+
+.tool-expand-toggle {
+  flex-shrink: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--ued-accent);
+  font-size: 0.72rem;
+  line-height: 1.4;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.tool-expand-toggle:hover {
+  color: var(--ued-accent-hover);
+  text-decoration: underline;
 }
 
 .tool-location {
@@ -814,7 +915,10 @@ function getToolStatusLabel(status) {
   align-items: center;
   gap: 0.25rem;
   color: var(--ued-text-muted);
-  font-size: 0.72rem;
+  font-size: 0.74rem;
+  line-height: 1.45;
+  padding: 0.1rem 0 0;
+  opacity: 0.9;
 }
 
 .tool-location__icon {
@@ -839,12 +943,16 @@ function getToolStatusLabel(status) {
   min-height: auto;
   padding: 0;
   border-radius: 0;
-  font-size: 0.7rem;
+  font-size: 0.72rem;
   font-weight: 500;
   border: none;
   background: transparent;
   white-space: nowrap;
   opacity: 0.8;
+}
+
+.tool-call-inline.is-expanded .tool-status {
+  padding-top: 0.45rem;
 }
 
 .tool-status svg {
@@ -859,14 +967,16 @@ function getToolStatusLabel(status) {
 .status-failed { color: var(--ued-danger); }
 
 .message-content {
-  line-height: 1.7;
+  font-size: 0.95rem;
+  line-height: 1.78;
+  letter-spacing: 0.005em;
   overflow-wrap: break-word;
   word-wrap: break-word;
   color: var(--ued-text-primary);
 }
 
 .message-content :deep(p) {
-  margin: 0.5rem 0;
+  margin: 0.58rem 0;
 }
 
 .message-content :deep(ol),
@@ -876,7 +986,7 @@ function getToolStatusLabel(status) {
 }
 
 .message-content :deep(li) {
-  margin: 0.25rem 0;
+  margin: 0.3rem 0;
 }
 
 .message-content :deep(pre) {
@@ -888,8 +998,8 @@ function getToolStatusLabel(status) {
 }
 
 .message-content :deep(code) {
-  font-family: 'Consolas', 'Monaco', monospace;
-  font-size: 0.9rem;
+  font-family: var(--ued-font-mono);
+  font-size: 0.88rem;
 }
 
 .loading-indicator {
@@ -917,7 +1027,8 @@ function getToolStatusLabel(status) {
 }
 
 .loading-indicator__label {
-  font-size: 0.78rem;
+  font-size: 0.8rem;
+  line-height: 1.4;
   font-weight: 500;
 }
 
@@ -1042,7 +1153,8 @@ function getToolStatusLabel(status) {
   padding: 0.12rem 0;
   background: transparent;
   min-height: auto;
-  font-size: 0.78rem;
+  font-size: 0.8rem;
+  line-height: 1.45;
   color: var(--ued-text-muted);
   text-align: left;
   transition: background 0.15s ease, color 0.15s ease;
@@ -1107,17 +1219,18 @@ function getToolStatusLabel(status) {
   padding: 0.1rem 0 0.55rem 0.7rem;
   background: transparent;
   border-top: none;
-  font-size: 0.86rem;
+  font-size: 0.9rem;
   color: var(--ued-text-muted);
-  line-height: 1.6;
-  border-left: 1px solid color-mix(in srgb, var(--ued-border-default) 42%, transparent);
+  line-height: 1.72;
+  letter-spacing: 0.004em;
+  border-left: 1px solid color-mix(in srgb, var(--ued-accent) 18%, var(--ued-border-default));
 }
 
 .thought-content__prose {
-  padding: 0;
-  border-radius: 0;
-  background: transparent;
-  border: none;
+  padding: 0.4rem 0.55rem;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--ued-bg-panel-muted) 88%, white);
+  border: 1px solid color-mix(in srgb, var(--ued-border-subtle) 52%, transparent);
 }
 
 .thought-content :deep(p) {
@@ -1132,7 +1245,8 @@ function getToolStatusLabel(status) {
   background: var(--ued-bg-panel-muted);
   padding: 0.125rem 0.25rem;
   border-radius: 3px;
-  font-size: 0.85em;
+  font-family: var(--ued-font-mono);
+  font-size: 0.84em;
 }
 
 .thought-content :deep(pre) {

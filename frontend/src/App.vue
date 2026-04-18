@@ -567,7 +567,7 @@ function handleGlobalKeydown(event) {
   --bg-danger: var(--ued-danger);
   --bg-warning: var(--ued-warning-soft);
   --bg-main: var(--ued-bg-canvas);
-  --bg-sidebar: linear-gradient(180deg, #f7f9fc 0%, #eef2f7 100%);
+  --bg-sidebar: linear-gradient(180deg, #f7f9fb 0%, #edf1f5 100%);
   --bg-header: color-mix(in srgb, var(--ued-bg-window) 94%, white);
   --bg-hover: var(--ued-accent-soft);
   --bg-user: color-mix(in srgb, var(--ued-accent) 8%, white);
@@ -589,7 +589,17 @@ function handleGlobalKeydown(event) {
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body, #app { height: 100%; overflow: hidden; }
-body { background: var(--bg-main); color: var(--text-primary); }
+body {
+  background: var(--bg-main);
+  color: var(--text-primary);
+  font-family: var(--ued-font-ui);
+  font-size: var(--ued-text-body);
+  line-height: var(--ued-line-body);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-kerning: normal;
+}
 input, textarea, select, button { font: inherit; }
 input, textarea, select { user-select: text; }
 .drag-region { --wails-draggable: drag; }
