@@ -15,7 +15,9 @@ package.json.md5
 wailsjs
 
 # Wails/Go build artifacts
-build
+build/*
+!build/
+!build/appicon.png
 bin
 *.exe
 *.msi
