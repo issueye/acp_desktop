@@ -227,6 +227,10 @@ wails build
 
 感谢 [formulahendry/acp-ui](https://github.com/formulahendry/acp-ui) 项目为 ACP 桌面客户端的产品形态和功能设计提供参考与启发。
 
+## 开源协议
+
+本项目基于 [MIT License](./LICENSE) 开源。
+
 ## 备注
 
 - 应用标题为 `ACP DESKTOP`。

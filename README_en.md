@@ -227,6 +227,10 @@ wails build
 
 Special thanks to the [formulahendry/acp-ui](https://github.com/formulahendry/acp-ui) project for providing reference and inspiration for the product shape and feature design of this ACP desktop client.
 
+## License
+
+This project is open-sourced under the [MIT License](./LICENSE).
+
 ## Notes
 
 - The main application title is `ACP DESKTOP`.
