@@ -459,11 +459,15 @@ export const useSessionStore = defineStore('session', () => {
     return nextMessage;
   }
 
-function appendTextPart(message, type, text) {
+  function appendTextPart(message, type, text) {
+    if (typeof text !== 'string' || text.length === 0) {
+      return;
+    }
+
     const parts = ensureMessageParts(message);
     const lastPart = parts[parts.length - 1];
     if (lastPart && lastPart.type === type) {
-      lastPart.content += text;
+      lastPart.content = (typeof lastPart.content === 'string' ? lastPart.content : '') + text;
     } else {
       parts.push({
         type,
@@ -471,10 +475,10 @@ function appendTextPart(message, type, text) {
       });
     }
 
-  if (type === 'content') {
-    message.content = (typeof message.content === 'string' ? message.content : '') + text;
-    return;
-  }
+    if (type === 'content') {
+      message.content = (typeof message.content === 'string' ? message.content : '') + text;
+      return;
+    }
 
     message.thought = (message.thought || '') + text;
   }
@@ -529,7 +533,7 @@ function appendTextPart(message, type, text) {
 
     switch (update.sessionUpdate) {
       case 'user_message_chunk': {
-        if (update.content.type === 'text') {
+        if (update.content?.type === 'text') {
           const message = getOrCreateTrailingMessage(runtime, 'user');
           appendTextPart(message, 'content', update.content.text);
         }
@@ -537,7 +541,7 @@ function appendTextPart(message, type, text) {
       }
 
       case 'agent_message_chunk': {
-        if (update.content.type === 'text') {
+        if (update.content?.type === 'text') {
           const message = getOrCreateTrailingMessage(runtime, 'assistant');
           appendTextPart(message, 'content', update.content.text);
         }
@@ -545,7 +549,7 @@ function appendTextPart(message, type, text) {
       }
 
       case 'agent_thought_chunk': {
-        if (update.content.type === 'text') {
+        if (update.content?.type === 'text') {
           const message = getOrCreateTrailingMessage(runtime, 'assistant');
           appendTextPart(message, 'thought', update.content.text);
         }
