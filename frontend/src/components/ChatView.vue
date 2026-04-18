@@ -367,15 +367,9 @@ function toggleToolCall(toolCallId) {
       </div>
     </div>
 
-    <CurrentPlanPanel
-      v-if="currentPlanEntries.length"
-      class="chat-plan-floating"
-      :entries="currentPlanEntries"
-      :collapsed="isPlanCollapsed"
-      @toggle="isPlanCollapsed = !isPlanCollapsed"
-    />
-    
-    <div ref="messagesContainer" class="messages-container" @scroll="handleMessagesScroll">
+    <div class="chat-body" :class="{ 'chat-body-with-plan': currentPlanEntries.length > 0 }">
+      <div class="chat-main">
+        <div ref="messagesContainer" class="messages-container" @scroll="handleMessagesScroll">
       <div class="messages-stack">
         <div v-if="messages.length === 0 && !isLoading" class="chat-empty-state">
           <UEDEmptyState :title="t('chat.emptyTitle')" :text="t('chat.emptyDesc')">
@@ -616,7 +610,7 @@ function toggleToolCall(toolCallId) {
       </Transition>
     </div>
 
-    <div class="input-shell" :class="{ 'input-shell-with-plan': currentPlanEntries.length > 0 }">
+        <div class="input-shell">
       <div class="input-container">
         <div class="composer-shell">
           <CommandPalette
@@ -660,17 +654,40 @@ function toggleToolCall(toolCallId) {
           </UEDButton>
         </div>
       </div>
+        </div>
+      </div>
+
+      <CurrentPlanPanel
+        v-if="currentPlanEntries.length"
+        class="chat-plan-panel"
+        :entries="currentPlanEntries"
+        :collapsed="isPlanCollapsed"
+        @toggle="isPlanCollapsed = !isPlanCollapsed"
+      />
     </div>
   </div>
 </template>
 
 <style scoped>
 .chat-view {
-  position: relative;
   display: flex;
   flex-direction: column;
   height: 100%;
   font-family: var(--ued-font-ui);
+}
+
+.chat-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.chat-main {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .chat-header {
@@ -743,14 +760,6 @@ function toggleToolCall(toolCallId) {
 .messages-stack {
   width: min(920px, 100%);
   margin: 0 auto;
-}
-
-.chat-plan-floating {
-  position: absolute;
-  top: 78px;
-  right: 4px;
-  width: auto;
-  z-index: 7;
 }
 
 .scroll-jump {
@@ -1142,10 +1151,6 @@ function toggleToolCall(toolCallId) {
   padding: 1rem 1.2rem 1.15rem;
 }
 
-.input-shell.input-shell-with-plan {
-  border-top: 1px solid var(--ued-border-default);
-}
-
 .input-container {
   margin: 0 auto;
 }
@@ -1318,6 +1323,10 @@ function toggleToolCall(toolCallId) {
 }
 
 @media (max-width: 900px) {
+  .chat-body {
+    flex-direction: column;
+  }
+
   .chat-header {
     flex-direction: column;
     align-items: flex-start;
@@ -1337,12 +1346,6 @@ function toggleToolCall(toolCallId) {
   .messages-container {
     padding-left: 1rem;
     padding-right: 1rem;
-  }
-
-  .chat-plan-floating {
-    top: 118px;
-    right: 12px;
-    width: auto;
   }
 
   .scroll-jump {

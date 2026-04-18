@@ -100,8 +100,8 @@ const { t } = useI18n();
 
 <style scoped>
 .sidebar-panel {
-  width: 320px;
-  min-width: 320px;
+  width: var(--app-sidebar-width);
+  min-width: var(--app-sidebar-width);
   display: flex;
   flex-direction: column;
   gap: 0.8rem;

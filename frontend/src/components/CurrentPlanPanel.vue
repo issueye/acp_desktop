@@ -24,43 +24,34 @@ const panelSummaryLabel = computed(
 <template>
   <section class="current-plan-panel" :class="{ 'is-collapsed': collapsed }">
     <button
+      v-if="collapsed"
       type="button"
-      class="plan-floating-toggle"
-      :aria-expanded="!collapsed"
-      :aria-label="collapsed ? panelSummaryLabel : t('chat.currentPlan')"
-      :title="collapsed ? panelSummaryLabel : t('chat.currentPlan')"
+      class="plan-rail-toggle"
+      :aria-expanded="false"
+      :aria-label="panelSummaryLabel"
+      :title="panelSummaryLabel"
       @click="emit('toggle')"
     >
-      <svg
-        class="plan-floating-toggle__icon"
-        viewBox="0 0 24 24"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-        aria-hidden="true"
-      >
-        <path
-          v-if="collapsed"
-          d="M14.5 6.5L9 12L14.5 17.5"
-          stroke="currentColor"
-          stroke-width="1.9"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        />
-        <path
-          v-else
-          d="M9.5 6.5L15 12L9.5 17.5"
-          stroke="currentColor"
-          stroke-width="1.9"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        />
-      </svg>
-      <span v-if="collapsed" class="plan-floating-toggle__badge">
-        {{ entries.length }}
+      <span class="plan-rail-toggle__icon" aria-hidden="true">
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M14.5 6.5L9 12L14.5 17.5"
+            stroke="currentColor"
+            stroke-width="1.9"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
       </span>
+      <span class="plan-rail-toggle__count">{{ entries.length }}</span>
+      <span class="plan-rail-toggle__label">{{ t('chat.currentPlan') }}</span>
     </button>
 
-    <div v-if="!collapsed" class="plan-shell">
+    <div v-else class="plan-shell">
       <div class="plan-panel-header">
         <div class="plan-panel-summary">
           <svg class="plan-toggle-mark" viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -83,6 +74,29 @@ const panelSummaryLabel = computed(
             <span>{{ panelSummaryLabel }}</span>
           </div>
         </div>
+        <button
+          type="button"
+          class="plan-panel-toggle"
+          :aria-expanded="true"
+          :aria-label="t('chat.currentPlan')"
+          :title="t('chat.currentPlan')"
+          @click="emit('toggle')"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true"
+          >
+            <path
+              d="M9.5 6.5L15 12L9.5 17.5"
+              stroke="currentColor"
+              stroke-width="1.9"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </button>
       </div>
 
       <div class="plan-panel-body">
@@ -95,70 +109,83 @@ const panelSummaryLabel = computed(
 <style scoped>
 .current-plan-panel {
   position: relative;
-  width: min(380px, calc(100vw - 32px));
-  min-height: 60px;
+  width: 240px;
+  min-width: 240px;
+  height: 100%;
   display: flex;
-  justify-content: flex-end;
-  pointer-events: none;
+  border-left: 1px solid var(--ued-border-default);
+  background: color-mix(in srgb, var(--ued-bg-panel) 92%, white);
+  overflow: visible;
+  z-index: 4;
+  transition:
+    width 0.2s ease,
+    min-width 0.2s ease,
+    background-color 0.16s ease;
+}
+
+.current-plan-panel.is-collapsed {
+  width: 0;
+  min-width: 0;
+  border-left: none;
+  background: transparent;
 }
 
 .plan-shell {
-  width: min(380px, calc(100vw - 32px));
-  max-width: 100%;
-  border: 1px solid var(--ued-border-default);
-  border-radius: var(--ued-radius-lg);
-  background: color-mix(in srgb, var(--ued-bg-panel) 94%, white);
-  box-shadow: var(--ued-shadow-dialog);
-  backdrop-filter: blur(14px);
-  overflow: hidden;
-  transform-origin: right center;
-  pointer-events: auto;
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: transparent;
 }
 
-.plan-floating-toggle {
+.plan-rail-toggle {
   position: absolute;
   top: 50%;
-  right: -14px;
-  z-index: 2;
+  right: 12px;
+  z-index: 9;
   width: 30px;
   height: 60px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
   border: 1px solid color-mix(in srgb, var(--ued-border-default) 82%, white);
   border-radius: 999px;
   background: color-mix(in srgb, var(--ued-bg-panel) 88%, white);
   color: var(--ued-text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
   box-shadow: 0 8px 24px rgba(19, 31, 52, 0.08);
   backdrop-filter: blur(10px);
   cursor: pointer;
-  pointer-events: auto;
   transform: translateY(-50%);
   transition:
     background-color 0.16s ease,
     border-color 0.16s ease,
     box-shadow 0.16s ease,
-    color 0.16s ease,
-    right 0.2s ease;
+    color 0.16s ease;
 }
 
-.plan-floating-toggle:hover {
+.plan-rail-toggle:hover {
   color: var(--ued-accent);
   border-color: color-mix(in srgb, var(--ued-accent) 26%, var(--ued-border-default));
   background: color-mix(in srgb, var(--ued-bg-panel) 94%, white);
   box-shadow: 0 10px 28px rgba(19, 31, 52, 0.12);
 }
 
-.plan-floating-toggle__icon {
+.plan-rail-toggle__icon {
   width: 16px;
   height: 16px;
   display: block;
 }
 
-.plan-floating-toggle__badge {
+.plan-rail-toggle__icon svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+}
+
+.plan-rail-toggle__count {
   position: absolute;
-  left: -4px;
+  right: -4px;
   bottom: -3px;
   min-width: 16px;
   height: 16px;
@@ -171,13 +198,25 @@ const panelSummaryLabel = computed(
   color: var(--ued-text-on-accent);
   font-size: 0.64rem;
   font-weight: 700;
-  box-shadow: 0 0 0 2px var(--ued-bg-window);
+}
+
+.plan-rail-toggle__label {
+  display: none;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font-size: 0.74rem;
+  letter-spacing: 0.08em;
+  color: var(--ued-text-muted);
 }
 
 .plan-panel-header {
-  padding: 0.75rem 0.85rem 0.55rem;
+  padding: 0.72rem 0.68rem 0.58rem;
   border-bottom: 1px solid var(--ued-border-subtle);
-  background: color-mix(in srgb, var(--ued-bg-panel) 84%, white);
+  background: color-mix(in srgb, var(--ued-bg-panel) 86%, white);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
 }
 
 .plan-panel-summary {
@@ -212,30 +251,81 @@ const panelSummaryLabel = computed(
   font-size: 0.72rem;
   line-height: 1.45;
   color: var(--ued-text-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+}
+
+.plan-panel-toggle {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--ued-border-default);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ued-bg-panel) 92%, white);
+  color: var(--ued-text-muted);
+  cursor: pointer;
+  transition:
+    background-color 0.16s ease,
+    border-color 0.16s ease,
+    color 0.16s ease;
+}
+
+.plan-panel-toggle:hover {
+  color: var(--ued-accent);
+  border-color: color-mix(in srgb, var(--ued-accent) 24%, var(--ued-border-default));
+  background: white;
+}
+
+.plan-panel-toggle svg {
+  width: 14px;
+  height: 14px;
+  display: block;
 }
 
 .plan-panel-body {
-  padding: 0.35rem 0.8rem 0.75rem;
-  max-height: min(40vh, 320px);
+  flex: 1;
+  min-height: 0;
+  padding: 0.3rem 0.66rem 0.72rem;
   overflow: auto;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 1100px) {
   .current-plan-panel {
-    width: min(340px, calc(100vw - 24px));
+    width: 240px;
+    min-width: 240px;
   }
 
-  .plan-shell {
-    width: min(340px, calc(100vw - 24px));
+  .current-plan-panel.is-collapsed {
+    width: 0;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 900px) {
+  .current-plan-panel {
+    width: 100%;
+    min-width: 0;
+    height: auto;
+    border-left: none;
+    border-top: 1px solid var(--ued-border-default);
   }
 
-  .plan-floating-toggle {
+  .current-plan-panel.is-collapsed {
+    width: 0;
+    min-width: 0;
+    min-height: 0;
+    border-top: none;
+  }
+
+  .plan-rail-toggle {
+    top: auto;
+    right: 12px;
+    bottom: 86px;
     width: 28px;
     height: 54px;
-    right: -12px;
+    transform: none;
   }
 }
 </style>

@@ -488,7 +488,7 @@ function handleGlobalKeydown(event) {
           class="floating-sidebar-toggle no-drag"
           :class="{ 'is-open': showSidebar }"
           :style="{
-            left: showSidebar ? '320px' : '12px',
+            left: showSidebar ? 'var(--app-sidebar-width)' : '12px',
             transform: showSidebar ? 'translate(-50%, -50%)' : 'translateY(-50%)',
           }"
           :title="showSidebar ? t('app.collapseSidebar') : t('app.expandSidebar')"
@@ -595,6 +595,7 @@ function handleGlobalKeydown(event) {
 
 <style>
 :root {
+  --app-sidebar-width: 280px;
   --bg-primary: var(--ued-accent);
   --bg-primary-hover: var(--ued-accent-hover);
   --bg-danger: var(--ued-danger);
