@@ -46,7 +46,6 @@ let prefsStoreData = {};
 const prefsStoreName = 'preferences.json';
 
 const isConnected = computed(() => sessionStore.isConnected);
-const isLoading = computed(() => sessionStore.isLoading);
 const isConnecting = computed(() => sessionStore.isConnecting);
 const error = computed(() => sessionStore.error || configStore.error);
 const hasAgents = computed(() => configStore.hasAgents);
@@ -540,7 +539,6 @@ function handleGlobalKeydown(event) {
       v-model="showWorkspaceDialog"
       :has-agents="hasAgents"
       :is-connecting="isConnecting"
-      :is-loading="isLoading"
       :selected-agent="selectedAgent"
       :selected-cwd="selectedCwd"
       :selected-cwd-label="selectedCwdLabel"

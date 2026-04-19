@@ -15,7 +15,6 @@ const props = defineProps({
     modelValue: { type: Boolean, required: true },
     hasAgents: { type: Boolean, required: true },
     isConnecting: { type: Boolean, required: true },
-    isLoading: { type: Boolean, required: true },
     isSelectingFolder: { type: Boolean, required: true },
     selectedAgent: { type: String, required: true },
     selectedCwd: { type: String, required: true },
@@ -111,7 +110,6 @@ const hasValidationError = computed(() =>
 const canCreateSession = computed(
   () =>
     !props.isConnecting &&
-    !props.isLoading &&
     !props.isSelectingFolder &&
     validationItems.value.length === 0
 );
@@ -330,7 +328,7 @@ function closeDialog() {
           {{
             props.isSelectingFolder
               ? t('app.selectingFolder')
-              : isLoading
+              : isConnecting
                 ? t('app.connecting')
                 : t('app.newSession')
           }}
