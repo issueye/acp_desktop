@@ -11,6 +11,7 @@ import CurrentPlanPanel from './CurrentPlanPanel.vue';
 import UEDButton from './common/UEDButton.vue';
 import UEDInput from './common/UEDInput.vue';
 import UEDEmptyState from './common/UEDEmptyState.vue';
+import { AUTHORIZATION_MODES } from '../lib/authorization';
 
 const sessionStore = useSessionStore();
 const { t } = useI18n();
@@ -36,6 +37,11 @@ const currentModelId = computed(() => sessionStore.currentModelId);
 const canSend = computed(() => !isLoading.value && inputText.value.trim().length > 0);
 const availableCommands = computed(() => sessionStore.availableCommands);
 const currentPlanEntries = computed(() => sessionStore.currentPlanEntries);
+const currentAuthorizationMode = computed(() => sessionStore.authorizationMode);
+const authorizationModeOptions = computed(() => [
+  { id: AUTHORIZATION_MODES.MANUAL, label: t('chat.authorizationDefault') },
+  { id: AUTHORIZATION_MODES.POPUP_AUTO_FIRST, label: t('chat.authorizationFullAccess') },
+]);
 const isPlanCollapsed = ref(false);
 
 // Slash command state
@@ -204,6 +210,10 @@ async function handleModelChange(modelId) {
   } catch (e) {
     console.error('Failed to change model:', e);
   }
+}
+
+function handleAuthorizationModeChange(event) {
+  sessionStore.setAuthorizationMode(event.target.value);
 }
 
 async function handleRefreshSession() {
@@ -662,6 +672,24 @@ function toggleToolCall(toolCallId) {
                 />
 
                 <div class="composer-footer">
+                  <div class="composer-toolbar">
+                    <label class="authorization-select" :title="t('chat.authorizationHint')">
+                      <select
+                        class="authorization-select__control"
+                        :value="currentAuthorizationMode"
+                        :disabled="!currentSession"
+                        @change="handleAuthorizationModeChange"
+                      >
+                        <option
+                          v-for="option in authorizationModeOptions"
+                          :key="option.id"
+                          :value="option.id"
+                        >
+                          {{ option.label }}
+                        </option>
+                      </select>
+                    </label>
+                  </div>
                   <div class="composer-actions composer-actions--text-only">
                     <UEDButton
                       class="send-btn send-btn--compact"
@@ -1248,10 +1276,46 @@ function toggleToolCall(toolCallId) {
 
 .composer-footer {
   display: flex;
-  flex-direction: column;
-  gap: 0.24rem;
+  gap: 0.4rem;
   margin-top: auto;
   padding-top: 0.24rem;
+  justify-content: space-between;
+}
+
+.composer-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.authorization-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.authorization-select__label {
+  font-size: 0.72rem;
+  color: var(--ued-text-muted);
+  white-space: nowrap;
+}
+
+.authorization-select__control {
+  min-width: 180px;
+  height: 32px;
+  padding: 0 0.75rem;
+  border: 1px solid var(--ued-border-default);
+  border-radius: 999px;
+  background: var(--ued-bg-window);
+  color: var(--ued-text-primary);
+}
+
+.composer-toolbar__hint {
+  font-size: 0.72rem;
+  color: var(--ued-text-muted);
 }
 
 .cancel-btn {
@@ -1468,6 +1532,25 @@ function toggleToolCall(toolCallId) {
     justify-self: flex-start;
   }
 
+  .composer-toolbar {
+    align-items: flex-start;
+  }
+
+  .authorization-select {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .authorization-select__control {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .composer-toolbar__hint {
+    width: 100%;
+  }
+
   .composer-actions {
     gap: 0.36rem;
     min-height: 20px;
@@ -1490,3 +1573,4 @@ function toggleToolCall(toolCallId) {
   }
 }
 </style>
+

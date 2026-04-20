@@ -1,8 +1,9 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useConfigStore } from './stores/config';
 import { useSessionStore } from './stores/session';
 import { initTelemetry } from './lib/telemetry';
+import { buildPermissionRequestKey, getAutoConfirmOptionId, normalizeAuthorizationMode } from './lib/authorization';
 import { loadStore, saveStore, selectDirectory, windowClose, windowMinimise, windowToggleMaximise } from './lib/wails';
 import { useI18n } from './lib/i18n';
 import ChatView from './components/ChatView.vue';
@@ -46,6 +47,9 @@ const isSelectingFolder = ref(false);
 
 let prefsStoreData = {};
 const prefsStoreName = 'preferences.json';
+let preferencesLoaded = false;
+const autoConfirmedPermissionKeys = new Set();
+let autoConfirmTimer = null;
 
 const isConnected = computed(() => sessionStore.isConnected);
 const isConnecting = computed(() => sessionStore.isConnecting);
@@ -102,6 +106,13 @@ function readStoredBoolean(value, fallback = false) {
   return Boolean(value);
 }
 
+function clearAutoConfirmTimer() {
+  if (autoConfirmTimer !== null) {
+    window.clearTimeout(autoConfirmTimer);
+    autoConfirmTimer = null;
+  }
+}
+
 async function persistPreferences() {
   await saveStore(prefsStoreName, prefsStoreData);
 }
@@ -154,6 +165,7 @@ onMounted(async () => {
   httpsProxy.value = readStoredString(prefsStoreData.httpsProxy);
   allProxy.value = readStoredString(prefsStoreData.allProxy);
   noProxy.value = readStoredString(prefsStoreData.noProxy);
+  sessionStore.setAuthorizationMode(normalizeAuthorizationMode(prefsStoreData.authorizationMode));
 
   const telemetryEnabled = readStoredBoolean(prefsStoreData.telemetryEnabled, true);
   await initTelemetry(telemetryEnabled);
@@ -165,10 +177,50 @@ onMounted(async () => {
   const savedCwd = readStoredString(prefsStoreData.lastCwd);
   if (savedCwd) selectedCwd.value = savedCwd;
 
+  preferencesLoaded = true;
   window.addEventListener('keydown', handleGlobalKeydown);
 });
 
+watch(
+  () => sessionStore.authorizationMode,
+  async (mode) => {
+    if (!preferencesLoaded) {
+      return;
+    }
+    prefsStoreData.authorizationMode = normalizeAuthorizationMode(mode);
+    await persistPreferences();
+  }
+);
+
+watch(
+  [pendingPermission, () => sessionStore.authorizationMode],
+  async ([request, mode]) => {
+    clearAutoConfirmTimer();
+    const optionId = getAutoConfirmOptionId(request, mode);
+    if (!optionId) {
+      return;
+    }
+
+    const requestKey = buildPermissionRequestKey(request);
+    if (!requestKey || autoConfirmedPermissionKeys.has(requestKey)) {
+      return;
+    }
+
+    autoConfirmedPermissionKeys.add(requestKey);
+    await nextTick();
+    autoConfirmTimer = window.setTimeout(() => {
+      autoConfirmTimer = null;
+      const currentRequest = sessionStore.pendingPermission;
+      if (!currentRequest || buildPermissionRequestKey(currentRequest) !== requestKey) {
+        return;
+      }
+      handlePermissionSelect(optionId);
+    }, 180);
+  }
+);
+
 onBeforeUnmount(() => {
+  clearAutoConfirmTimer();
   window.removeEventListener('keydown', handleGlobalKeydown);
 });
 
@@ -738,3 +790,4 @@ input, textarea, select { user-select: text; }
   }
 }
 </style>
+

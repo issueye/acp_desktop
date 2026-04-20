@@ -126,6 +126,10 @@ const messages = {
     'chat.cancel': 'Cancel',
     'chat.send': 'Send',
     'chat.refresh': 'Refresh session',
+    'chat.authorizationMode': 'Authorization',
+    'chat.authorizationDefault': 'Default Authorization',
+    'chat.authorizationFullAccess': 'Full Access Authorization',
+    'chat.authorizationHint': 'Dialogs are still shown. When there are two or more options, the leftmost option is selected automatically.',
     'chat.placeholder': 'Type your message...',
     'chat.placeholderCommands': 'Type your message... (/ for commands)',
     'chat.emptyTitle': 'Start the first prompt',
@@ -321,6 +325,10 @@ const messages = {
     'chat.cancel': '取消',
     'chat.send': '发送',
     'chat.refresh': '刷新会话',
+    'chat.authorizationMode': '授权模式',
+    'chat.authorizationDefault': '默认授权',
+    'chat.authorizationFullAccess': '完全访问授权',
+    'chat.authorizationHint': '权限弹窗仍会显示；当存在两个或更多选项时，会自动选择最左侧选项。',
     'chat.placeholder': '输入你的消息...',
     'chat.placeholderCommands': '输入你的消息...（/ 可查看命令）',
     'chat.emptyTitle': '开始第一条指令',
@@ -452,3 +460,4 @@ export function useI18n() {
     toggleLocale,
   };
 }
+

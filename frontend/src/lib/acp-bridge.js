@@ -1,6 +1,7 @@
 // ACP Client Bridge - Adapts Wails IPC to ACP SDK
 import { readTextFile, writeTextFile, sendToAgent, onAgentMessage, killAgent } from './wails';
 import { ref } from 'vue';
+import { AUTHORIZATION_MODES, normalizeAuthorizationMode } from './authorization';
 import { useTrafficStore } from '../stores/traffic';
 
 // Traffic store instance (lazily initialized)
@@ -27,6 +28,7 @@ export class AcpClientBridge {
 
     // Session update callback
     this.onSessionUpdate = null;
+    this.authorizationMode = AUTHORIZATION_MODES.MANUAL;
   }
 
   formatJsonRpcError(error) {
@@ -247,6 +249,10 @@ export class AcpClientBridge {
     await sendToAgent(this.agentId, JSON.stringify(notification));
   }
 
+  setAuthorizationMode(mode) {
+    this.authorizationMode = normalizeAuthorizationMode(mode);
+  }
+
   // ACP Agent methods (client calls these to talk to agent)
   async initialize(params) {
     return this.sendRequest('initialize', params);
@@ -360,3 +366,6 @@ export async function createAcpClient(agentInstance) {
   await client.connect();
   return client;
 }
+
+
+

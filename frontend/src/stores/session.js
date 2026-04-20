@@ -2,6 +2,7 @@
 import { defineStore } from 'pinia';
 import { computed, ref, watch } from 'vue';
 import { trackError, trackEvent } from '../lib/telemetry';
+import { AUTHORIZATION_MODES, normalizeAuthorizationMode } from '../lib/authorization';
 
 import { AcpClientBridge, createAcpClient } from '../lib/acp-bridge';
 import {
@@ -206,6 +207,7 @@ export const useSessionStore = defineStore('session', () => {
   const error = ref(null);
   const pendingPermission = ref(null);
   const pendingPermissionSessionId = ref(null);
+  const authorizationMode = ref(AUTHORIZATION_MODES.MANUAL);
 
   const pendingAuthMethods = ref([]);
   const pendingAuthAgentName = ref('');
@@ -330,6 +332,19 @@ export const useSessionStore = defineStore('session', () => {
       availableModels: [],
       currentModelId: '',
     };
+  }
+
+  function applyAuthorizationModeToClient(client) {
+    if (client && typeof client.setAuthorizationMode === 'function') {
+      client.setAuthorizationMode(authorizationMode.value);
+    }
+  }
+
+  function setAuthorizationMode(mode) {
+    authorizationMode.value = normalizeAuthorizationMode(mode);
+    Object.values(connectedSessions.value).forEach((runtime) => {
+      applyAuthorizationModeToClient(runtime?.client);
+    });
   }
 
   function upsertConnectedSession(runtime) {
@@ -728,6 +743,7 @@ export const useSessionStore = defineStore('session', () => {
       startupPhase.value = 'initializing';
 
       client = await createAcpClient(agentInstance);
+      applyAuthorizationModeToClient(client);
 
       if (connectionAborted) {
         await client.disconnect();
@@ -866,6 +882,7 @@ export const useSessionStore = defineStore('session', () => {
       );
 
       client = await createAcpClient(agentInstance);
+      applyAuthorizationModeToClient(client);
 
       runtime = createConnectedSessionState(savedSession, client);
       client.onSessionUpdate = (notification) => handleSessionUpdate(runtime, notification);
@@ -1144,6 +1161,7 @@ export const useSessionStore = defineStore('session', () => {
     isConnecting,
     error,
     pendingPermission,
+    authorizationMode,
     pendingAuthMethods,
     pendingAuthAgentName,
     availableModes,
@@ -1165,6 +1183,7 @@ export const useSessionStore = defineStore('session', () => {
     sendPrompt,
     cancelOperation,
     cancelConnection,
+    setAuthorizationMode,
     resolvePermission,
     cancelPermission,
     selectAuthMethod,
@@ -1181,3 +1200,4 @@ export const useSessionStore = defineStore('session', () => {
     },
   };
 });
+
