@@ -221,15 +221,31 @@ function handleCommandSelect(command) {
 }
 
 .chat-input {
-  min-height: 86px;
+  display: block;
+  width: 100%;
+  flex: 1 1 auto;
+  resize: none;
+  min-height: 92px;
+  padding: 4px;
+  line-height: 1.65;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+.chat-input:focus {
+  outline: none;
 }
 
 .composer-footer {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 0.75rem;
+  gap: 0.4rem;
   flex-wrap: wrap;
+  margin-top: auto;
+  padding-top: 0.24rem;
 }
 
 .composer-toolbar {
@@ -422,3 +438,5 @@ function handleCommandSelect(command) {
   }
 }
 </style>
+
+
