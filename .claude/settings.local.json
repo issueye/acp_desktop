@@ -10,7 +10,10 @@
       "Bash(wails build:*)",
       "Bash(go doc:*)",
       "Bash(gofmt:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "mcp__context7__resolve-library-id",
+      "mcp__context7__query-docs",
+      "Bash(go build:*)"
     ]
   }
 }

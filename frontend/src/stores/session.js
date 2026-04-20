@@ -4,13 +4,20 @@ import { computed, ref, watch } from 'vue';
 import { trackError, trackEvent } from '../lib/telemetry';
 
 import { AcpClientBridge, createAcpClient } from '../lib/acp-bridge';
-import { getAppVersion, killAgent, loadStore, onAgentStderr, saveStore, spawnAgent } from '../lib/wails';
+import {
+  getAppVersion,
+  killAgent,
+  loadStore,
+  onAgentStderr,
+  saveStore,
+  selectImageFiles as openImagePicker,
+  spawnAgent,
+} from '../lib/wails';
 
 const STORE_PATH = 'sessions.json';
 const PROTOCOL_VERSION = 1;
 
 let appVersion = '0.1.0';
-
 
 function detectPhase(line) {
   const lower = line.toLowerCase();
@@ -115,6 +122,200 @@ function normalizeModels(models) {
   };
 }
 
+function createImageDataUrl(mimeType, dataBase64) {
+  if (typeof mimeType !== 'string' || typeof dataBase64 !== 'string' || dataBase64.length === 0) {
+    return '';
+  }
+  return `data:${mimeType};base64,${dataBase64}`;
+}
+
+function cloneAttachment(attachment) {
+  if (!attachment || typeof attachment !== 'object') {
+    return null;
+  }
+
+  const mimeType = typeof attachment.mimeType === 'string' ? attachment.mimeType : '';
+  const dataBase64 = typeof attachment.dataBase64 === 'string' ? attachment.dataBase64 : '';
+  const path = typeof attachment.path === 'string' ? attachment.path : '';
+  const relativePath = typeof attachment.relativePath === 'string' ? attachment.relativePath : '';
+  return {
+    id: typeof attachment.id === 'string' ? attachment.id : crypto.randomUUID(),
+    name: typeof attachment.name === 'string' ? attachment.name : '',
+    mimeType,
+    dataBase64,
+    path,
+    relativePath,
+    previewUrl:
+      typeof attachment.previewUrl === 'string' && attachment.previewUrl.length > 0
+        ? attachment.previewUrl
+        : createImageDataUrl(mimeType, dataBase64),
+  };
+}
+
+function cloneAttachments(attachments) {
+  if (!Array.isArray(attachments)) {
+    return [];
+  }
+
+  return attachments
+    .map((attachment) => cloneAttachment(attachment))
+    .filter((attachment) => attachment !== null);
+}
+
+function cloneMessagePart(part) {
+  if (!part || typeof part !== 'object') {
+    return null;
+  }
+
+  if (part.type === 'tool_call') {
+    return {
+      ...part,
+      toolCall: {
+        ...part.toolCall,
+        locations: part.toolCall.locations?.map((location) => ({ ...location })),
+      },
+    };
+  }
+  if (part.type === 'plan') {
+    return {
+      ...part,
+      entries: part.entries.map((entry) => ({ ...entry })),
+    };
+  }
+  if (part.type === 'image') {
+    return {
+      ...part,
+      image: cloneAttachment(part.image),
+    };
+  }
+
+  return { ...part };
+}
+
+function normalizeSelectedImage(image) {
+  if (!image || typeof image !== 'object') {
+    return null;
+  }
+
+  const mimeType = typeof image.mimeType === 'string' ? image.mimeType : '';
+  const dataBase64 = typeof image.dataBase64 === 'string' ? image.dataBase64 : '';
+  const path = typeof image.path === 'string' ? image.path : '';
+  const relativePath = typeof image.relativePath === 'string' ? image.relativePath : '';
+  if (!mimeType || (!path && !relativePath)) {
+    return null;
+  }
+
+  return {
+    id: crypto.randomUUID(),
+    name: typeof image.name === 'string' ? image.name : '',
+    mimeType,
+    dataBase64,
+    path,
+    relativePath,
+    previewUrl: createImageDataUrl(mimeType, dataBase64),
+  };
+}
+
+function normalizeIncomingImageContent(content) {
+  if (!content || content.type !== 'image') {
+    return null;
+  }
+
+  const mimeType = typeof content.mimeType === 'string' ? content.mimeType : '';
+  const dataBase64 =
+    typeof content.data === 'string'
+      ? content.data
+      : typeof content.dataBase64 === 'string'
+        ? content.dataBase64
+        : '';
+
+  return {
+    id: crypto.randomUUID(),
+    name: typeof content.name === 'string' ? content.name : '',
+    mimeType,
+    dataBase64,
+    path: typeof content.path === 'string' ? content.path : '',
+    relativePath: typeof content.relativePath === 'string' ? content.relativePath : '',
+    previewUrl: createImageDataUrl(mimeType, dataBase64),
+  };
+}
+
+function buildPromptParts(text, attachments) {
+  const parts = [];
+  if (text) {
+    parts.push({
+      type: 'content',
+      content: text,
+    });
+  }
+
+  for (const attachment of attachments) {
+    parts.push({
+      type: 'image',
+      image: cloneAttachment(attachment),
+    });
+  }
+
+  return parts;
+}
+
+function getAttachmentPromptPath(attachment) {
+  if (!attachment || typeof attachment !== 'object') {
+    return '';
+  }
+
+  if (typeof attachment.relativePath === 'string' && attachment.relativePath.length > 0) {
+    return attachment.relativePath;
+  }
+  if (typeof attachment.path === 'string' && attachment.path.length > 0) {
+    return attachment.path;
+  }
+  return '';
+}
+
+function buildAttachmentPromptText(attachments) {
+  const lines = attachments
+    .map((attachment) => {
+      const promptPath = getAttachmentPromptPath(attachment);
+      if (!promptPath) {
+        return '';
+      }
+
+      const displayName =
+        typeof attachment.name === 'string' && attachment.name.length > 0
+          ? attachment.name
+          : 'image';
+      return `- ${displayName}: ${promptPath}`;
+    })
+    .filter((line) => line.length > 0);
+
+  if (lines.length === 0) {
+    return '';
+  }
+
+  return ['用户附带了以下图片文件，请读取这些路径对应的图片内容：', ...lines].join('\n');
+}
+
+function buildPromptPayload(text, attachments) {
+  const payload = [];
+  if (text) {
+    payload.push({
+      type: 'text',
+      text,
+    });
+  }
+
+  const attachmentPromptText = buildAttachmentPromptText(attachments);
+  if (attachmentPromptText) {
+    payload.push({
+      type: 'text',
+      text: attachmentPromptText,
+    });
+  }
+
+  return payload;
+}
+
 function cloneMessages(messages) {
   if (!Array.isArray(messages)) {
     return [];
@@ -129,24 +330,10 @@ function cloneMessages(messages) {
       locations: toolCall.locations?.map((location) => ({ ...location })),
     })),
     planEntries: message.planEntries?.map((entry) => ({ ...entry })),
-    parts: message.parts?.map((part) => {
-      if (part.type === 'tool_call') {
-        return {
-          ...part,
-          toolCall: {
-            ...part.toolCall,
-            locations: part.toolCall.locations?.map((location) => ({ ...location })),
-          },
-        };
-      }
-      if (part.type === 'plan') {
-        return {
-          ...part,
-          entries: part.entries.map((entry) => ({ ...entry })),
-        };
-      }
-      return { ...part };
-    }),
+    attachments: cloneAttachments(message.attachments),
+    parts: message.parts
+      ?.map((part) => cloneMessagePart(part))
+      .filter((part) => part !== null),
   }));
 }
 
@@ -198,6 +385,11 @@ export const useSessionStore = defineStore('session', () => {
   const currentModelId = computed(() => {
     const active = connectedSessions.value[activeSessionId.value];
     return active?.currentModelId ?? '';
+  });
+
+  const pendingAttachments = computed(() => {
+    const active = connectedSessions.value[activeSessionId.value];
+    return active?.pendingAttachments ?? [];
   });
 
   let connectionAborted = false;
@@ -282,6 +474,7 @@ export const useSessionStore = defineStore('session', () => {
       client,
       isLoading: false,
       messages: [],
+      pendingAttachments: [],
       currentPlanEntries: clonePlanEntries(session.currentPlanEntries),
       toolCalls: new Map(),
       availableModes: [],
@@ -398,6 +591,7 @@ export const useSessionStore = defineStore('session', () => {
   function refreshRuntimeCollections(runtime) {
     runtime.messages = [...runtime.messages];
     runtime.currentPlanEntries = [...runtime.currentPlanEntries];
+    runtime.pendingAttachments = [...(runtime.pendingAttachments ?? [])];
   }
 
   function ensureMessageParts(message) {
@@ -408,6 +602,14 @@ export const useSessionStore = defineStore('session', () => {
           type: 'content',
           content: message.content,
         });
+      }
+      if (message.attachments?.length) {
+        parts.push(
+          ...message.attachments.map((attachment) => ({
+            type: 'image',
+            image: cloneAttachment(attachment),
+          }))
+        );
       }
       if (message.thought) {
         parts.push({
@@ -443,6 +645,7 @@ export const useSessionStore = defineStore('session', () => {
       role,
       content: '',
       timestamp: Date.now(),
+      attachments: [],
       parts: [],
     };
   }
@@ -481,6 +684,22 @@ export const useSessionStore = defineStore('session', () => {
     }
 
     message.thought = (message.thought || '') + text;
+  }
+
+  function appendImagePart(message, attachment) {
+    const nextAttachment = cloneAttachment(attachment);
+    if (!nextAttachment) {
+      return;
+    }
+
+    if (!message.attachments) {
+      message.attachments = [];
+    }
+    message.attachments.push(nextAttachment);
+    ensureMessageParts(message).push({
+      type: 'image',
+      image: nextAttachment,
+    });
   }
 
   function appendToolCallPart(message, toolCall) {
@@ -536,6 +755,9 @@ export const useSessionStore = defineStore('session', () => {
         if (update.content?.type === 'text') {
           const message = getOrCreateTrailingMessage(runtime, 'user');
           appendTextPart(message, 'content', update.content.text);
+        } else if (update.content?.type === 'image') {
+          const message = getOrCreateTrailingMessage(runtime, 'user');
+          appendImagePart(message, normalizeIncomingImageContent(update.content));
         }
         break;
       }
@@ -544,6 +766,9 @@ export const useSessionStore = defineStore('session', () => {
         if (update.content?.type === 'text') {
           const message = getOrCreateTrailingMessage(runtime, 'assistant');
           appendTextPart(message, 'content', update.content.text);
+        } else if (update.content?.type === 'image') {
+          const message = getOrCreateTrailingMessage(runtime, 'assistant');
+          appendImagePart(message, normalizeIncomingImageContent(update.content));
         }
         break;
       }
@@ -918,53 +1143,100 @@ export const useSessionStore = defineStore('session', () => {
     }
   }
 
-  async function sendPrompt(text) {
+  async function selectImageFiles() {
     const runtime = getConnectedSession(activeSessionId.value);
     if (!runtime) {
       throw new Error('No active session');
     }
 
     error.value = null;
+    const selectedImages = await openImagePicker(runtime.session.cwd);
+    const nextAttachments = Array.isArray(selectedImages)
+      ? selectedImages.map((image) => normalizeSelectedImage(image)).filter((image) => image !== null)
+      : [];
+
+    if (nextAttachments.length === 0) {
+      return runtime.pendingAttachments;
+    }
+
+    runtime.pendingAttachments = [...runtime.pendingAttachments, ...nextAttachments];
+    notifyConnectedSessionChanged(runtime);
+    return runtime.pendingAttachments;
+  }
+
+  function removePendingAttachment(attachmentId) {
+    const runtime = getConnectedSession(activeSessionId.value);
+    if (!runtime) {
+      return;
+    }
+
+    runtime.pendingAttachments = runtime.pendingAttachments.filter(
+      (attachment) => attachment.id !== attachmentId
+    );
+    notifyConnectedSessionChanged(runtime);
+  }
+
+  function clearPendingAttachments(sessionId = activeSessionId.value) {
+    const runtime = getConnectedSession(sessionId);
+    if (!runtime) {
+      return;
+    }
+
+    runtime.pendingAttachments = [];
+    notifyConnectedSessionChanged(runtime);
+  }
+
+  async function sendPrompt(text, attachments = null) {
+    const runtime = getConnectedSession(activeSessionId.value);
+    if (!runtime) {
+      throw new Error('No active session');
+    }
+
+    const normalizedText = typeof text === 'string' ? text.trim() : '';
+    const nextAttachments =
+      attachments === null ? cloneAttachments(runtime.pendingAttachments) : cloneAttachments(attachments);
+
+    if (!normalizedText && nextAttachments.length === 0) {
+      return;
+    }
+
+    error.value = null;
 
     runtime.messages.push({
       ...createChatMessage('user'),
-      content: text,
+      content: normalizedText,
       timestamp: Date.now(),
-      parts: [
-        {
-          type: 'content',
-          content: text,
-        },
-      ],
+      attachments: cloneAttachments(nextAttachments),
+      parts: buildPromptParts(normalizedText, nextAttachments),
     });
     refreshRuntimeCollections(runtime);
 
+    const previousPendingAttachments = cloneAttachments(runtime.pendingAttachments);
+    runtime.pendingAttachments = [];
     runtime.isLoading = true;
     notifyConnectedSessionChanged(runtime);
     try {
       const response = await runtime.client.prompt({
         sessionId: runtime.session.sessionId,
-        prompt: [
-          {
-            type: 'text',
-            text,
-          },
-        ],
+        prompt: buildPromptPayload(normalizedText, nextAttachments),
       });
 
       trackEvent('PromptSent', {
-        messageLength: String(text.length),
+        messageLength: String(normalizedText.length),
+        attachmentCount: String(nextAttachments.length),
         stopReason: response.stopReason || 'unknown',
       });
 
       if (runtime.messages.length === 2) {
-        runtime.session.title = text.slice(0, 50) + (text.length > 50 ? '...' : '');
+        const titleSource = normalizedText || nextAttachments[0]?.name || 'Image';
+        runtime.session.title = titleSource.slice(0, 50) + (titleSource.length > 50 ? '...' : '');
       }
 
       touchSavedSession(runtime.session);
       syncRuntimeSnapshot(runtime);
       await saveSessionsToStore();
     } catch (e) {
+      runtime.pendingAttachments = previousPendingAttachments;
       const nextError = e instanceof Error ? e.message : String(e);
       error.value = nextError;
       trackError(e instanceof Error ? e : new Error(nextError));
@@ -1116,6 +1388,7 @@ export const useSessionStore = defineStore('session', () => {
     availableModels,
     currentModelId,
     currentPlanEntries,
+    pendingAttachments,
     startupPhase,
     startupLogs,
     startupElapsed,
@@ -1126,6 +1399,9 @@ export const useSessionStore = defineStore('session', () => {
     initStore,
     createSession,
     resumeSession,
+    selectImageFiles,
+    removePendingAttachment,
+    clearPendingAttachments,
     sendPrompt,
     cancelOperation,
     cancelConnection,
