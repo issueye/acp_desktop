@@ -293,7 +293,8 @@
 .ued-select:focus,
 .ued-textarea:focus {
   border-color: var(--ued-accent);
-  box-shadow: var(--ued-shadow-focus);
+  border-radius: var(--ued-radius-sm);
+  border: 1px solid var(--ued-accent);
 }
 
 .ued-input[disabled],
