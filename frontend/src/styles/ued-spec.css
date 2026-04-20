@@ -294,7 +294,6 @@
 .ued-textarea:focus {
   border-color: var(--ued-accent);
   border-radius: var(--ued-radius-sm);
-  border: 1px solid var(--ued-accent);
 }
 
 .ued-input[disabled],
