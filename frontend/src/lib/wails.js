@@ -150,10 +150,6 @@ export async function selectDirectory() {
   return call("SelectDirectory");
 }
 
-export async function selectImageFiles(cwd) {
-  return call("SelectImageFiles", cwd);
-}
-
 export async function loadStore(name) {
   return call("LoadStore", name);
 }

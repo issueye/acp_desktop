@@ -14,7 +14,8 @@
       "mcp__context7__resolve-library-id",
       "mcp__context7__query-docs",
       "Bash(go build:*)",
-      "Bash(tesseract:*)"
+      "Bash(tesseract:*)",
+      "Bash(npm run build:*)"
     ]
   }
 }

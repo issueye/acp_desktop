@@ -32,10 +32,7 @@ const availableModes = computed(() => sessionStore.availableModes);
 const currentModeId = computed(() => sessionStore.currentModeId);
 const availableModels = computed(() => sessionStore.availableModels);
 const currentModelId = computed(() => sessionStore.currentModelId);
-const pendingAttachments = computed(() => sessionStore.pendingAttachments);
-const canSend = computed(
-  () => !isLoading.value && (inputText.value.trim().length > 0 || pendingAttachments.value.length > 0)
-);
+const canSend = computed(() => !isLoading.value && inputText.value.trim().length > 0);
 const availableCommands = computed(() => sessionStore.availableCommands);
 const currentPlanEntries = computed(() => sessionStore.currentPlanEntries);
 const isPlanCollapsed = ref(false);
@@ -147,22 +144,6 @@ onBeforeUnmount(() => {
   clearScheduledScroll();
 });
 
-async function handleSelectImages() {
-  if (isLoading.value) {
-    return;
-  }
-
-  try {
-    await sessionStore.selectImageFiles();
-  } catch (e) {
-    console.error('Failed to select images:', e);
-  }
-}
-
-function handleRemovePendingAttachment(attachmentId) {
-  sessionStore.removePendingAttachment(attachmentId);
-}
-
 async function handleSend() {
   if (!canSend.value) return;
 
@@ -258,61 +239,11 @@ function renderMarkdown(content) {
   return marked.parse(content, { async: false });
 }
 
-function getImageSource(image) {
-  if (!image || typeof image !== 'object') {
-    return '';
-  }
-  if (typeof image.previewUrl === 'string' && image.previewUrl.length > 0) {
-    return image.previewUrl;
-  }
-
-  const mimeType = typeof image.mimeType === 'string' ? image.mimeType : '';
-  const dataBase64 =
-    typeof image.dataBase64 === 'string'
-      ? image.dataBase64
-      : typeof image.data === 'string'
-        ? image.data
-        : '';
-
-  if (!mimeType || !dataBase64) {
-    return '';
-  }
-
-  return `data:${mimeType};base64,${dataBase64}`;
-}
-
-function getAttachmentName(image) {
-  return typeof image?.name === 'string' && image.name.length > 0
-    ? image.name
-    : t('chat.imageFallback');
-}
-
-function getAttachmentPath(image) {
-  if (!image || typeof image !== 'object') {
-    return '';
-  }
-
-  if (typeof image.relativePath === 'string' && image.relativePath.length > 0) {
-    return image.relativePath;
-  }
-  if (typeof image.path === 'string' && image.path.length > 0) {
-    return image.path;
-  }
-  return '';
-}
-
-function hasRenderableAttachment(image) {
-  return getImageSource(image).length > 0 || getAttachmentPath(image).length > 0;
-}
-
 function getMessageParts(message) {
   if (message.parts?.length) {
     return message.parts.filter((part) => {
       if (part.type === 'content' || part.type === 'thought') {
         return typeof part.content === 'string' && part.content.length > 0;
-      }
-      if (part.type === 'image') {
-        return hasRenderableAttachment(part.image);
       }
       return true;
     });
@@ -324,16 +255,6 @@ function getMessageParts(message) {
       type: 'content',
       content: message.content,
     });
-  }
-  if (message.attachments?.length) {
-    parts.push(
-      ...message.attachments
-        .map((attachment) => ({
-          type: 'image',
-          image: attachment,
-        }))
-        .filter((part) => hasRenderableAttachment(part.image))
-    );
   }
   if (message.thought) {
     parts.push({
@@ -635,24 +556,6 @@ function toggleToolCall(toolCallId) {
                 </div>
 
                 <div
-                  v-else-if="part.type === 'image' && hasRenderableAttachment(part.image)"
-                  class="message-image"
-                >
-                  <img
-                    v-if="getImageSource(part.image)"
-                    class="message-image__img"
-                    :src="getImageSource(part.image)"
-                    :alt="getAttachmentName(part.image)"
-                  />
-                  <div class="message-image__meta">
-                    <div class="message-image__name">{{ getAttachmentName(part.image) }}</div>
-                    <div v-if="getAttachmentPath(part.image)" class="message-image__path">
-                      {{ getAttachmentPath(part.image) }}
-                    </div>
-                  </div>
-                </div>
-
-                <div
                   v-else-if="part.type === 'content' && part.content"
                   class="message-content"
                   v-html="renderMarkdown(part.content)"
@@ -750,58 +653,7 @@ function toggleToolCall(toolCallId) {
                 />
 
                 <div class="composer-footer">
-                  <div v-if="pendingAttachments.length > 0" class="pending-attachments pending-attachments--compact">
-                    <div class="pending-attachments__list">
-                      <div
-                        v-for="attachment in pendingAttachments"
-                        :key="attachment.id"
-                        class="pending-attachment"
-                      >
-                        <img
-                          class="pending-attachment__preview"
-                          :src="getImageSource(attachment)"
-                          :alt="getAttachmentName(attachment)"
-                        />
-                        <div class="pending-attachment__meta">
-                          <span class="pending-attachment__name">{{ getAttachmentName(attachment) }}</span>
-                        </div>
-                        <button
-                          type="button"
-                          class="pending-attachment__remove ued-icon-btn"
-                          :title="t('chat.removeImage')"
-                          :aria-label="t('chat.removeImage')"
-                          :disabled="isLoading"
-                          @click="handleRemovePendingAttachment(attachment.id)"
-                        >
-                          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                            <path
-                              d="M8 8L16 16M16 8L8 16"
-                              stroke="currentColor"
-                              stroke-width="1.8"
-                              stroke-linecap="round"
-                            />
-                          </svg>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div class="composer-actions">
-                    <button
-                      type="button"
-                      class="composer-action-btn composer-action-btn--compact ued-icon-btn"
-                      :title="t('chat.addImage')"
-                      :aria-label="t('chat.addImage')"
-                      :disabled="isLoading"
-                      @click="handleSelectImages"
-                    >
-                      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                        <rect x="4.75" y="5.75" width="14.5" height="12.5" rx="2" stroke="currentColor" stroke-width="1.7" />
-                        <path d="M8 14L10.7 11.3C11.09 10.91 11.71 10.91 12.1 11.3L15.5 14.7" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
-                        <path d="M13.5 13.5L14.95 12.05C15.34 11.66 15.96 11.66 16.35 12.05L19.25 14.95" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
-                        <circle cx="9.25" cy="9.25" r="1.25" fill="currentColor" />
-                      </svg>
-                    </button>
+                  <div class="composer-actions composer-actions--text-only">
                     <UEDButton
                       class="send-btn send-btn--compact"
                       variant="primary"
@@ -1246,43 +1098,6 @@ function toggleToolCall(toolCallId) {
   font-size: 0.88rem;
 }
 
-.message-image {
-  margin: 0.25rem 0 0.85rem;
-}
-
-.message-image__img {
-  display: block;
-  max-width: min(100%, 420px);
-  max-height: 320px;
-  border-radius: 12px;
-  border: 1px solid color-mix(in srgb, var(--ued-border-default) 86%, transparent);
-  box-shadow: var(--ued-shadow-rest);
-  object-fit: cover;
-  background: color-mix(in srgb, var(--ued-bg-panel-muted) 82%, white);
-}
-
-.message-image__meta {
-  margin-top: 0.42rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-  word-break: break-word;
-}
-
-.message-image__name {
-  font-size: 0.78rem;
-  line-height: 1.45;
-  color: var(--ued-text-muted);
-}
-
-.message-image__path {
-  font-size: 0.74rem;
-  line-height: 1.5;
-  color: color-mix(in srgb, var(--ued-text-muted) 92%, var(--ued-accent));
-  font-family: var(--ued-font-mono);
-  overflow-wrap: anywhere;
-}
-
 .loading-indicator {
   display: flex;
   align-items: center;
@@ -1431,73 +1246,6 @@ function toggleToolCall(toolCallId) {
   border-top: 1px solid color-mix(in srgb, var(--ued-border-default) 68%, transparent);
 }
 
-.pending-attachments {
-  padding: 0.3rem;
-  border-radius: 12px;
-  border: 1px solid color-mix(in srgb, var(--ued-border-default) 88%, transparent);
-  background: color-mix(in srgb, var(--ued-bg-panel-muted) 84%, white);
-}
-
-.pending-attachments--compact {
-  margin: 0;
-}
-
-.pending-attachments__list {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: 0.32rem;
-  overflow-x: auto;
-  padding-bottom: 0;
-}
-
-.pending-attachment {
-  display: grid;
-  grid-template-columns: 30px minmax(0, 1fr) 22px;
-  align-items: center;
-  gap: 0.32rem;
-  flex: 0 0 180px;
-  min-width: 0;
-  width: 180px;
-  padding: 0.22rem;
-  border-radius: 10px;
-  background: var(--ued-bg-panel);
-  border: 1px solid color-mix(in srgb, var(--ued-border-default) 88%, transparent);
-}
-
-.pending-attachment__preview {
-  width: 30px;
-  height: 30px;
-  object-fit: cover;
-  border-radius: 8px;
-  border: 1px solid color-mix(in srgb, var(--ued-border-default) 82%, transparent);
-  background: color-mix(in srgb, var(--ued-bg-panel-muted) 82%, white);
-}
-
-.pending-attachment__meta {
-  min-width: 0;
-}
-
-.pending-attachment__name {
-  display: block;
-  font-size: 0.72rem;
-  line-height: 1.2;
-  color: var(--ued-text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.pending-attachment__remove {
-  width: 22px;
-  height: 22px;
-}
-
-.pending-attachment__remove svg {
-  width: 10px;
-  height: 10px;
-  display: block;
-}
-
 .cancel-btn {
   margin-left: auto;
 }
@@ -1505,12 +1253,15 @@ function toggleToolCall(toolCallId) {
 .composer-actions {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 0.4rem;
   min-height: 22px;
 }
 
-.composer-action-btn,
+.composer-actions--text-only {
+  justify-content: flex-end;
+}
+
 .send-btn {
   display: inline-flex;
   align-items: center;
@@ -1523,14 +1274,12 @@ function toggleToolCall(toolCallId) {
   box-shadow: none;
 }
 
-.composer-action-btn:hover,
 .send-btn:hover {
   background: var(--ued-bg-panel-hover);
   color: var(--ued-text-primary);
   border-color: color-mix(in srgb, var(--ued-border-default) 82%, transparent);
 }
 
-.composer-action-btn--compact,
 .send-btn--compact {
   width: 28px;
   min-width: 28px;
@@ -1538,7 +1287,6 @@ function toggleToolCall(toolCallId) {
   flex-shrink: 0;
 }
 
-.composer-action-btn svg,
 .send-btn__icon {
   width: 12px;
   height: 12px;
@@ -1712,11 +1460,6 @@ function toggleToolCall(toolCallId) {
     justify-self: flex-start;
   }
 
-  .pending-attachment {
-    flex: 0 0 100%;
-    width: 100%;
-  }
-
   .composer-actions {
     gap: 0.36rem;
     min-height: 20px;
@@ -1732,7 +1475,6 @@ function toggleToolCall(toolCallId) {
     min-height: 82px;
   }
 
-  .composer-action-btn--compact,
   .send-btn--compact {
     width: 26px;
     min-width: 26px;
