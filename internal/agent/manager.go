@@ -9,10 +9,20 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"sort"
+	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/issueye/acp_desktop/internal/config"
+)
+
+type AgentStatus string
+
+const (
+	AgentStatusRunning  AgentStatus = "running"
+	AgentStatusStopping AgentStatus = "stopping"
 )
 
 type AgentInstance struct {
@@ -30,10 +40,35 @@ type AgentStderr struct {
 	Line    string `json:"line"`
 }
 
+type RunningAgentInfo struct {
+	ID              string      `json:"id"`
+	Name            string      `json:"name"`
+	PID             int         `json:"pid"`
+	Command         string      `json:"command"`
+	Args            []string    `json:"args"`
+	CommandLine     string      `json:"commandLine"`
+	WorkingDir      string      `json:"workingDir,omitempty"`
+	StartedAt       string      `json:"startedAt"`
+	Status          AgentStatus `json:"status"`
+	EnvOverrideKeys []string    `json:"envOverrideKeys,omitempty"`
+}
+
+type AgentClosedInfo struct {
+	ID       string      `json:"id"`
+	AgentID  string      `json:"agentID"`
+	Name     string      `json:"name,omitempty"`
+	PID      int         `json:"pid,omitempty"`
+	ClosedAt string      `json:"closedAt"`
+	Status   AgentStatus `json:"status,omitempty"`
+	ExitCode *int        `json:"exitCode,omitempty"`
+	Error    string      `json:"error,omitempty"`
+}
+
 type runningAgent struct {
 	cmd     *exec.Cmd
 	stdin   io.WriteCloser
 	stdinMu sync.Mutex
+	info    RunningAgentInfo
 }
 
 type Manager struct {
@@ -81,14 +116,31 @@ func (m *Manager) SpawnAgent(name string, cfg config.AgentConfig, envOverrides m
 		return AgentInstance{}, fmt.Errorf("spawn agent: %w", err)
 	}
 
+	info := RunningAgentInfo{
+		ID:              agentID,
+		Name:            name,
+		PID:             processPID(cmd),
+		Command:         cfg.Command,
+		Args:            cloneStrings(cfg.Args),
+		CommandLine:     formatCommandLine(cfg.Command, cfg.Args),
+		StartedAt:       time.Now().Format(time.RFC3339Nano),
+		Status:          AgentStatusRunning,
+		EnvOverrideKeys: sortedKeys(envOverrides),
+	}
+
 	ra := &runningAgent{
 		cmd:   cmd,
 		stdin: stdin,
+		info:  info,
 	}
 
 	m.mu.Lock()
 	m.agents[agentID] = ra
 	m.mu.Unlock()
+
+	if m.emitter != nil {
+		m.emitter("agent-started", cloneRunningAgentInfo(info))
+	}
 
 	go m.streamStdout(agentID, stdout)
 	go m.streamStderr(agentID, stderr)
@@ -122,7 +174,7 @@ func (m *Manager) KillAgent(agentID string) error {
 	m.mu.Lock()
 	agent, ok := m.agents[agentID]
 	if ok {
-		delete(m.agents, agentID)
+		agent.info.Status = AgentStatusStopping
 	}
 	m.mu.Unlock()
 
@@ -146,7 +198,26 @@ func (m *Manager) ListRunningAgents() []string {
 	for id := range m.agents {
 		ids = append(ids, id)
 	}
+	sort.Strings(ids)
 	return ids
+}
+
+func (m *Manager) ListRunningAgentDetails() []RunningAgentInfo {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	infos := make([]RunningAgentInfo, 0, len(m.agents))
+	for _, agent := range m.agents {
+		infos = append(infos, cloneRunningAgentInfo(agent.info))
+	}
+
+	sort.Slice(infos, func(i, j int) bool {
+		leftTime := parseTime(infos[i].StartedAt)
+		rightTime := parseTime(infos[j].StartedAt)
+		return rightTime.Before(leftTime)
+	})
+
+	return infos
 }
 
 func (m *Manager) Shutdown() {
@@ -194,14 +265,39 @@ func (m *Manager) streamStderr(agentID string, reader io.ReadCloser) {
 }
 
 func (m *Manager) waitAgentExit(agentID string, cmd *exec.Cmd) {
-	_ = cmd.Wait()
+	waitErr := cmd.Wait()
+
+	closed := AgentClosedInfo{
+		ID:       agentID,
+		AgentID:  agentID,
+		ClosedAt: time.Now().Format(time.RFC3339Nano),
+	}
 
 	m.mu.Lock()
-	delete(m.agents, agentID)
+	if agent := m.agents[agentID]; agent != nil {
+		closed.Name = agent.info.Name
+		closed.PID = agent.info.PID
+		closed.Status = agent.info.Status
+		delete(m.agents, agentID)
+	}
 	m.mu.Unlock()
 
+	if closed.PID == 0 {
+		closed.PID = processPID(cmd)
+	}
+	if closed.Status == "" {
+		closed.Status = AgentStatusStopping
+	}
+	if cmd.ProcessState != nil {
+		exitCode := cmd.ProcessState.ExitCode()
+		closed.ExitCode = &exitCode
+	}
+	if waitErr != nil && !errors.Is(waitErr, os.ErrProcessDone) {
+		closed.Error = waitErr.Error()
+	}
+
 	if m.emitter != nil {
-		m.emitter("agent-closed", agentID)
+		m.emitter("agent-closed", closed)
 	}
 }
 
@@ -261,4 +357,72 @@ func mergeEnvs(base []string, layers ...map[string]string) []string {
 
 func normalizeEnvKey(key string) string {
 	return strings.ToUpper(strings.TrimSpace(key))
+}
+
+func cloneRunningAgentInfo(info RunningAgentInfo) RunningAgentInfo {
+	info.Args = cloneStrings(info.Args)
+	info.EnvOverrideKeys = cloneStrings(info.EnvOverrideKeys)
+	return info
+}
+
+func cloneStrings(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	return append([]string(nil), values...)
+}
+
+func sortedKeys(values map[string]string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	keys := make([]string, 0, len(values))
+	for key := range values {
+		normalized := strings.TrimSpace(key)
+		if normalized == "" {
+			continue
+		}
+		keys = append(keys, normalized)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+func formatCommandLine(command string, args []string) string {
+	parts := make([]string, 0, len(args)+1)
+	if command != "" {
+		parts = append(parts, quoteCommandPart(command))
+	}
+	for _, arg := range args {
+		parts = append(parts, quoteCommandPart(arg))
+	}
+	return strings.Join(parts, " ")
+}
+
+func quoteCommandPart(value string) string {
+	if value == "" {
+		return `""`
+	}
+	if strings.ContainsAny(value, " \t\n\r\"") {
+		return strconv.Quote(value)
+	}
+	return value
+}
+
+func parseTime(value string) time.Time {
+	if value == "" {
+		return time.Time{}
+	}
+	parsed, err := time.Parse(time.RFC3339Nano, value)
+	if err != nil {
+		return time.Time{}
+	}
+	return parsed
+}
+
+func processPID(cmd *exec.Cmd) int {
+	if cmd == nil || cmd.Process == nil {
+		return 0
+	}
+	return cmd.Process.Pid
 }

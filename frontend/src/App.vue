@@ -10,6 +10,7 @@ import PermissionDialog from './components/PermissionDialog.vue';
 import SettingsView from './components/SettingsView.vue';
 import AuthMethodDialog from './components/AuthMethodDialog.vue';
 import TrafficMonitor from './components/TrafficMonitor.vue';
+import ProcessManagerDialog from './components/ProcessManagerDialog.vue';
 import AppFloatingPanel from './components/AppFloatingPanel.vue';
 import AppHeaderBar from './components/AppHeaderBar.vue';
 import AppSidebar from './components/AppSidebar.vue';
@@ -27,6 +28,7 @@ const showSidebar = ref(true);
 const showSettings = ref(false);
 const showWorkspaceDialog = ref(false);
 const showTrafficMonitor = ref(false);
+const showProcessManager = ref(false);
 const showStartupDetails = ref(false);
 const sessionSearchQuery = ref('');
 const pinnedSessionIds = ref([]);
@@ -411,6 +413,10 @@ function handleGlobalKeydown(event) {
     closeSettings();
     return;
   }
+  if (showProcessManager.value) {
+    showProcessManager.value = false;
+    return;
+  }
   if (showTrafficMonitor.value) {
     showTrafficMonitor.value = false;
   }
@@ -426,8 +432,10 @@ function handleGlobalKeydown(event) {
         :active-status-label="activeStatusLabel"
         :cwd-label="selectedCwd ? selectedCwdCompact : ''"
         :traffic-monitor-open="showTrafficMonitor"
+        :process-manager-open="showProcessManager"
         :is-live="isConnected || isConnecting"
         @toggle-traffic="showTrafficMonitor = !showTrafficMonitor"
+        @toggle-process-manager="showProcessManager = !showProcessManager"
         @toggle-locale="toggleLocale"
         @open-settings="openSettings()"
         @minimise="windowMinimise"
@@ -534,6 +542,11 @@ function handleGlobalKeydown(event) {
     >
       <TrafficMonitor @close="showTrafficMonitor = false" />
     </AppFloatingPanel>
+
+    <ProcessManagerDialog
+      v-model="showProcessManager"
+      @notify="pushToast($event.message, $event.tone)"
+    />
 
     <WorkspaceSessionDialog
       v-model="showWorkspaceDialog"

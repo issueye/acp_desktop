@@ -8,10 +8,11 @@ defineProps({
     activeStatusLabel: { type: String, required: true },
     cwdLabel: { type: String },
     trafficMonitorOpen: { type: Boolean, required: true },
+    processManagerOpen: { type: Boolean, required: true },
     isLive: { type: Boolean, required: true },
 });
 
-const emit = defineEmits(['toggleTraffic', 'toggleLocale', 'openSettings', 'minimise', 'close', 'headerDblclick']);
+const emit = defineEmits(['toggleTraffic', 'toggleProcessManager', 'toggleLocale', 'openSettings', 'minimise', 'close', 'headerDblclick']);
 
 const { t } = useI18n();
 </script>
@@ -56,6 +57,19 @@ const { t } = useI18n();
             stroke-linecap="round"
             stroke-linejoin="round"
           />
+        </svg>
+      </button>
+      <button
+        class="header-icon-button ued-icon-btn"
+        :class="{ 'ued-icon-btn--active': processManagerOpen }"
+        :title="t('app.processManager')"
+        :aria-label="t('app.processManager')"
+        @click="emit('toggleProcessManager')"
+      >
+        <svg class="header-action-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <rect x="4.75" y="6" width="14.5" height="5.25" rx="1.2" stroke="currentColor" stroke-width="1.6" />
+          <rect x="4.75" y="12.75" width="14.5" height="5.25" rx="1.2" stroke="currentColor" stroke-width="1.6" />
+          <path d="M8 8.6H10.5M8 15.35H12.25" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
         </svg>
       </button>
       <button

@@ -110,6 +110,10 @@ func (a *App) ListRunningAgents() []string {
 	return a.agentManager.ListRunningAgents()
 }
 
+func (a *App) ListRunningAgentDetails() []agent.RunningAgentInfo {
+	return a.agentManager.ListRunningAgentDetails()
+}
+
 func (a *App) AddAgent(name, command string, args []string, env map[string]string) (config.AgentsConfig, error) {
 	return a.configManager.AddAgent(name, config.AgentConfig{
 		Command: command,

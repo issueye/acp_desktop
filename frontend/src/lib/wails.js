@@ -50,6 +50,49 @@ function normalizeAgentStderr(payload) {
   };
 }
 
+function normalizeAgentClosed(payload) {
+  if (typeof payload === "string") {
+    return {
+      id: payload,
+      agentID: payload,
+      name: "",
+      pid: 0,
+      closedAt: "",
+      status: "",
+      exitCode: null,
+      error: "",
+    };
+  }
+  const value = payload ?? {};
+  const id = value.id ?? value.agentID ?? value.agentId ?? "";
+  return {
+    id,
+    agentID: value.agentID ?? value.agentId ?? id,
+    name: value.name ?? "",
+    pid: Number(value.pid ?? 0),
+    closedAt: value.closedAt ?? "",
+    status: value.status ?? "",
+    exitCode: value.exitCode ?? null,
+    error: value.error ?? "",
+  };
+}
+
+function normalizeRunningAgent(payload) {
+  const value = payload ?? {};
+  return {
+    id: value.id ?? "",
+    name: value.name ?? "",
+    pid: Number(value.pid ?? 0),
+    command: value.command ?? "",
+    args: Array.isArray(value.args) ? value.args : [],
+    commandLine: value.commandLine ?? "",
+    workingDir: value.workingDir ?? "",
+    startedAt: value.startedAt ?? "",
+    status: value.status ?? "",
+    envOverrideKeys: Array.isArray(value.envOverrideKeys) ? value.envOverrideKeys : [],
+  };
+}
+
 export async function getConfig() {
   return call("GetConfig");
 }
@@ -76,6 +119,11 @@ export async function killAgent(agentId) {
 
 export async function listRunningAgents() {
   return call("ListRunningAgents");
+}
+
+export async function listRunningAgentDetails() {
+  const items = await call("ListRunningAgentDetails");
+  return Array.isArray(items) ? items.map(normalizeRunningAgent) : [];
 }
 
 export async function addAgent(name, command, args, env = {}) {
@@ -124,8 +172,12 @@ export async function onAgentMessage(callback) {
   return listenEvent("agent-message", normalizeAgentMessage, callback);
 }
 
+export async function onAgentStarted(callback) {
+  return listenEvent("agent-started", normalizeRunningAgent, callback);
+}
+
 export async function onAgentClosed(callback) {
-  return listenEvent("agent-closed", (payload) => String(payload ?? ""), callback);
+  return listenEvent("agent-closed", normalizeAgentClosed, callback);
 }
 
 export async function onConfigChanged(callback) {

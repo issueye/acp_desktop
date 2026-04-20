@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__acp__Write",
+      "mcp__acp__Edit",
+      "Bash(npm run build)",
+      "Bash(go test:*)",
+      "Bash(npm --prefix \"E:/code/issueye/icooacp/acp_go_ui/frontend\" run build)",
+      "Bash(wails generate bindings:*)",
+      "Bash(wails build:*)"
+    ]
+  }
+}
