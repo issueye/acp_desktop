@@ -7,8 +7,11 @@ const props = defineProps({
     items: { type: Array, required: true },
     currentId: { type: String, required: true },
     disabled: { type: Boolean, default: false },
+    align: { type: String, default: 'right' },
+    side: { type: String, default: 'bottom' },
     minWidth: { type: String, default: '292px' },
     maxWidth: { type: String, default: '420px' },
+    panelClass: { type: [String, Array, Object], default: '' },
     triggerMinWidth: { type: String, default: '172px' },
     searchable: { type: Boolean, default: false },
     searchPlaceholder: { type: String, default: 'Search...' },
@@ -112,7 +115,14 @@ watch(isOpen, async (open) => {
 </script>
 
 <template>
-  <AppPopover v-model="isOpen" align="right" :min-width="minWidth" :max-width="maxWidth">
+  <AppPopover
+    v-model="isOpen"
+    :align="align"
+    :side="side"
+    :min-width="minWidth"
+    :max-width="maxWidth"
+    :panel-class="panelClass"
+  >
     <template #trigger>
       <div class="ued-menu-picker" :class="{ disabled }" :style="{ minWidth: triggerMinWidth }">
         <button
@@ -150,7 +160,13 @@ watch(isOpen, async (open) => {
           <div
             v-for="item in filteredItems"
             :key="item.id"
-            :class="['ued-menu-picker__item', { 'is-selected': item.id === currentId }]"
+            :class="[
+              'ued-menu-picker__item',
+              {
+                'has-icon': item.icon,
+                'is-selected': item.id === currentId,
+              },
+            ]"
             @click="selectItem(item.id)"
           >
             <span v-if="item.icon" class="ued-menu-picker__item-icon">{{ item.icon }}</span>
@@ -265,12 +281,16 @@ watch(isOpen, async (open) => {
 
 .ued-menu-picker__item {
   display: grid;
-  grid-template-columns: 24px minmax(0, 1fr) 18px;
+  grid-template-columns: minmax(0, 1fr) 18px;
   align-items: start;
   column-gap: 0.7rem;
   padding: 0.82rem 0.9rem;
   cursor: pointer;
   transition: background-color 0.12s ease;
+}
+
+.ued-menu-picker__item.has-icon {
+  grid-template-columns: 24px minmax(0, 1fr) 18px;
 }
 
 .ued-menu-picker__item:hover {
