@@ -289,19 +289,22 @@ export class AcpClientBridge {
   // ACP Client interface methods (agent calls these)
   async requestPermission(params) {
     return new Promise((resolve) => {
+      const toolCall = params?.toolCall ?? {};
+      const options = Array.isArray(params?.options) ? params.options : [];
+
       this.pendingPermissionRequest.value = {
         sessionId: params.sessionId,
         toolCall: {
-          toolCallId: params.toolCall.toolCallId,
-          title: params.toolCall.title ?? '',
-          kind: params.toolCall.kind ?? 'other',
-          status: params.toolCall.status ?? 'pending',
-          locations: params.toolCall.locations ?? undefined,
+          toolCallId: toolCall.toolCallId ?? '',
+          title: toolCall.title ?? '',
+          kind: toolCall.kind ?? 'other',
+          status: toolCall.status ?? 'pending',
+          locations: toolCall.locations ?? undefined,
         },
-        options: params.options.map((opt) => ({
-          kind: opt.kind,
-          name: opt.name,
-          optionId: opt.optionId,
+        options: options.map((opt) => ({
+          kind: typeof opt?.kind === 'string' ? opt.kind : 'reject_once',
+          name: typeof opt?.name === 'string' ? opt.name : 'Unknown option',
+          optionId: typeof opt?.optionId === 'string' ? opt.optionId : '',
         })),
       };
       this.permissionResolver = resolve;
