@@ -7,7 +7,10 @@
       "Bash(go test:*)",
       "Bash(npm --prefix \"E:/code/issueye/icooacp/acp_go_ui/frontend\" run build)",
       "Bash(wails generate bindings:*)",
-      "Bash(wails build:*)"
+      "Bash(wails build:*)",
+      "Bash(go doc:*)",
+      "Bash(gofmt:*)",
+      "Bash(python:*)"
     ]
   }
 }

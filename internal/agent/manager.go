@@ -66,6 +66,7 @@ type AgentClosedInfo struct {
 
 type runningAgent struct {
 	cmd     *exec.Cmd
+	process *platformProcess
 	stdin   io.WriteCloser
 	stdinMu sync.Mutex
 	info    RunningAgentInfo
@@ -97,23 +98,39 @@ func (m *Manager) SpawnAgent(name string, cfg config.AgentConfig, envOverrides m
 	cmd := buildCommand(cfg)
 	cmd.Env = mergeEnvs(os.Environ(), cfg.Env, envOverrides)
 
+	process, err := preparePlatformProcess(cmd)
+	if err != nil {
+		return AgentInstance{}, fmt.Errorf("prepare agent process: %w", err)
+	}
+
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
+		releasePlatformProcess(process)
 		return AgentInstance{}, fmt.Errorf("open stdin: %w", err)
 	}
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
+		releasePlatformProcess(process)
 		return AgentInstance{}, fmt.Errorf("open stdout: %w", err)
 	}
 
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
+		releasePlatformProcess(process)
 		return AgentInstance{}, fmt.Errorf("open stderr: %w", err)
 	}
 
 	if err := cmd.Start(); err != nil {
+		releasePlatformProcess(process)
 		return AgentInstance{}, fmt.Errorf("spawn agent: %w", err)
+	}
+
+	if err := bindPlatformProcess(process, cmd); err != nil {
+		_ = terminateProcessTree(process, cmd)
+		releasePlatformProcess(process)
+		_ = cmd.Wait()
+		return AgentInstance{}, fmt.Errorf("bind agent process: %w", err)
 	}
 
 	info := RunningAgentInfo{
@@ -129,9 +146,10 @@ func (m *Manager) SpawnAgent(name string, cfg config.AgentConfig, envOverrides m
 	}
 
 	ra := &runningAgent{
-		cmd:   cmd,
-		stdin: stdin,
-		info:  info,
+		cmd:     cmd,
+		process: process,
+		stdin:   stdin,
+		info:    info,
 	}
 
 	m.mu.Lock()
@@ -182,10 +200,8 @@ func (m *Manager) KillAgent(agentID string) error {
 		return nil
 	}
 
-	if agent.cmd.Process != nil {
-		if err := agent.cmd.Process.Kill(); err != nil && !errors.Is(err, os.ErrProcessDone) {
-			return fmt.Errorf("kill agent process: %w", err)
-		}
+	if err := terminateProcessTree(agent.process, agent.cmd); err != nil {
+		return fmt.Errorf("kill agent process tree: %w", err)
 	}
 	return nil
 }
@@ -222,17 +238,15 @@ func (m *Manager) ListRunningAgentDetails() []RunningAgentInfo {
 
 func (m *Manager) Shutdown() {
 	m.mu.Lock()
-	agents := make(map[string]*runningAgent, len(m.agents))
-	for id, ag := range m.agents {
-		agents[id] = ag
+	agents := make([]*runningAgent, 0, len(m.agents))
+	for _, ag := range m.agents {
+		ag.info.Status = AgentStatusStopping
+		agents = append(agents, ag)
 	}
-	m.agents = map[string]*runningAgent{}
 	m.mu.Unlock()
 
 	for _, ag := range agents {
-		if ag.cmd.Process != nil {
-			_ = ag.cmd.Process.Kill()
-		}
+		_ = terminateProcessTree(ag.process, ag.cmd)
 	}
 }
 
@@ -278,6 +292,7 @@ func (m *Manager) waitAgentExit(agentID string, cmd *exec.Cmd) {
 		closed.Name = agent.info.Name
 		closed.PID = agent.info.PID
 		closed.Status = agent.info.Status
+		releasePlatformProcess(agent.process)
 		delete(m.agents, agentID)
 	}
 	m.mu.Unlock()
