@@ -387,13 +387,13 @@ async function handleDeleteWorkspace(workspaceId) {
   }
 }
 
-async function handleRefreshWorkspace(workspaceId) {
+async function handleRefreshWorkspace(workspaceId, agentName = selectedAgent.value) {
   const workspace = workspaces.value.find((item) => item.id === workspaceId);
   if (!workspace || refreshingWorkspaceIds.value.includes(workspaceId)) {
     return;
   }
 
-  const agentNames = selectedAgent.value ? [selectedAgent.value] : configStore.agentNames;
+  const agentNames = agentName ? [agentName] : configStore.agentNames;
   if (agentNames.length === 0) {
     pushToast(t('agent.noneConfigured'), 'info');
     return;
@@ -705,6 +705,7 @@ function handleGlobalKeydown(event) {
           :refreshing-workspace-ids="refreshingWorkspaceIds"
           @open-workspace="openWorkspaceDialog"
           @add-workspace="handleAddWorkspace"
+          @select-agent="handleAgentSelect"
           @refresh-workspace="handleRefreshWorkspace"
           @select-workspace="handleSelectWorkspace"
           @delete-workspace="handleDeleteWorkspace"

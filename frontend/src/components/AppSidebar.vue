@@ -1,6 +1,5 @@
 <script setup>
-import { computed } from 'vue';
-import SessionList from '../views/chat/SessionList.vue';
+import SessionTree from '../views/chat/SessionTree.vue';
 import UEDButton from './common/UEDButton.vue';
 
 import { useI18n } from '../lib/i18n';
@@ -26,17 +25,9 @@ const props = defineProps({
     refreshingWorkspaceIds: { type: Array, default: () => [] },
 });
 
-const emit = defineEmits(['navigateRoute', 'openWorkspace', 'addWorkspace', 'refreshWorkspace', 'selectWorkspace', 'deleteWorkspace', 'update:query', 'resume', 'activate', 'disconnect', 'delete', 'togglePin', 'openSettings', 'openAddAgent']);
+const emit = defineEmits(['navigateRoute', 'openWorkspace', 'addWorkspace', 'refreshWorkspace', 'selectAgent', 'selectWorkspace', 'deleteWorkspace', 'update:query', 'resume', 'activate', 'disconnect', 'delete', 'togglePin', 'openSettings', 'openAddAgent']);
 
 const { t } = useI18n();
-
-const activeWorkspace = computed(() =>
-  props.workspaces.find((workspace) => workspace.id === props.activeWorkspaceId) ?? null
-);
-
-function isRefreshingWorkspace(workspaceId) {
-  return props.refreshingWorkspaceIds.includes(workspaceId);
-}
 </script>
 
 <template>
@@ -92,91 +83,24 @@ function isRefreshingWorkspace(workspaceId) {
         <button
           class="sidebar-create ued-icon-btn ued-icon-btn--ghost"
           :disabled="isConnecting"
+          :title="t('workspace.add')"
+          :aria-label="t('workspace.add')"
+          @click="emit('addWorkspace')"
+        >
+          <svg viewBox="0 0 18 18" fill="none" aria-hidden="true">
+            <path d="M3 6.2a1.4 1.4 0 0 1 1.4-1.4h3l1.2 1.4h5a1.4 1.4 0 0 1 1.4 1.4v5a1.4 1.4 0 0 1-1.4 1.4H4.4A1.4 1.4 0 0 1 3 12.6V6.2Z" stroke="currentColor" stroke-width="1.35" stroke-linejoin="round" />
+            <path d="M9 8.1v3.8M7.1 10h3.8" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" />
+          </svg>
+        </button>
+        <button
+          class="sidebar-create ued-icon-btn ued-icon-btn--ghost"
+          :disabled="isConnecting"
           :title="t('app.newSession')"
           :aria-label="t('app.newSession')"
           @click="emit('openWorkspace')"
         >
           +
         </button>
-      </div>
-
-      <section class="workspace-nav" :aria-label="t('workspace.title')">
-        <div class="workspace-nav__header">
-          <span>{{ t('workspace.title') }}</span>
-          <button
-            class="workspace-add ued-icon-btn ued-icon-btn--ghost"
-            :disabled="isConnecting"
-            :title="t('workspace.add')"
-            :aria-label="t('workspace.add')"
-            @click="emit('addWorkspace')"
-          >
-            <svg viewBox="0 0 18 18" fill="none" aria-hidden="true">
-              <path d="M3 6.2a1.4 1.4 0 0 1 1.4-1.4h3l1.2 1.4h5a1.4 1.4 0 0 1 1.4 1.4v5a1.4 1.4 0 0 1-1.4 1.4H4.4A1.4 1.4 0 0 1 3 12.6V6.2Z" stroke="currentColor" stroke-width="1.35" stroke-linejoin="round" />
-              <path d="M9 8.1v3.8M7.1 10h3.8" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" />
-            </svg>
-          </button>
-        </div>
-
-        <div v-if="workspaces.length === 0" class="workspace-empty">
-          {{ t('workspace.none') }}
-        </div>
-
-        <div
-          v-for="workspace in workspaces"
-          v-else
-          :key="workspace.id"
-          class="workspace-row"
-          :class="{ active: activeWorkspaceId === workspace.id }"
-          :title="workspace.cwd"
-          role="button"
-          tabindex="0"
-          @click="emit('selectWorkspace', workspace.id)"
-          @keydown.enter.prevent="emit('selectWorkspace', workspace.id)"
-          @keydown.space.prevent="emit('selectWorkspace', workspace.id)"
-        >
-          <span class="workspace-folder" aria-hidden="true"></span>
-          <span class="workspace-copy">
-            <strong>{{ workspace.name }}</strong>
-            <small v-if="activeWorkspaceId === workspace.id">{{ workspace.cwd }}</small>
-          </span>
-          <span class="workspace-count">{{ workspace.sessionCount }}</span>
-          <button
-            v-if="activeWorkspaceId === workspace.id"
-            class="workspace-refresh ued-icon-btn ued-icon-btn--ghost"
-            :class="{ spinning: isRefreshingWorkspace(workspace.id) }"
-            :disabled="isConnecting || isRefreshingWorkspace(workspace.id)"
-            :title="t('workspace.refresh')"
-            :aria-label="t('workspace.refresh')"
-            @click.stop="emit('refreshWorkspace', workspace.id)"
-          >
-            <svg viewBox="0 0 18 18" fill="none" aria-hidden="true">
-              <path d="M14.1 7.2A5.2 5.2 0 0 0 4.4 5.5L3.1 7.1" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round" />
-              <path d="M3 4.5v2.8h2.8" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round" />
-              <path d="M3.9 10.8a5.2 5.2 0 0 0 9.7 1.7l1.3-1.6" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round" />
-              <path d="M15 13.5v-2.8h-2.8" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round" />
-            </svg>
-          </button>
-          <button
-            v-if="workspace.sessionCount === 0"
-            class="workspace-delete ued-icon-btn ued-icon-btn--ghost ued-icon-btn--danger"
-            :title="t('workspace.remove')"
-            :aria-label="t('workspace.remove')"
-            @click.stop="emit('deleteWorkspace', workspace.id)"
-          >
-            ×
-          </button>
-        </div>
-      </section>
-
-      <div class="sidebar-context">
-        <div class="context-row">
-          <span>{{ t('agent.label') }}</span>
-          <strong>{{ selectedAgent || t('agent.noneConfigured') }}</strong>
-        </div>
-        <div class="context-row">
-          <span>{{ t('app.workingDirectory') }}</span>
-          <strong>{{ activeWorkspace?.name || selectedCwdDisplay }}</strong>
-        </div>
       </div>
 
       <div class="sidebar-search">
@@ -189,15 +113,24 @@ function isRefreshingWorkspace(workspaceId) {
         />
       </div>
 
-      <div class="session-list-wrap">
-        <SessionList
+      <div class="session-tree-wrap">
+        <SessionTree
           :query="sessionSearchQuery"
-          :workspace-id="activeWorkspaceId"
+          :agent-names="agentNames"
+          :workspaces="workspaces"
+          :selected-agent="selectedAgent"
+          :active-workspace-id="activeWorkspaceId"
           :pinned-session-ids="pinnedSessionIds"
           :active-session-id="activeSessionId"
           :connected-session-ids="connectedSessionIds"
           :pending-session-ids="pendingSessionIds"
           :deleting-session-ids="deletingSessionIds"
+          :refreshing-workspace-ids="refreshingWorkspaceIds"
+          :is-connecting="isConnecting"
+          @select-agent="(agentName) => emit('selectAgent', agentName)"
+          @select-workspace="(workspaceId) => emit('selectWorkspace', workspaceId)"
+          @refresh-workspace="(workspaceId) => emit('refreshWorkspace', workspaceId)"
+          @delete-workspace="(workspaceId) => emit('deleteWorkspace', workspaceId)"
           @resume="(session) => emit('resume', session)"
           @activate="(sessionId) => emit('activate', sessionId)"
           @disconnect="(sessionId) => emit('disconnect', sessionId)"
@@ -337,201 +270,27 @@ function isRefreshingWorkspace(workspaceId) {
 }
 
 .sidebar-top,
-.workspace-nav,
-.sidebar-context,
 .sidebar-footer {
   display: flex;
-  flex-direction: column;
   gap: 0.35rem;
+}
+
+.sidebar-top {
+  align-items: center;
+  justify-content: flex-end;
 }
 
 .sidebar-create {
   width: 28px;
   height: 28px;
-  margin-left: auto;
   color: var(--ued-text-secondary);
   font-size: 1.05rem;
   font-weight: 500;
 }
 
-.workspace-nav {
-  padding: 0;
-  min-height: 0;
-  max-height: 48%;
-  overflow-y: auto;
-}
-
-.workspace-nav__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  min-height: 28px;
-  padding: 0 0.35rem 0 0.45rem;
-  color: var(--ued-text-muted);
-}
-
-.workspace-nav__header span {
-  font-size: 0.72rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0;
-}
-
-.workspace-add,
-.workspace-delete,
-.workspace-refresh {
-  width: 24px;
-  height: 24px;
-  flex-shrink: 0;
-}
-
-.workspace-add svg,
-.workspace-refresh svg {
+.sidebar-create svg {
   width: 17px;
   height: 17px;
-}
-
-.workspace-refresh.spinning svg {
-  animation: workspace-refresh-spin 0.82s linear infinite;
-}
-
-@keyframes workspace-refresh-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.workspace-empty {
-  padding: 0.45rem 0.5rem;
-  color: var(--ued-text-muted);
-  font-size: 0.78rem;
-}
-
-.workspace-row {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 0.48rem;
-  min-height: 32px;
-  padding: 0.22rem 0.32rem 0.22rem 0.5rem;
-  border-radius: 6px;
-  border: 1px solid transparent;
-  background: transparent;
-  color: var(--ued-text-secondary);
-  cursor: pointer;
-  text-align: left;
-  transition: background 0.15s ease, border-color 0.15s ease;
-}
-
-.workspace-row:hover,
-.workspace-row.active {
-  border-color: transparent;
-  background: rgba(255, 255, 255, 0.52);
-}
-
-.workspace-folder {
-  position: relative;
-  width: 16px;
-  height: 11px;
-  border: 1.25px solid color-mix(in srgb, var(--ued-text-muted) 82%, transparent);
-  border-radius: 2px;
-  flex-shrink: 0;
-}
-
-.workspace-folder::before {
-  content: '';
-  position: absolute;
-  left: 1px;
-  top: -4px;
-  width: 7px;
-  height: 4px;
-  border: 1.25px solid color-mix(in srgb, var(--ued-text-muted) 82%, transparent);
-  border-bottom: none;
-  border-radius: 2px 2px 0 0;
-}
-
-.workspace-copy {
-  display: grid;
-  gap: 0;
-  min-width: 0;
-  flex: 1;
-}
-
-.workspace-copy strong,
-.workspace-copy small {
-  min-width: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.workspace-copy strong {
-  font-size: 0.82rem;
-  font-weight: 500;
-  color: var(--ued-text-primary);
-}
-
-.workspace-copy small {
-  font-size: 0.68rem;
-  color: var(--ued-text-muted);
-}
-
-.workspace-count {
-  margin-left: auto;
-  font-size: 0.72rem;
-  color: var(--ued-text-muted);
-  flex-shrink: 0;
-}
-
-.workspace-delete {
-  opacity: 0;
-  pointer-events: none;
-}
-
-.workspace-refresh {
-  opacity: 0;
-  pointer-events: none;
-  color: var(--ued-text-muted);
-}
-
-.workspace-row:hover .workspace-delete,
-.workspace-row.active .workspace-delete,
-.workspace-row:hover .workspace-refresh,
-.workspace-row.active .workspace-refresh {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-.sidebar-context {
-  display: none;
-}
-
-.context-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.35rem 0.55rem;
-}
-
-.context-row span {
-  font-size: 0.72rem;
-  color: var(--ued-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.context-row strong {
-  font-size: 0.78rem;
-  color: var(--ued-text-primary);
-  min-width: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  text-align: right;
 }
 
 .sidebar-search {
@@ -555,7 +314,7 @@ function isRefreshingWorkspace(workspaceId) {
   box-shadow: var(--ued-shadow-focus);
 }
 
-.session-list-wrap {
+.session-tree-wrap {
   flex: 1;
   min-height: 0;
   padding: 0;
@@ -565,6 +324,7 @@ function isRefreshingWorkspace(workspaceId) {
 .sidebar-footer {
   padding-top: 0.25rem;
   border-top: none;
+  flex-direction: column;
 }
 
 .sidebar-footer-btn {
