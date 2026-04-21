@@ -8,16 +8,26 @@ import (
 	"path/filepath"
 	"sync"
 	"time"
+
+	"github.com/issueye/acp_desktop/internal/jsengine"
 )
 
 type AgentConfig struct {
-	Command string            `json:"command"`
-	Args    []string          `json:"args"`
-	Env     map[string]string `json:"env,omitempty"`
+	Command     string                     `json:"command"`
+	Args        []string                   `json:"args"`
+	Env         map[string]string          `json:"env,omitempty"`
+	SessionScan jsengine.SessionScanConfig `json:"sessionScan,omitempty"`
 }
 
 type AgentsConfig struct {
 	Agents map[string]AgentConfig `json:"agents"`
+}
+
+var allowedAgentNames = []string{
+	"Claude Code",
+	"Codex CLI",
+	"OpenCode",
+	"Gemini CLI",
 }
 
 type Manager struct {
@@ -134,6 +144,9 @@ func (m *Manager) AddAgent(name string, cfg AgentConfig) (AgentsConfig, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
+	if !isAllowedAgentName(name) {
+		return AgentsConfig{}, fmt.Errorf("agent '%s' is not allowed", name)
+	}
 	if m.cfg.Agents == nil {
 		m.cfg.Agents = map[string]AgentConfig{}
 	}
@@ -159,6 +172,9 @@ func (m *Manager) UpdateAgent(name string, cfg AgentConfig) (AgentsConfig, error
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
+	if !isAllowedAgentName(name) {
+		return AgentsConfig{}, fmt.Errorf("agent '%s' is not allowed", name)
+	}
 	if _, ok := m.cfg.Agents[name]; !ok {
 		return AgentsConfig{}, fmt.Errorf("agent '%s' not found", name)
 	}
@@ -184,19 +200,18 @@ func (m *Manager) saveLocked() error {
 func defaultConfig() AgentsConfig {
 	return AgentsConfig{
 		Agents: map[string]AgentConfig{
-			"GitHub Copilot": {Command: "npx", Args: []string{"@github/copilot-language-server@latest", "--acp"}, Env: map[string]string{}},
-			"Claude Code":    {Command: "npx", Args: []string{"@zed-industries/claude-code-acp@latest"}, Env: map[string]string{}},
-			"Gemini CLI":     {Command: "npx", Args: []string{"@google/gemini-cli@latest", "--experimental-acp"}, Env: map[string]string{}},
-			"Qwen Code":      {Command: "npx", Args: []string{"@qwen-code/qwen-code@latest", "--acp", "--experimental-skills"}, Env: map[string]string{}},
-			"Auggie CLI": {
+			"Claude Code": {
 				Command: "npx",
-				Args:    []string{"@augmentcode/auggie@latest", "--acp"},
-				Env:     map[string]string{"AUGMENT_DISABLE_AUTO_UPDATE": "1"},
+				Args:    []string{"@zed-industries/claude-code-acp@latest"},
+				Env:     map[string]string{},
+				SessionScan: jsengine.SessionScanConfig{
+					Enabled: true,
+					Script:  jsengine.DefaultClaudeCodeSessionScanScript(),
+				},
 			},
-			"Qoder CLI": {Command: "npx", Args: []string{"@qoder-ai/qodercli@latest", "--acp"}, Env: map[string]string{}},
-			"Codex CLI": {Command: "npx", Args: []string{"@zed-industries/codex-acp@latest"}, Env: map[string]string{}},
-			"OpenCode":  {Command: "npx", Args: []string{"opencode-ai@latest", "acp"}, Env: map[string]string{}},
-			"OpenClaw":  {Command: "npx", Args: []string{"openclaw", "acp"}, Env: map[string]string{}},
+			"Gemini CLI": {Command: "npx", Args: []string{"@google/gemini-cli@latest", "--experimental-acp"}, Env: map[string]string{}},
+			"Codex CLI":  {Command: "npx", Args: []string{"@zed-industries/codex-acp@latest"}, Env: map[string]string{}},
+			"OpenCode":   {Command: "npx", Args: []string{"opencode-ai@latest", "acp"}, Env: map[string]string{}},
 		},
 	}
 }
@@ -214,9 +229,16 @@ func loadConfig(path string) (AgentsConfig, error) {
 	if cfg.Agents == nil {
 		cfg.Agents = map[string]AgentConfig{}
 	}
-	for name, agent := range cfg.Agents {
-		cfg.Agents[name] = sanitizeAgentConfig(agent)
+	defaults := defaultConfig()
+	filtered := make(map[string]AgentConfig, len(allowedAgentNames))
+	for _, name := range allowedAgentNames {
+		if agent, ok := cfg.Agents[name]; ok {
+			filtered[name] = sanitizeAgentConfig(agent)
+			continue
+		}
+		filtered[name] = defaults.Agents[name]
 	}
+	cfg.Agents = filtered
 	return cfg, nil
 }
 
@@ -228,6 +250,15 @@ func sanitizeAgentConfig(cfg AgentConfig) AgentConfig {
 		cfg.Env = map[string]string{}
 	}
 	return cfg
+}
+
+func isAllowedAgentName(name string) bool {
+	for _, allowed := range allowedAgentNames {
+		if name == allowed {
+			return true
+		}
+	}
+	return false
 }
 
 func configFilePath(appName string) (string, error) {
@@ -247,8 +278,12 @@ func fileModTime(path string) time.Time {
 }
 
 func cloneConfig(cfg AgentsConfig) AgentsConfig {
-	out := AgentsConfig{Agents: make(map[string]AgentConfig, len(cfg.Agents))}
-	for name, agent := range cfg.Agents {
+	out := AgentsConfig{Agents: make(map[string]AgentConfig, len(allowedAgentNames))}
+	for _, name := range allowedAgentNames {
+		agent, ok := cfg.Agents[name]
+		if !ok {
+			continue
+		}
 		env := make(map[string]string, len(agent.Env))
 		for k, v := range agent.Env {
 			env[k] = v
@@ -256,9 +291,10 @@ func cloneConfig(cfg AgentsConfig) AgentsConfig {
 		args := make([]string, len(agent.Args))
 		copy(args, agent.Args)
 		out.Agents[name] = AgentConfig{
-			Command: agent.Command,
-			Args:    args,
-			Env:     env,
+			Command:     agent.Command,
+			Args:        args,
+			Env:         env,
+			SessionScan: agent.SessionScan,
 		}
 	}
 	return out

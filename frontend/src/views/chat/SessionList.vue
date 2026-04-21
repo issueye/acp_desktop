@@ -1,12 +1,13 @@
 <script setup>
 import { computed, ref, watch } from 'vue';
-import { useSessionStore } from '../stores/session';
+import { useSessionStore } from '../../stores/session';
 
-import { useI18n } from '../lib/i18n';
-import AppConfirmDialog from './AppConfirmDialog.vue';
+import { useI18n } from '../../lib/i18n';
+import AppConfirmDialog from '../../components/AppConfirmDialog.vue';
 
 const props = defineProps({
     query: { type: String, default: '' },
+    workspaceId: { type: String, default: '' },
     pinnedSessionIds: { type: Array, default: () => [] },
     activeSessionId: { type: String, default: '' },
     connectedSessionIds: { type: Array, default: () => [] },
@@ -25,7 +26,10 @@ const query = computed(() => props.query ?? '');
 
 const sessions = computed(() => {
   const pinned = new Set(props.pinnedSessionIds);
-  const all = [...sessionStore.resumableSessions].sort((a, b) => {
+  const workspaceSessions = props.workspaceId
+    ? sessionStore.resumableSessions.filter((session) => session.workspaceId === props.workspaceId)
+    : sessionStore.resumableSessions;
+  const all = [...workspaceSessions].sort((a, b) => {
     const aPinned = pinned.has(a.id);
     const bPinned = pinned.has(b.id);
     if (aPinned !== bPinned) {
@@ -343,7 +347,7 @@ function handleKeyDown(event) {
 
 .empty-state {
   text-align: left;
-  padding: 0.85rem 0.6rem;
+  padding: 0.65rem 0.5rem;
   color: var(--ued-text-muted);
 }
 
@@ -359,14 +363,14 @@ ul {
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 0.1rem;
+  gap: 0.02rem;
 }
 
 .session-item {
   display: block;
   padding: 0;
   border: 1px solid transparent;
-  border-radius: var(--ued-radius-md);
+  border-radius: 6px;
   margin-bottom: 0;
   cursor: pointer;
   background: transparent;
@@ -376,14 +380,14 @@ ul {
 
 .session-item:hover,
 .session-item.selected {
-  border-color: var(--ued-border-default);
-  background: rgba(255, 255, 255, 0.56);
+  border-color: transparent;
+  background: rgba(255, 255, 255, 0.5);
 }
 
 .session-item.active {
-  background: var(--ued-bg-panel);
-  border-color: color-mix(in srgb, var(--ued-accent) 16%, var(--ued-border-default));
-  box-shadow: var(--ued-shadow-rest);
+  background: rgba(255, 255, 255, 0.68);
+  border-color: transparent;
+  box-shadow: none;
 }
 
 .session-item.busy {
@@ -393,9 +397,9 @@ ul {
 .session-info {
   display: flex;
   align-items: center;
-  gap: 0.55rem;
+  gap: 0.46rem;
   min-width: 0;
-  padding: 0.22rem 0.72rem;
+  padding: 0.16rem 0.5rem;
 }
 
 .session-main {
@@ -417,7 +421,7 @@ ul {
   display: block;
   min-width: 0;
   font-weight: 500;
-  font-size: 0.92rem;
+  font-size: 0.82rem;
   color: var(--ued-text-secondary);
   white-space: nowrap;
   overflow: hidden;
@@ -434,7 +438,7 @@ ul {
   position: relative;
   width: 14px;
   height: 10px;
-  border: 1.4px solid color-mix(in srgb, var(--ued-text-muted) 86%, transparent);
+  border: 1.25px solid color-mix(in srgb, var(--ued-text-muted) 82%, transparent);
   border-radius: 2px;
   background: transparent;
 }
@@ -446,7 +450,7 @@ ul {
   top: -4px;
   width: 6px;
   height: 4px;
-  border: 1.4px solid color-mix(in srgb, var(--ued-text-muted) 86%, transparent);
+  border: 1.25px solid color-mix(in srgb, var(--ued-text-muted) 82%, transparent);
   border-bottom: none;
   border-radius: 2px 2px 0 0;
   background: transparent;
@@ -456,8 +460,8 @@ ul {
   position: absolute;
   right: -2px;
   bottom: -1px;
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
   border-radius: 999px;
   background: var(--ued-success);
   box-shadow: 0 0 0 2px var(--bg-sidebar, #f2ede3);
@@ -470,7 +474,7 @@ ul {
 .session-actions {
   display: flex;
   align-items: center;
-  gap: 0.3rem;
+  gap: 0.18rem;
   margin-left: auto;
   flex-shrink: 0;
   opacity: 0;
@@ -515,9 +519,9 @@ ul {
 }
 
 .row-icon-button {
-  width: 26px;
-  height: 26px;
-  font-size: 0.86rem;
+  width: 22px;
+  height: 22px;
+  font-size: 0.78rem;
 }
 
 .row-icon-button:hover {

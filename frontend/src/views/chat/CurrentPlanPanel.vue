@@ -2,7 +2,7 @@
 import { computed } from 'vue';
 import PlanCard from './PlanCard.vue';
 
-import { useI18n } from '../lib/i18n';
+import { useI18n } from '../../lib/i18n';
 
 const props = defineProps({
     entries: { type: Array, required: true },

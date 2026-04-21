@@ -14,6 +14,7 @@ const props = defineProps({
   closeOnBackdrop: { type: Boolean, default: true },
   closeOnEscape: { type: Boolean, default: true },
   showClose: { type: Boolean, default: true },
+  embedded: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(['update:modelValue', 'close']);
@@ -32,7 +33,26 @@ function handleDialogClose() {
 </script>
 
 <template>
+  <section v-if="props.embedded" class="dialog-shell-embedded">
+    <div class="dialog-shell-embedded__header">
+      <div class="dialog-shell-embedded__copy">
+        <span v-if="props.eyebrow">{{ props.eyebrow }}</span>
+        <h1>{{ props.title }}</h1>
+      </div>
+      <slot name="header-extra" :close="close" />
+    </div>
+
+    <div :class="['dialog-shell-embedded__body', props.bodyClass]">
+      <slot :close="close" />
+    </div>
+
+    <div v-if="hasFooter" :class="['dialog-shell-embedded__footer', props.footerClass]">
+      <slot name="footer" :close="close" />
+    </div>
+  </section>
+
   <UEDDialog
+    v-else
     :visible="props.modelValue"
     :title="props.title"
     :kicker="props.eyebrow"
@@ -61,6 +81,57 @@ function handleDialogClose() {
 </template>
 
 <style scoped>
+.dialog-shell-embedded {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--ued-bg-window);
+}
+
+.dialog-shell-embedded__header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.15rem 0.8rem;
+  border-bottom: 1px solid var(--ued-border-subtle);
+  background: var(--ued-bg-panel);
+}
+
+.dialog-shell-embedded__copy {
+  display: grid;
+  gap: 0.18rem;
+  min-width: 0;
+}
+
+.dialog-shell-embedded__copy span {
+  color: var(--ued-text-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.dialog-shell-embedded__copy h1 {
+  margin: 0;
+  color: var(--ued-text-primary);
+  font-size: var(--ued-text-title-2);
+  line-height: var(--ued-line-title-2);
+}
+
+.dialog-shell-embedded__body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.dialog-shell-embedded__footer {
+  flex-shrink: 0;
+  border-top: 1px solid var(--ued-border-subtle);
+  background: var(--ued-bg-panel);
+}
+
 :deep(.dialog-shell-panel) {
   max-height: 100%;
 }

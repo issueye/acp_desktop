@@ -1,7 +1,7 @@
 <script setup>
 import { computed } from 'vue';
 
-import UEDMenuPicker from './common/UEDMenuPicker.vue';
+import UEDMenuPicker from '../../components/common/UEDMenuPicker.vue';
 
 const props = defineProps({
     modes: { type: Array, required: true },

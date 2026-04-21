@@ -1,8 +1,8 @@
 <script setup>
 import { ref, computed, watch } from 'vue';
-import { useSessionStore } from '../stores/session';
-import { useI18n } from '../lib/i18n';
-import { AUTHORIZATION_MODES } from '../lib/authorization';
+import { useSessionStore } from '../../stores/session';
+import { useI18n } from '../../lib/i18n';
+import { AUTHORIZATION_MODES } from '../../lib/authorization';
 import ChatComposer from './ChatComposer.vue';
 import ChatHeader from './ChatHeader.vue';
 import ChatMessages from './ChatMessages.vue';

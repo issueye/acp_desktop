@@ -198,8 +198,39 @@ function clonePlanEntries(entries) {
   return entries.map((entry) => ({ ...entry }));
 }
 
+function normalizeWorkspacePath(cwd) {
+  const raw = typeof cwd === 'string' && cwd.trim() ? cwd.trim() : '.';
+  const normalized = raw.replace(/\\/g, '/').replace(/\/+$/g, '');
+  return normalized || '.';
+}
+
+function buildWorkspaceId(cwd) {
+  return normalizeWorkspacePath(cwd).toLowerCase();
+}
+
+function getWorkspaceName(cwd) {
+  const normalized = normalizeWorkspacePath(cwd);
+  if (normalized === '.') {
+    return '.';
+  }
+  const parts = normalized.split('/').filter(Boolean);
+  return parts[parts.length - 1] || normalized;
+}
+
+function normalizeWorkspace(workspace) {
+  const cwd = normalizeWorkspacePath(workspace?.cwd);
+  return {
+    id: workspace?.id || buildWorkspaceId(cwd),
+    name: workspace?.name || getWorkspaceName(cwd),
+    cwd,
+    createdAt: Number.isFinite(workspace?.createdAt) ? workspace.createdAt : Date.now(),
+    lastUpdated: Number.isFinite(workspace?.lastUpdated) ? workspace.lastUpdated : Date.now(),
+  };
+}
+
 export const useSessionStore = defineStore('session', () => {
   const savedSessions = ref([]);
+  const workspaces = ref([]);
   const connectedSessions = ref({});
   const activeSessionId = ref('');
   const isConnected = computed(() => Object.keys(connectedSessions.value).length > 0);
@@ -271,18 +302,39 @@ export const useSessionStore = defineStore('session', () => {
     savedSessions.value.filter((session) => session.supportsLoadSession === true)
   );
   const connectedSessionIds = computed(() => Object.keys(connectedSessions.value));
+  const workspacesWithCounts = computed(() => {
+    const counts = new Map();
+    resumableSessions.value.forEach((session) => {
+      counts.set(session.workspaceId, (counts.get(session.workspaceId) || 0) + 1);
+    });
+    return workspaces.value
+      .map((workspace) => ({
+        ...workspace,
+        sessionCount: counts.get(workspace.id) || 0,
+      }))
+      .sort((a, b) => b.lastUpdated - a.lastUpdated);
+  });
 
   async function initStore() {
     storeData = await loadStore(STORE_PATH);
+    const savedWorkspaces = Array.isArray(storeData.workspaces) ? storeData.workspaces : [];
+    workspaces.value = savedWorkspaces.map((workspace) => normalizeWorkspace(workspace));
+
     const saved = Array.isArray(storeData.sessions) ? storeData.sessions : undefined;
     if (saved) {
       savedSessions.value = saved.map((session) => ({
         ...session,
+        workspaceId: session.workspaceId || buildWorkspaceId(session.cwd),
         proxy: sanitizeProxyConfig(session.proxy),
         messages: cloneMessages(session.messages),
         currentPlanEntries: clonePlanEntries(session.currentPlanEntries),
       }));
     }
+
+    savedSessions.value.forEach((session) => {
+      ensureWorkspaceForCwd(session.cwd, false);
+    });
+    await saveSessionsToStore();
 
     try {
       appVersion = await getAppVersion();
@@ -293,7 +345,45 @@ export const useSessionStore = defineStore('session', () => {
 
   async function saveSessionsToStore() {
     storeData.sessions = savedSessions.value;
+    storeData.workspaces = workspaces.value;
     await saveStore(STORE_PATH, storeData);
+  }
+
+  function ensureWorkspaceForCwd(cwd, touch = true) {
+    const normalizedCwd = normalizeWorkspacePath(cwd);
+    const workspaceId = buildWorkspaceId(normalizedCwd);
+    const existing = workspaces.value.find((workspace) => workspace.id === workspaceId);
+    if (existing) {
+      if (touch) {
+        existing.lastUpdated = Date.now();
+        workspaces.value = [...workspaces.value];
+      }
+      return existing;
+    }
+
+    const workspace = normalizeWorkspace({
+      id: workspaceId,
+      cwd: normalizedCwd,
+      createdAt: Date.now(),
+      lastUpdated: Date.now(),
+    });
+    workspaces.value = [...workspaces.value, workspace];
+    return workspace;
+  }
+
+  async function addWorkspace(cwd) {
+    const workspace = ensureWorkspaceForCwd(cwd, true);
+    await saveSessionsToStore();
+    return workspace;
+  }
+
+  async function deleteWorkspace(workspaceId) {
+    const hasSessions = savedSessions.value.some((session) => session.workspaceId === workspaceId);
+    if (hasSessions) {
+      throw new Error('Workspace still has sessions');
+    }
+    workspaces.value = workspaces.value.filter((workspace) => workspace.id !== workspaceId);
+    await saveSessionsToStore();
   }
 
   function getConnectedSession(sessionId) {
@@ -722,6 +812,7 @@ export const useSessionStore = defineStore('session', () => {
 
     try {
       const sanitizedProxy = sanitizeProxyConfig(proxy);
+      const workspace = ensureWorkspaceForCwd(cwd, true);
       const agentInstance = await spawnAgent(agentName, buildProxyEnv(sanitizedProxy));
 
       stderrUnlisten = (await onAgentStderr((stderr) => {
@@ -821,6 +912,7 @@ export const useSessionStore = defineStore('session', () => {
         title: `Session ${new Date().toLocaleString()}`,
         lastUpdated: Date.now(),
         cwd,
+        workspaceId: workspace.id,
         supportsLoadSession,
         proxy: sanitizedProxy,
         messages: [],
@@ -950,6 +1042,7 @@ export const useSessionStore = defineStore('session', () => {
         runtime.messages = cloneMessages(savedSession.messages);
       }
       touchSavedSession(savedSession);
+      ensureWorkspaceForCwd(savedSession.cwd, true);
       syncRuntimeSnapshot(runtime);
       await saveSessionsToStore();
 
@@ -1153,6 +1246,8 @@ export const useSessionStore = defineStore('session', () => {
 
   return {
     savedSessions,
+    workspaces,
+    workspacesWithCounts,
     connectedSessionIds,
     currentSession,
     messages: messageList,
@@ -1178,6 +1273,9 @@ export const useSessionStore = defineStore('session', () => {
     toolCallList,
     resumableSessions,
     initStore,
+    addWorkspace,
+    deleteWorkspace,
+    ensureWorkspaceForCwd,
     createSession,
     resumeSession,
     sendPrompt,

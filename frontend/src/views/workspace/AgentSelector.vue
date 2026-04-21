@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { computed, watch } from 'vue';
-import { useConfigStore } from '../stores/config';
-import { useI18n } from '../lib/i18n';
-import UEDCard from './common/UEDCard.vue';
-import UEDField from './common/UEDField.vue';
-import UEDSelect from './common/UEDSelect.vue';
+import { useConfigStore } from '../../stores/config';
+import { useI18n } from '../../lib/i18n';
+import UEDCard from '../../components/common/UEDCard.vue';
+import UEDField from '../../components/common/UEDField.vue';
+import UEDSelect from '../../components/common/UEDSelect.vue';
 
 const props = withDefaults(defineProps<{
   selected?: string;

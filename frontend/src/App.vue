@@ -6,17 +6,17 @@ import { initTelemetry } from './lib/telemetry';
 import { buildPermissionRequestKey, getAutoConfirmOptionId, normalizeAuthorizationMode } from './lib/authorization';
 import { loadStore, saveStore, selectDirectory, windowClose, windowMinimise, windowToggleMaximise } from './lib/wails';
 import { useI18n } from './lib/i18n';
-import ChatView from './components/ChatView.vue';
-import PermissionDialog from './components/PermissionDialog.vue';
-import SettingsView from './components/SettingsView.vue';
-import AuthMethodDialog from './components/AuthMethodDialog.vue';
-import TrafficMonitor from './components/TrafficMonitor.vue';
-import ProcessManagerDialog from './components/ProcessManagerDialog.vue';
+import ChatView from './views/chat/ChatView.vue';
+import PermissionDialog from './views/auth/PermissionDialog.vue';
+import SettingsView from './views/settings/SettingsView.vue';
+import AuthMethodDialog from './views/auth/AuthMethodDialog.vue';
+import TrafficMonitor from './views/traffic/TrafficMonitor.vue';
+import ProcessManagerDialog from './views/processes/ProcessManagerDialog.vue';
 import AppFloatingPanel from './components/AppFloatingPanel.vue';
 import AppHeaderBar from './components/AppHeaderBar.vue';
 import AppSidebar from './components/AppSidebar.vue';
-import WelcomePanel from './components/WelcomePanel.vue';
-import WorkspaceSessionDialog from './components/WorkspaceSessionDialog.vue';
+import WelcomePanel from './views/chat/WelcomePanel.vue';
+import WorkspaceSessionDialog from './views/workspace/WorkspaceSessionDialog.vue';
 import AppToastStack from './components/AppToastStack.vue';
 
 const configStore = useConfigStore();
@@ -26,12 +26,12 @@ const { locale, t, toggleLocale } = useI18n();
 const selectedAgent = ref('');
 const selectedCwd = ref('');
 const showSidebar = ref(true);
-const showSettings = ref(false);
 const showWorkspaceDialog = ref(false);
 const showTrafficMonitor = ref(false);
 const showProcessManager = ref(false);
 const showStartupDetails = ref(false);
 const sessionSearchQuery = ref('');
+const activeWorkspaceId = ref('');
 const pinnedSessionIds = ref([]);
 const openSettingsInAddMode = ref(false);
 const proxyEnabled = ref(false);
@@ -44,6 +44,7 @@ const pendingResumeSessionIds = ref([]);
 const pendingDisconnectSessionIds = ref([]);
 const pendingDeleteSessionIds = ref([]);
 const isSelectingFolder = ref(false);
+const activeRoute = ref(normalizeRoute(window.location.hash));
 
 let prefsStoreData = {};
 const prefsStoreName = 'preferences.json';
@@ -56,6 +57,7 @@ const isConnecting = computed(() => sessionStore.isConnecting);
 const error = computed(() => sessionStore.error || configStore.error);
 const hasAgents = computed(() => configStore.hasAgents);
 const savedSessionCount = computed(() => sessionStore.resumableSessions.length);
+const workspaces = computed(() => sessionStore.workspacesWithCounts);
 const connectedSessionIds = computed(() => sessionStore.connectedSessionIds);
 const pendingSessionIds = computed(() => [
   ...new Set([
@@ -65,8 +67,19 @@ const pendingSessionIds = computed(() => [
   ]),
 ]);
 const currentSessionId = computed(() => sessionStore.currentSession?.id ?? '');
+const currentSessionInActiveWorkspace = computed(() => {
+  if (!sessionStore.currentSession) {
+    return false;
+  }
+  if (!activeWorkspaceId.value) {
+    return true;
+  }
+  return sessionStore.currentSession.workspaceId === activeWorkspaceId.value;
+});
 const currentSessionTitle = computed(
-  () => sessionStore.currentSession?.title || t('chat.titleFallback')
+  () => currentSessionInActiveWorkspace.value
+    ? sessionStore.currentSession?.title || t('chat.titleFallback')
+    : t('chat.titleFallback')
 );
 const pendingPermission = computed(() => sessionStore.pendingPermission);
 const pendingAuthMethods = computed(() => sessionStore.pendingAuthMethods);
@@ -81,10 +94,33 @@ const selectedCwdLabel = computed(() => {
   return parts.length > 0 ? parts[parts.length - 1] : '.';
 });
 const activeStatusLabel = computed(() => {
+  if (activeRoute.value === 'agents') return t('settings.agents');
+  if (activeRoute.value === 'settings') return t('app.settings');
   if (isConnecting.value) return t('app.statusConnecting');
   if (isConnected.value) return t('app.statusConnected');
   return t('app.statusIdle');
 });
+
+function normalizeRoute(hash) {
+  const route = String(hash || '').replace(/^#\/?/, '').split('?')[0] || 'chat';
+  return ['chat', 'agents', 'settings'].includes(route) ? route : 'chat';
+}
+
+function navigateRoute(route) {
+  const nextRoute = normalizeRoute(route);
+  activeRoute.value = nextRoute;
+  const nextHash = `#/${nextRoute}`;
+  if (window.location.hash !== nextHash) {
+    window.location.hash = nextHash;
+  }
+  if (nextRoute !== 'agents') {
+    openSettingsInAddMode.value = false;
+  }
+}
+
+function handleHashChange() {
+  activeRoute.value = normalizeRoute(window.location.hash);
+}
 
 function readStoredString(value) {
   if (typeof value === 'string') {
@@ -152,7 +188,21 @@ function syncSelectionFromCurrentSession() {
   }
   selectedAgent.value = current.agentName;
   selectedCwd.value = current.cwd;
+  activeWorkspaceId.value = current.workspaceId || sessionStore.ensureWorkspaceForCwd(current.cwd).id;
   applyProxyConfig(current.proxy);
+}
+
+function syncActiveWorkspaceFallback() {
+  if (activeWorkspaceId.value && workspaces.value.some((workspace) => workspace.id === activeWorkspaceId.value)) {
+    return;
+  }
+  const preferred = selectedCwd.value
+    ? workspaces.value.find((workspace) => workspace.cwd === selectedCwd.value)
+    : null;
+  activeWorkspaceId.value = preferred?.id || workspaces.value[0]?.id || '';
+  if (activeWorkspaceId.value) {
+    handleSelectWorkspace(activeWorkspaceId.value);
+  }
 }
 
 onMounted(async () => {
@@ -176,8 +226,14 @@ onMounted(async () => {
 
   const savedCwd = readStoredString(prefsStoreData.lastCwd);
   if (savedCwd) selectedCwd.value = savedCwd;
+  activeWorkspaceId.value = readStoredString(prefsStoreData.activeWorkspaceId);
+  syncActiveWorkspaceFallback();
 
   preferencesLoaded = true;
+  if (!window.location.hash) {
+    window.history.replaceState(null, '', '#/chat');
+  }
+  window.addEventListener('hashchange', handleHashChange);
   window.addEventListener('keydown', handleGlobalKeydown);
 });
 
@@ -221,6 +277,7 @@ watch(
 
 onBeforeUnmount(() => {
   clearAutoConfirmTimer();
+  window.removeEventListener('hashchange', handleHashChange);
   window.removeEventListener('keydown', handleGlobalKeydown);
 });
 
@@ -237,7 +294,10 @@ async function handleSelectFolder() {
     const folder = await selectDirectory();
     if (!folder) return;
     selectedCwd.value = folder;
+    const workspace = await sessionStore.addWorkspace(folder);
+    activeWorkspaceId.value = workspace.id;
     prefsStoreData.lastCwd = folder;
+    prefsStoreData.activeWorkspaceId = workspace.id;
     await persistPreferences();
   } finally {
     isSelectingFolder.value = false;
@@ -245,7 +305,63 @@ async function handleSelectFolder() {
 }
 
 function openWorkspaceDialog() {
+  if (!selectedCwd.value && activeWorkspaceId.value) {
+    const workspace = workspaces.value.find((item) => item.id === activeWorkspaceId.value);
+    if (workspace) {
+      selectedCwd.value = workspace.cwd;
+    }
+  }
   showWorkspaceDialog.value = true;
+}
+
+async function handleAddWorkspace() {
+  if (isSelectingFolder.value || isConnecting.value) {
+    return;
+  }
+  isSelectingFolder.value = true;
+  try {
+    const folder = await selectDirectory();
+    if (!folder) return;
+    const workspace = await sessionStore.addWorkspace(folder);
+    handleSelectWorkspace(workspace.id);
+    pushToast(`${t('workspace.added')}: ${workspace.name}`);
+  } catch (e) {
+    pushToast(getErrorMessage(e), 'danger');
+  } finally {
+    isSelectingFolder.value = false;
+  }
+}
+
+async function handleSelectWorkspace(workspaceId) {
+  const workspace = workspaces.value.find((item) => item.id === workspaceId);
+  if (!workspace) {
+    return;
+  }
+  activeWorkspaceId.value = workspace.id;
+  selectedCwd.value = workspace.cwd;
+  const connectedSessionInWorkspace = sessionStore.savedSessions.find((session) =>
+    session.workspaceId === workspace.id && connectedSessionIds.value.includes(session.id)
+  );
+  if (connectedSessionInWorkspace) {
+    sessionStore.setActiveSession(connectedSessionInWorkspace.id);
+  }
+  prefsStoreData.activeWorkspaceId = workspace.id;
+  prefsStoreData.lastCwd = workspace.cwd;
+  await persistPreferences();
+}
+
+async function handleDeleteWorkspace(workspaceId) {
+  const workspace = workspaces.value.find((item) => item.id === workspaceId);
+  try {
+    await sessionStore.deleteWorkspace(workspaceId);
+    if (activeWorkspaceId.value === workspaceId) {
+      activeWorkspaceId.value = '';
+      syncActiveWorkspaceFallback();
+    }
+    pushToast(`${t('workspace.removed')}: ${workspace?.name || ''}`);
+  } catch (e) {
+    pushToast(t('workspace.removeBlocked'), 'danger');
+  }
 }
 
 function closeWorkspaceDialog() {
@@ -290,6 +406,10 @@ async function handleCreateSession() {
       selectedCwd.value || '.',
       buildSessionProxyConfig()
     );
+    syncSelectionFromCurrentSession();
+    prefsStoreData.activeWorkspaceId = activeWorkspaceId.value;
+    prefsStoreData.lastCwd = selectedCwd.value;
+    await persistPreferences();
     showWorkspaceDialog.value = false;
     showStartupDetails.value = false;
     pushToast(`${t('app.newSession')}: ${selectedAgent.value}`);
@@ -309,8 +429,10 @@ async function handleResumeSession(session) {
   }
   selectedAgent.value = session.agentName;
   selectedCwd.value = session.cwd;
+  activeWorkspaceId.value = session.workspaceId || sessionStore.ensureWorkspaceForCwd(session.cwd).id;
   applyProxyConfig(session.proxy);
   prefsStoreData.lastCwd = session.cwd;
+  prefsStoreData.activeWorkspaceId = activeWorkspaceId.value;
   await persistProxyPreferences();
   addPending(pendingResumeSessionIds, session.id);
   try {
@@ -332,6 +454,7 @@ function handleActivateSession(sessionId) {
   }
   selectedAgent.value = session.agentName;
   selectedCwd.value = session.cwd;
+  activeWorkspaceId.value = session.workspaceId || sessionStore.ensureWorkspaceForCwd(session.cwd).id;
   applyProxyConfig(session.proxy);
 }
 
@@ -438,11 +561,11 @@ function formatCompactPath(path) {
 
 function openSettings(startInAddMode = false) {
   openSettingsInAddMode.value = startInAddMode;
-  showSettings.value = true;
+  navigateRoute(startInAddMode ? 'agents' : 'settings');
 }
 
 function closeSettings() {
-  showSettings.value = false;
+  navigateRoute('chat');
   openSettingsInAddMode.value = false;
 }
 
@@ -461,7 +584,7 @@ function handleGlobalKeydown(event) {
     closeWorkspaceDialog();
     return;
   }
-  if (showSettings.value) {
+  if (activeRoute.value !== 'chat') {
     closeSettings();
     return;
   }
@@ -489,7 +612,7 @@ function handleGlobalKeydown(event) {
         @toggle-traffic="showTrafficMonitor = !showTrafficMonitor"
         @toggle-process-manager="showProcessManager = !showProcessManager"
         @toggle-locale="toggleLocale"
-        @open-settings="openSettings()"
+        @open-settings="navigateRoute('settings')"
         @minimise="windowMinimise"
         @close="windowClose"
         @header-dblclick="handleHeaderDoubleClick"
@@ -497,13 +620,17 @@ function handleGlobalKeydown(event) {
 
       <div class="window-body">
         <AppSidebar
-          v-if="showSidebar"
+          :content-visible="showSidebar && activeRoute === 'chat'"
           :is-connecting="isConnecting"
-          :is-connected="isConnected"
+          :is-connected="isConnected && currentSessionInActiveWorkspace"
           :is-disconnecting-current="pendingDisconnectSessionIds.includes(currentSessionId)"
           :saved-session-count="savedSessionCount"
           :selected-agent="selectedAgent"
           :selected-cwd-display="selectedCwdCompact"
+          :active-route="activeRoute"
+          :agent-names="configStore.agentNames"
+          :workspaces="workspaces"
+          :active-workspace-id="activeWorkspaceId"
           :session-search-query="sessionSearchQuery"
           :pinned-session-ids="pinnedSessionIds"
           :active-session-id="currentSessionId"
@@ -511,13 +638,18 @@ function handleGlobalKeydown(event) {
           :pending-session-ids="pendingSessionIds"
           :deleting-session-ids="pendingDeleteSessionIds"
           @open-workspace="openWorkspaceDialog"
+          @add-workspace="handleAddWorkspace"
+          @select-workspace="handleSelectWorkspace"
+          @delete-workspace="handleDeleteWorkspace"
           @update:query="sessionSearchQuery = $event"
           @resume="handleResumeSession"
           @activate="handleActivateSession"
           @disconnect="handleDisconnect"
           @delete="handleDeleteSession"
           @toggle-pin="handleToggleSessionPin"
-          @open-settings="openSettings()"
+          @navigate-route="navigateRoute"
+          @open-settings="navigateRoute('settings')"
+          @open-add-agent="openSettings(true)"
         />
 
         <div class="content-stage">
@@ -528,26 +660,51 @@ function handleGlobalKeydown(event) {
               <button class="error-close ued-icon-btn ued-icon-btn--ghost ued-icon-btn--danger" @click="clearError">×</button>
             </div>
 
-            <ChatView v-if="isConnected" />
+            <section v-show="activeRoute === 'chat'" class="route-page route-page--chat">
+              <ChatView v-if="isConnected && currentSessionInActiveWorkspace" />
 
-            <WelcomePanel
-              v-else
-              :has-agents="hasAgents"
-              :selected-agent-label="hasAgents ? selectedAgent || configStore.agentNames[0] : '0'"
-              :workspace-label="selectedCwd ? selectedCwdLabel : '.'"
-              :saved-session-count="savedSessionCount"
-              :is-connecting="isConnecting"
-              @open-workspace="openWorkspaceDialog"
-              @open-add-agent="openSettings(true)"
-            />
+              <WelcomePanel
+                v-else
+                :has-agents="hasAgents"
+                :selected-agent-label="hasAgents ? selectedAgent || configStore.agentNames[0] : '0'"
+                :workspace-label="selectedCwd ? selectedCwdLabel : '.'"
+                :saved-session-count="savedSessionCount"
+                :is-connecting="isConnecting"
+                @open-workspace="openWorkspaceDialog"
+                @open-add-agent="openSettings(true)"
+              />
+            </section>
+
+            <section v-if="activeRoute === 'agents'" class="route-page">
+              <SettingsView
+                embedded
+                :title="t('settings.agents')"
+                :eyebrow="t('app.desktopClient')"
+                :start-in-add-mode="openSettingsInAddMode"
+                @notify="pushToast($event.message, $event.tone)"
+                @close="closeSettings"
+              />
+            </section>
+
+            <section v-if="activeRoute === 'settings'" class="route-page">
+              <SettingsView
+                embedded
+                :title="t('app.settings')"
+                :eyebrow="t('app.desktopClient')"
+                :start-in-add-mode="false"
+                @notify="pushToast($event.message, $event.tone)"
+                @close="closeSettings"
+              />
+            </section>
           </main>
         </div>
 
         <button
+          v-if="activeRoute === 'chat'"
           class="floating-sidebar-toggle no-drag"
           :class="{ 'is-open': showSidebar }"
           :style="{
-            left: showSidebar ? 'var(--app-sidebar-width)' : '12px',
+            left: showSidebar ? 'var(--app-sidebar-width)' : '48px',
             transform: showSidebar ? 'translate(-50%, -50%)' : 'translateY(-50%)',
           }"
           :title="showSidebar ? t('app.collapseSidebar') : t('app.expandSidebar')"
@@ -645,13 +802,6 @@ function handleGlobalKeydown(event) {
       @cancel="handleAuthMethodCancel"
     />
 
-    <SettingsView
-      v-if="showSettings"
-      :start-in-add-mode="openSettingsInAddMode"
-      @notify="pushToast($event.message, $event.tone)"
-      @close="closeSettings"
-    />
-
     <AppToastStack :items="toastItems" @dismiss="dismissToast" />
   </div>
 </template>
@@ -708,7 +858,9 @@ input, textarea, select { user-select: text; }
 .window-frame { height: 100%; display: flex; flex-direction: column; overflow: hidden; border-radius: 0; background: var(--ued-bg-window); border: none; box-shadow: none; }
 .window-body { position: relative; flex: 1; min-height: 0; display: flex; gap: 0; padding: 0; background: var(--ued-bg-window); }
 .content-stage { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 0; background: var(--ued-bg-panel); }
-.main-content { flex: 1; min-height: 0; overflow: hidden; background: linear-gradient(180deg, var(--ued-bg-panel) 0%, var(--ued-bg-window) 100%); }
+.main-content { position: relative; flex: 1; min-height: 0; overflow: hidden; background: linear-gradient(180deg, var(--ued-bg-panel) 0%, var(--ued-bg-window) 100%); }
+.route-page { height: 100%; min-height: 0; overflow: hidden; }
+.route-page--chat { display: flex; flex-direction: column; }
 .floating-sidebar-toggle {
   position: absolute;
   top: 50%;

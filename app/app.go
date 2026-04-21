@@ -11,6 +11,7 @@ import (
 
 	"github.com/issueye/acp_desktop/internal/agent"
 	"github.com/issueye/acp_desktop/internal/config"
+	"github.com/issueye/acp_desktop/internal/jsengine"
 	"github.com/issueye/acp_desktop/internal/store"
 	"github.com/issueye/acp_desktop/internal/system"
 
@@ -114,11 +115,12 @@ func (a *App) ListRunningAgentDetails() []agent.RunningAgentInfo {
 	return a.agentManager.ListRunningAgentDetails()
 }
 
-func (a *App) AddAgent(name, command string, args []string, env map[string]string) (config.AgentsConfig, error) {
+func (a *App) AddAgent(name, command string, args []string, env map[string]string, sessionScan jsengine.SessionScanConfig) (config.AgentsConfig, error) {
 	return a.configManager.AddAgent(name, config.AgentConfig{
-		Command: command,
-		Args:    args,
-		Env:     env,
+		Command:     command,
+		Args:        args,
+		Env:         env,
+		SessionScan: sessionScan,
 	})
 }
 
@@ -126,12 +128,34 @@ func (a *App) RemoveAgent(name string) (config.AgentsConfig, error) {
 	return a.configManager.RemoveAgent(name)
 }
 
-func (a *App) UpdateAgent(name, command string, args []string, env map[string]string) (config.AgentsConfig, error) {
+func (a *App) UpdateAgent(name, command string, args []string, env map[string]string, sessionScan jsengine.SessionScanConfig) (config.AgentsConfig, error) {
 	return a.configManager.UpdateAgent(name, config.AgentConfig{
-		Command: command,
-		Args:    args,
-		Env:     env,
+		Command:     command,
+		Args:        args,
+		Env:         env,
+		SessionScan: sessionScan,
 	})
+}
+
+func (a *App) ScanAgentSessions(name string) ([]jsengine.SessionScanResult, error) {
+	cfg := a.configManager.GetConfig()
+	agentCfg, ok := cfg.Agents[name]
+	if !ok {
+		return nil, fmt.Errorf("agent '%s' not found in config", name)
+	}
+	return jsengine.ScanSessions(agentCfg.SessionScan, jsengine.SessionScanContext{
+		AgentName: name,
+		Command:   agentCfg.Command,
+		Args:      agentCfg.Args,
+		Env:       agentCfg.Env,
+	})
+}
+
+func (a *App) GetDefaultSessionScanScript(agentName string) string {
+	if strings.Contains(strings.ToLower(agentName), "claude") {
+		return jsengine.DefaultClaudeCodeSessionScanScript()
+	}
+	return ""
 }
 
 func (a *App) GetMachineID() (string, error) {

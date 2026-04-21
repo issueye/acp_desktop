@@ -126,16 +126,24 @@ export async function listRunningAgentDetails() {
   return Array.isArray(items) ? items.map(normalizeRunningAgent) : [];
 }
 
-export async function addAgent(name, command, args, env = {}) {
-  return call("AddAgent", name, command, args, env);
+export async function addAgent(name, command, args, env = {}, sessionScan = {}) {
+  return call("AddAgent", name, command, args, env, sessionScan);
 }
 
 export async function removeAgent(name) {
   return call("RemoveAgent", name);
 }
 
-export async function updateAgent(name, command, args, env = {}) {
-  return call("UpdateAgent", name, command, args, env);
+export async function updateAgent(name, command, args, env = {}, sessionScan = {}) {
+  return call("UpdateAgent", name, command, args, env, sessionScan);
+}
+
+export async function scanAgentSessions(name) {
+  return call("ScanAgentSessions", name);
+}
+
+export async function getDefaultSessionScanScript(agentName) {
+  return call("GetDefaultSessionScanScript", agentName);
 }
 
 export async function getMachineId() {

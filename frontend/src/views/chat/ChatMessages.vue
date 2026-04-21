@@ -1,10 +1,10 @@
 <script setup>
 import { ref, nextTick, watch, onBeforeUnmount, onMounted, onUpdated } from 'vue';
 import { marked } from 'marked';
-import { useI18n } from '../lib/i18n';
+import { useI18n } from '../../lib/i18n';
 import CurrentPlanPanel from './CurrentPlanPanel.vue';
-import UEDButton from './common/UEDButton.vue';
-import UEDEmptyState from './common/UEDEmptyState.vue';
+import UEDButton from '../../components/common/UEDButton.vue';
+import UEDEmptyState from '../../components/common/UEDEmptyState.vue';
 
 const props = defineProps({
   messages: {

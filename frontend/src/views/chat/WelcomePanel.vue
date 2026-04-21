@@ -1,8 +1,8 @@
 <script setup>
-import { useI18n } from '../lib/i18n';
-import UEDButton from './common/UEDButton.vue';
-import UEDCard from './common/UEDCard.vue';
-import UEDStatus from './common/UEDStatus.vue';
+import { useI18n } from '../../lib/i18n';
+import UEDButton from '../../components/common/UEDButton.vue';
+import UEDCard from '../../components/common/UEDCard.vue';
+import UEDStatus from '../../components/common/UEDStatus.vue';
 
 defineProps({
     hasAgents: { type: Boolean, required: true },

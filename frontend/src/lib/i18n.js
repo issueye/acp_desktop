@@ -58,6 +58,14 @@ const messages = {
     'app.langLabelZh': '中文',
     'app.processManager': 'Process Manager',
 
+    'workspace.title': 'Workspaces',
+    'workspace.add': 'Add workspace',
+    'workspace.remove': 'Remove workspace',
+    'workspace.none': 'No workspaces yet.',
+    'workspace.added': 'Workspace added',
+    'workspace.removed': 'Workspace removed',
+    'workspace.removeBlocked': 'Delete the sessions in this workspace first.',
+
     'agent.label': 'Agent',
     'agent.select': 'Select an agent...',
     'agent.noneConfigured': 'No agents configured',
@@ -201,6 +209,16 @@ const messages = {
     'env.value': 'value',
     'env.remove': 'Remove',
     'env.empty': 'No environment variables configured.',
+
+    'scan.title': 'Session Scan',
+    'scan.enabled': 'Enable session scan',
+    'scan.disabled': 'Disabled',
+    'scan.script': 'Scan Script',
+    'scan.useClaudeDefault': 'Claude Code Default',
+    'scan.test': 'Test scan',
+    'scan.scanning': 'Scanning...',
+    'scan.scriptConfigured': 'Script configured',
+    'scan.scriptMissing': 'No script configured',
   },
   'zh-CN': {
     'app.desktopClient': '桌面客户端',
@@ -256,6 +274,14 @@ const messages = {
     'app.langLabelEn': 'EN',
     'app.langLabelZh': '中文',
     'app.processManager': '进程管理',
+
+    'workspace.title': '工作区',
+    'workspace.add': '添加工作区',
+    'workspace.remove': '移除工作区',
+    'workspace.none': '暂无工作区。',
+    'workspace.added': '已添加工作区',
+    'workspace.removed': '已移除工作区',
+    'workspace.removeBlocked': '请先删除该工作区下的会话。',
 
     'agent.label': 'Agent',
     'agent.select': '请选择一个 Agent...',
@@ -400,6 +426,16 @@ const messages = {
     'env.value': '值',
     'env.remove': '移除',
     'env.empty': '当前未配置环境变量。',
+
+    'scan.title': '会话扫描',
+    'scan.enabled': '启用会话扫描',
+    'scan.disabled': '未启用',
+    'scan.script': '扫描脚本',
+    'scan.useClaudeDefault': 'Claude Code 默认脚本',
+    'scan.test': '测试扫描',
+    'scan.scanning': '扫描中...',
+    'scan.scriptConfigured': '已配置脚本',
+    'scan.scriptMissing': '未配置脚本',
   },
 };
 

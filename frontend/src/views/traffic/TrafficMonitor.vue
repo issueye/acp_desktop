@@ -1,6 +1,6 @@
 <script setup>
 import { ref, watch, nextTick, onUnmounted } from 'vue';
-import { useTrafficStore } from '../stores/traffic';
+import { useTrafficStore } from '../../stores/traffic';
 
 const emit = defineEmits(['close', 'resize']);
 

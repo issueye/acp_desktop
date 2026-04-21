@@ -1,10 +1,10 @@
 <script setup>
 import { computed, ref } from 'vue';
-import { useI18n } from '../lib/i18n';
+import { useI18n } from '../../lib/i18n';
 import CommandPalette from './CommandPalette.vue';
-import UEDButton from './common/UEDButton.vue';
-import UEDInput from './common/UEDInput.vue';
-import UEDMenuPicker from './common/UEDMenuPicker.vue';
+import UEDButton from '../../components/common/UEDButton.vue';
+import UEDInput from '../../components/common/UEDInput.vue';
+import UEDMenuPicker from '../../components/common/UEDMenuPicker.vue';
 
 const props = defineProps({
   modelValue: {

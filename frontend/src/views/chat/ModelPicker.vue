@@ -1,8 +1,8 @@
 <script setup>
 import { computed } from 'vue';
-import { useI18n } from '../lib/i18n';
+import { useI18n } from '../../lib/i18n';
 
-import UEDMenuPicker from './common/UEDMenuPicker.vue';
+import UEDMenuPicker from '../../components/common/UEDMenuPicker.vue';
 
 const props = defineProps({
     models: { type: Array, required: true },
