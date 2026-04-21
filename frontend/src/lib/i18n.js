@@ -68,6 +68,9 @@ const messages = {
     'workspace.removed': 'Workspace removed',
     'workspace.removeBlocked': 'Delete the sessions in this workspace first.',
 
+    'tree.expand': 'Expand',
+    'tree.collapse': 'Collapse',
+
     'agent.label': 'Agent',
     'agent.select': 'Select an agent...',
     'agent.noneConfigured': 'No agents configured',
@@ -93,6 +96,8 @@ const messages = {
     'session.confirmDelete': 'Delete this session?',
     'session.externalScanned': 'Scanned',
     'session.externalReadOnly': 'Scanned sessions are read-only for now.',
+    'session.preview': 'Session Preview',
+    'session.previewLoadFailed': 'Failed to load session',
 
     'process.title': 'Process Manager',
     'process.loading': 'Loading process list',
@@ -289,6 +294,9 @@ const messages = {
     'workspace.removed': '已移除工作区',
     'workspace.removeBlocked': '请先删除该工作区下的会话。',
 
+    'tree.expand': '展开',
+    'tree.collapse': '收起',
+
     'agent.label': 'Agent',
     'agent.select': '请选择一个 Agent...',
     'agent.noneConfigured': '未配置 Agent',
@@ -314,6 +322,8 @@ const messages = {
     'session.confirmDelete': '确认删除该会话？',
     'session.externalScanned': '扫描会话',
     'session.externalReadOnly': '扫描会话当前为只读。',
+    'session.preview': '会话预览',
+    'session.previewLoadFailed': '会话加载失败',
 
     'process.title': '进程管理',
     'process.loading': '正在加载进程列表',

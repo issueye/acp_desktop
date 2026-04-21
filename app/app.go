@@ -217,6 +217,10 @@ func (a *App) ReadTextFile(path string, line *int, limit *int) (string, error) {
 	return strings.Join(lines[start:end], "\n"), nil
 }
 
+func (a *App) ListDirectory(path string) ([]jsengine.DirEntryInfo, error) {
+	return jsengine.ListDirectory(path)
+}
+
 func (a *App) WriteTextFile(path, content string) error {
 	if path == "" {
 		return errors.New("path is required")

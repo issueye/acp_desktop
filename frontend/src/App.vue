@@ -7,6 +7,7 @@ import { buildPermissionRequestKey, getAutoConfirmOptionId, normalizeAuthorizati
 import { loadStore, saveStore, selectDirectory, windowClose, windowMinimise, windowToggleMaximise } from './lib/wails';
 import { useI18n } from './lib/i18n';
 import ChatView from './views/chat/ChatView.vue';
+import SessionPreview from './views/chat/SessionPreview.vue';
 import PermissionDialog from './views/auth/PermissionDialog.vue';
 import SettingsView from './views/settings/SettingsView.vue';
 import AuthMethodDialog from './views/auth/AuthMethodDialog.vue';
@@ -31,6 +32,7 @@ const showTrafficMonitor = ref(false);
 const showProcessManager = ref(false);
 const showStartupDetails = ref(false);
 const sessionSearchQuery = ref('');
+const previewSessionId = ref('');
 const activeWorkspaceId = ref('');
 const pinnedSessionIds = ref([]);
 const openSettingsInAddMode = ref(false);
@@ -68,6 +70,14 @@ const pendingSessionIds = computed(() => [
   ]),
 ]);
 const currentSessionId = computed(() => sessionStore.currentSession?.id ?? '');
+const previewSession = computed(() =>
+  sessionStore.visibleSessions.find((session) => session.id === previewSessionId.value) ?? null
+);
+const shouldShowLiveChat = computed(() =>
+  isConnected.value &&
+  currentSessionInActiveWorkspace.value &&
+  (!previewSession.value || previewSession.value.id === currentSessionId.value)
+);
 const currentSessionInActiveWorkspace = computed(() => {
   if (!sessionStore.currentSession) {
     return false;
@@ -373,6 +383,10 @@ async function handleSelectWorkspace(workspaceId) {
   await persistPreferences();
 }
 
+function handleViewSession(sessionId) {
+  previewSessionId.value = sessionId;
+}
+
 async function handleDeleteWorkspace(workspaceId) {
   const workspace = workspaces.value.find((item) => item.id === workspaceId);
   try {
@@ -462,6 +476,7 @@ async function handleCreateSession() {
       buildSessionProxyConfig()
     );
     syncSelectionFromCurrentSession();
+    previewSessionId.value = currentSessionId.value;
     prefsStoreData.activeWorkspaceId = activeWorkspaceId.value;
     prefsStoreData.lastCwd = selectedCwd.value;
     await persistPreferences();
@@ -496,6 +511,7 @@ async function handleResumeSession(session) {
   addPending(pendingResumeSessionIds, session.id);
   try {
     await sessionStore.resumeSession(session);
+    previewSessionId.value = session.id;
     pushToast(`${t('session.connect')}: ${session.title}`);
   } catch (e) {
     console.error('Failed to resume session:', e);
@@ -508,6 +524,7 @@ async function handleResumeSession(session) {
 function handleActivateSession(sessionId) {
   const session = sessionStore.savedSessions.find((item) => item.id === sessionId);
   sessionStore.setActiveSession(sessionId);
+  previewSessionId.value = sessionId;
   if (!session) {
     return;
   }
@@ -699,6 +716,7 @@ function handleGlobalKeydown(event) {
           :session-search-query="sessionSearchQuery"
           :pinned-session-ids="pinnedSessionIds"
           :active-session-id="currentSessionId"
+          :preview-session-id="previewSessionId"
           :connected-session-ids="connectedSessionIds"
           :pending-session-ids="pendingSessionIds"
           :deleting-session-ids="pendingDeleteSessionIds"
@@ -715,6 +733,7 @@ function handleGlobalKeydown(event) {
           @disconnect="handleDisconnect"
           @delete="handleDeleteSession"
           @toggle-pin="handleToggleSessionPin"
+          @view-session="handleViewSession"
           @navigate-route="navigateRoute"
           @open-settings="navigateRoute('settings')"
           @open-add-agent="openSettings(true)"
@@ -729,7 +748,13 @@ function handleGlobalKeydown(event) {
             </div>
 
             <section v-show="activeRoute === 'chat'" class="route-page route-page--chat">
-              <ChatView v-if="isConnected && currentSessionInActiveWorkspace" />
+              <ChatView v-if="shouldShowLiveChat" />
+
+              <SessionPreview
+                v-else-if="previewSession"
+                :session="previewSession"
+                @resume="handleResumeSession"
+              />
 
               <WelcomePanel
                 v-else

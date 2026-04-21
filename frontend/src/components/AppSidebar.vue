@@ -19,13 +19,14 @@ const props = defineProps({
     sessionSearchQuery: { type: String, required: true },
     pinnedSessionIds: { type: Array, required: true },
     activeSessionId: { type: String, required: true },
+    previewSessionId: { type: String, default: '' },
     connectedSessionIds: { type: Array, required: true },
     pendingSessionIds: { type: Array, required: true },
     deletingSessionIds: { type: Array, required: true },
     refreshingWorkspaceIds: { type: Array, default: () => [] },
 });
 
-const emit = defineEmits(['navigateRoute', 'openWorkspace', 'addWorkspace', 'refreshWorkspace', 'selectAgent', 'selectWorkspace', 'deleteWorkspace', 'update:query', 'resume', 'activate', 'disconnect', 'delete', 'togglePin', 'openSettings', 'openAddAgent']);
+const emit = defineEmits(['navigateRoute', 'openWorkspace', 'addWorkspace', 'refreshWorkspace', 'selectAgent', 'selectWorkspace', 'deleteWorkspace', 'update:query', 'resume', 'activate', 'disconnect', 'delete', 'togglePin', 'viewSession', 'openSettings', 'openAddAgent']);
 
 const { t } = useI18n();
 </script>
@@ -122,6 +123,7 @@ const { t } = useI18n();
           :active-workspace-id="activeWorkspaceId"
           :pinned-session-ids="pinnedSessionIds"
           :active-session-id="activeSessionId"
+          :preview-session-id="previewSessionId"
           :connected-session-ids="connectedSessionIds"
           :pending-session-ids="pendingSessionIds"
           :deleting-session-ids="deletingSessionIds"
@@ -136,6 +138,7 @@ const { t } = useI18n();
           @disconnect="(sessionId) => emit('disconnect', sessionId)"
           @delete="(sessionId) => emit('delete', sessionId)"
           @toggle-pin="(sessionId) => emit('togglePin', sessionId)"
+          @view-session="(sessionId) => emit('viewSession', sessionId)"
         />
       </div>
 

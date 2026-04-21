@@ -172,6 +172,11 @@ export async function readTextFile(path, line, limit) {
   return call("ReadTextFile", path, normalizedLine, normalizedLimit);
 }
 
+export async function listDirectory(path) {
+  const items = await call("ListDirectory", path);
+  return Array.isArray(items) ? items : [];
+}
+
 export async function writeTextFile(path, content) {
   await call("WriteTextFile", path, content);
 }

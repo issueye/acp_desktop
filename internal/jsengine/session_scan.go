@@ -32,12 +32,34 @@ type SessionScanResult struct {
 	UpdatedAt int64  `json:"updatedAt"`
 }
 
-type dirEntryInfo struct {
+type DirEntryInfo struct {
 	Name    string `json:"name"`
 	Path    string `json:"path"`
 	IsDir   bool   `json:"isDir"`
 	Size    int64  `json:"size"`
 	ModTime int64  `json:"modTime"`
+}
+
+func ListDirectory(path string) ([]DirEntryInfo, error) {
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]DirEntryInfo, 0, len(entries))
+	for _, entry := range entries {
+		info, err := entry.Info()
+		if err != nil {
+			continue
+		}
+		out = append(out, DirEntryInfo{
+			Name:    entry.Name(),
+			Path:    filepath.Join(path, entry.Name()),
+			IsDir:   entry.IsDir(),
+			Size:    info.Size(),
+			ModTime: info.ModTime().UnixMilli(),
+		})
+	}
+	return out, nil
 }
 
 func ScanSessions(cfg SessionScanConfig, ctx SessionScanContext) ([]SessionScanResult, error) {
@@ -186,46 +208,38 @@ func injectNative(vm *goja.Runtime) error {
 			return err == nil && info.IsDir()
 		},
 		"listDir": func(path string) ([]map[string]any, error) {
-			entries, err := os.ReadDir(path)
+			entries, err := ListDirectory(path)
 			if err != nil {
 				return nil, err
 			}
 			out := make([]map[string]any, 0, len(entries))
 			for _, entry := range entries {
-				info, err := entry.Info()
-				if err != nil {
-					continue
-				}
 				out = append(out, map[string]any{
-					"name":    entry.Name(),
-					"path":    filepath.Join(path, entry.Name()),
-					"isDir":   entry.IsDir(),
-					"size":    info.Size(),
-					"modTime": info.ModTime().UnixMilli(),
+					"name":    entry.Name,
+					"path":    entry.Path,
+					"isDir":   entry.IsDir,
+					"size":    entry.Size,
+					"modTime": entry.ModTime,
 				})
 			}
 			return out, nil
 		},
 		"listDirs": func(path string) ([]map[string]any, error) {
-			entries, err := os.ReadDir(path)
+			entries, err := ListDirectory(path)
 			if err != nil {
 				return nil, err
 			}
 			out := make([]map[string]any, 0, len(entries))
 			for _, entry := range entries {
-				if !entry.IsDir() {
-					continue
-				}
-				info, err := entry.Info()
-				if err != nil {
+				if !entry.IsDir {
 					continue
 				}
 				out = append(out, map[string]any{
-					"name":    entry.Name(),
-					"path":    filepath.Join(path, entry.Name()),
+					"name":    entry.Name,
+					"path":    entry.Path,
 					"isDir":   true,
-					"size":    info.Size(),
-					"modTime": info.ModTime().UnixMilli(),
+					"size":    entry.Size,
+					"modTime": entry.ModTime,
 				})
 			}
 			return out, nil

@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useSessionStore } from '../../stores/session';
 import { useI18n } from '../../lib/i18n';
 import AppConfirmDialog from '../../components/AppConfirmDialog.vue';
@@ -12,6 +12,7 @@ const props = defineProps({
   activeWorkspaceId: { type: String, default: '' },
   pinnedSessionIds: { type: Array, default: () => [] },
   activeSessionId: { type: String, default: '' },
+  previewSessionId: { type: String, default: '' },
   connectedSessionIds: { type: Array, default: () => [] },
   pendingSessionIds: { type: Array, default: () => [] },
   deletingSessionIds: { type: Array, default: () => [] },
@@ -29,6 +30,7 @@ const emit = defineEmits([
   'disconnect',
   'delete',
   'togglePin',
+  'viewSession',
 ]);
 
 const sessionStore = useSessionStore();
@@ -90,14 +92,12 @@ const tree = computed(() => {
         });
       }
 
-      let workspaces = Array.from(workspaceMap.values()).sort((a, b) => {
-        const aActive = a.id === props.activeWorkspaceId;
-        const bActive = b.id === props.activeWorkspaceId;
-        if (aActive !== bActive) {
-          return aActive ? -1 : 1;
-        }
-        return (b.lastUpdated || 0) - (a.lastUpdated || 0);
-      });
+      let workspaces = Array.from(workspaceMap.values()).sort((a, b) =>
+        String(a.name || a.cwd || '').localeCompare(String(b.name || b.cwd || ''), undefined, {
+          numeric: true,
+          sensitivity: 'base',
+        })
+      );
 
       if (query) {
         workspaces = workspaces
@@ -136,12 +136,12 @@ function getWorkspaceName(cwd) {
 }
 
 function isAgentOpen(agentName) {
-  return expandedAgents.value.has(agentName) || agentName === props.selectedAgent || normalizedQuery.value !== '';
+  return expandedAgents.value.has(agentName) || normalizedQuery.value !== '';
 }
 
 function isWorkspaceOpen(agentName, workspaceId) {
   const key = `${agentName}:${workspaceId}`;
-  return expandedWorkspaces.value.has(key) || workspaceId === props.activeWorkspaceId || normalizedQuery.value !== '';
+  return expandedWorkspaces.value.has(key) || normalizedQuery.value !== '';
 }
 
 function toggleAgent(agentName) {
@@ -171,6 +171,10 @@ function isPinned(sessionId) {
 
 function isConnectedSession(sessionId) {
   return props.connectedSessionIds.includes(sessionId);
+}
+
+function isSelectedSession(sessionId) {
+  return props.previewSessionId === sessionId || props.activeSessionId === sessionId;
 }
 
 function isPendingSession(sessionId) {
@@ -206,17 +210,11 @@ function getSessionSummary(session) {
 
 function handleAgentClick(agentName) {
   emit('selectAgent', agentName);
-  if (!expandedAgents.value.has(agentName)) {
-    toggleAgent(agentName);
-  }
 }
 
 function handleWorkspaceClick(agentName, workspaceId) {
   emit('selectAgent', agentName);
   emit('selectWorkspace', workspaceId);
-  if (!expandedWorkspaces.value.has(`${agentName}:${workspaceId}`)) {
-    toggleWorkspace(agentName, workspaceId);
-  }
 }
 
 function handleConnectAction(session, event) {
@@ -234,6 +232,7 @@ function handleConnectAction(session, event) {
 function handleSessionClick(session) {
   emit('selectAgent', session.agentName);
   emit('selectWorkspace', session.workspaceId);
+  emit('viewSession', session.id);
   if (session.external) {
     return;
   }
@@ -278,6 +277,24 @@ function cancelDelete() {
 const pendingDeleteSession = computed(() =>
   sortedSessions.value.find((session) => session.id === pendingDeleteSessionId.value) ?? null
 );
+
+watch(
+  [() => props.selectedAgent, () => props.activeWorkspaceId, tree],
+  ([agentName, workspaceId, treeItems]) => {
+    if (agentName && expandedAgents.value.size === 0) {
+      expandedAgents.value = new Set([agentName]);
+    }
+    if (agentName && workspaceId && expandedWorkspaces.value.size === 0) {
+      const hasWorkspace = treeItems
+        .find((agent) => agent.name === agentName)
+        ?.workspaces.some((workspace) => workspace.id === workspaceId);
+      if (hasWorkspace) {
+        expandedWorkspaces.value = new Set([`${agentName}:${workspaceId}`]);
+      }
+    }
+  },
+  { immediate: true }
+);
 </script>
 
 <template>
@@ -295,7 +312,17 @@ const pendingDeleteSession = computed(() =>
           type="button"
           @click="handleAgentClick(agent.name)"
         >
-          <span class="tree-chevron" :class="{ open: isAgentOpen(agent.name) }"></span>
+          <span
+            class="tree-chevron"
+            :class="{ open: isAgentOpen(agent.name) }"
+            role="button"
+            tabindex="0"
+            :title="isAgentOpen(agent.name) ? t('tree.collapse') : t('tree.expand')"
+            :aria-label="isAgentOpen(agent.name) ? t('tree.collapse') : t('tree.expand')"
+            @click.stop="toggleAgent(agent.name)"
+            @keydown.enter.stop.prevent="toggleAgent(agent.name)"
+            @keydown.space.stop.prevent="toggleAgent(agent.name)"
+          ></span>
           <span class="agent-icon" aria-hidden="true"></span>
           <span class="tree-label">{{ agent.name }}</span>
           <span class="tree-count">{{ agent.sessionCount }}</span>
@@ -319,7 +346,17 @@ const pendingDeleteSession = computed(() =>
               @keydown.enter.prevent="handleWorkspaceClick(agent.name, workspace.id)"
               @keydown.space.prevent="handleWorkspaceClick(agent.name, workspace.id)"
             >
-              <span class="tree-chevron" :class="{ open: isWorkspaceOpen(agent.name, workspace.id) }"></span>
+              <span
+                class="tree-chevron"
+                :class="{ open: isWorkspaceOpen(agent.name, workspace.id) }"
+                role="button"
+                tabindex="0"
+                :title="isWorkspaceOpen(agent.name, workspace.id) ? t('tree.collapse') : t('tree.expand')"
+                :aria-label="isWorkspaceOpen(agent.name, workspace.id) ? t('tree.collapse') : t('tree.expand')"
+                @click.stop="toggleWorkspace(agent.name, workspace.id)"
+                @keydown.enter.stop.prevent="toggleWorkspace(agent.name, workspace.id)"
+                @keydown.space.stop.prevent="toggleWorkspace(agent.name, workspace.id)"
+              ></span>
               <span class="workspace-folder" aria-hidden="true"></span>
               <span class="tree-label">
                 <strong>{{ workspace.name }}</strong>
@@ -362,7 +399,7 @@ const pendingDeleteSession = computed(() =>
                 :key="session.id"
                 class="tree-row tree-row--session"
                 :class="{
-                  active: activeSessionId === session.id,
+                  active: isSelectedSession(session.id),
                   external: session.external,
                   busy: isPendingSession(session.id) || isDeletingSession(session.id)
                 }"

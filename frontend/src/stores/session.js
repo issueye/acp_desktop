@@ -317,7 +317,12 @@ export const useSessionStore = defineStore('session', () => {
         ...workspace,
         sessionCount: counts.get(workspace.id) || 0,
       }))
-      .sort((a, b) => b.lastUpdated - a.lastUpdated);
+      .sort((a, b) =>
+        String(a.name || a.cwd || '').localeCompare(String(b.name || b.cwd || ''), undefined, {
+          numeric: true,
+          sensitivity: 'base',
+        })
+      );
   });
 
   async function initStore() {
