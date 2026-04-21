@@ -62,7 +62,6 @@ const tree = computed(() => {
       ...sortedSessions.value.map((session) => session.agentName).filter(Boolean),
     ]),
   ];
-  const workspaceFallbackAgent = props.selectedAgent || agentNames[0] || '';
   const query = normalizedQuery.value;
 
   return agentNames
@@ -83,14 +82,6 @@ const tree = computed(() => {
           }
           workspaceMap.get(workspace.id).sessions.push(session);
         });
-
-      if (agentName === workspaceFallbackAgent) {
-        props.workspaces.forEach((workspace) => {
-          if (!workspaceMap.has(workspace.id)) {
-            workspaceMap.set(workspace.id, { ...workspace, sessions: [] });
-          }
-        });
-      }
 
       let workspaces = Array.from(workspaceMap.values()).sort((a, b) =>
         String(a.name || a.cwd || '').localeCompare(String(b.name || b.cwd || ''), undefined, {
@@ -187,6 +178,10 @@ function isDeletingSession(sessionId) {
 
 function isRefreshingWorkspace(workspaceId) {
   return props.refreshingWorkspaceIds.includes(workspaceId);
+}
+
+function isRefreshingAgent(agentName) {
+  return props.refreshingWorkspaceIds.includes(`agent:${agentName}`);
 }
 
 function getConnectActionLabel(session) {
@@ -326,6 +321,21 @@ watch(
           <span class="agent-icon" aria-hidden="true"></span>
           <span class="tree-label">{{ agent.name }}</span>
           <span class="tree-count">{{ agent.sessionCount }}</span>
+          <button
+            class="agent-refresh ued-icon-btn ued-icon-btn--ghost"
+            :class="{ spinning: isRefreshingAgent(agent.name) }"
+            :disabled="isConnecting || isRefreshingAgent(agent.name)"
+            :title="t('workspace.refresh')"
+            :aria-label="t('workspace.refresh')"
+            @click.stop="emit('selectAgent', agent.name); emit('refreshWorkspace', '', agent.name)"
+          >
+            <svg viewBox="0 0 18 18" fill="none" aria-hidden="true">
+              <path d="M14.1 7.2A5.2 5.2 0 0 0 4.4 5.5L3.1 7.1" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round" />
+              <path d="M3 4.5v2.8h2.8" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round" />
+              <path d="M3.9 10.8a5.2 5.2 0 0 0 9.7 1.7l1.3-1.6" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round" />
+              <path d="M15 13.5v-2.8h-2.8" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </button>
         </button>
 
         <div v-if="isAgentOpen(agent.name)" class="tree-children">
@@ -363,21 +373,6 @@ watch(
                 <small v-if="activeWorkspaceId === workspace.id">{{ workspace.cwd }}</small>
               </span>
               <span class="tree-count">{{ workspace.sessions.length }}</span>
-              <button
-                class="workspace-refresh ued-icon-btn ued-icon-btn--ghost"
-                :class="{ spinning: isRefreshingWorkspace(workspace.id) }"
-                :disabled="isConnecting || isRefreshingWorkspace(workspace.id)"
-                :title="t('workspace.refresh')"
-                :aria-label="t('workspace.refresh')"
-                @click.stop="emit('selectAgent', agent.name); emit('refreshWorkspace', workspace.id, agent.name)"
-              >
-                <svg viewBox="0 0 18 18" fill="none" aria-hidden="true">
-                  <path d="M14.1 7.2A5.2 5.2 0 0 0 4.4 5.5L3.1 7.1" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round" />
-                  <path d="M3 4.5v2.8h2.8" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round" />
-                  <path d="M3.9 10.8a5.2 5.2 0 0 0 9.7 1.7l1.3-1.6" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round" />
-                  <path d="M15 13.5v-2.8h-2.8" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round" />
-                </svg>
-              </button>
               <button
                 v-if="workspace.sessionCount === 0"
                 class="workspace-delete ued-icon-btn ued-icon-btn--ghost ued-icon-btn--danger"
@@ -657,7 +652,7 @@ watch(
   background: var(--ued-accent);
 }
 
-.workspace-refresh,
+.agent-refresh,
 .workspace-delete {
   width: 22px;
   height: 22px;
@@ -666,20 +661,20 @@ watch(
   pointer-events: none;
 }
 
-.workspace-refresh svg {
+.agent-refresh svg {
   width: 16px;
   height: 16px;
 }
 
-.tree-row--workspace:hover .workspace-refresh,
-.tree-row--workspace.active .workspace-refresh,
+.tree-row--agent:hover .agent-refresh,
+.tree-row--agent.active .agent-refresh,
 .tree-row--workspace:hover .workspace-delete,
 .tree-row--workspace.active .workspace-delete {
   opacity: 1;
   pointer-events: auto;
 }
 
-.workspace-refresh.spinning svg {
+.agent-refresh.spinning svg {
   animation: workspace-refresh-spin 0.82s linear infinite;
 }
 
@@ -751,7 +746,7 @@ watch(
 
 @media (max-width: 900px) {
   .session-actions,
-  .workspace-refresh,
+  .agent-refresh,
   .workspace-delete {
     opacity: 1;
     pointer-events: auto;

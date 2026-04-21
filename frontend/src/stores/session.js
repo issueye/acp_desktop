@@ -446,7 +446,11 @@ export const useSessionStore = defineStore('session', () => {
           errors.push(`${agentName}: ${e instanceof Error ? e.message : String(e)}`);
         }
       }
-      scannedSessions.value = nextSessions;
+      const nameSet = new Set(names);
+      scannedSessions.value = [
+        ...scannedSessions.value.filter((session) => !nameSet.has(session.agentName)),
+        ...nextSessions,
+      ];
       if (nextSessions.length > 0) {
         workspaces.value = [...workspaces.value];
       }

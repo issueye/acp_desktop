@@ -402,8 +402,9 @@ async function handleDeleteWorkspace(workspaceId) {
 }
 
 async function handleRefreshWorkspace(workspaceId, agentName = selectedAgent.value) {
-  const workspace = workspaces.value.find((item) => item.id === workspaceId);
-  if (!workspace || refreshingWorkspaceIds.value.includes(workspaceId)) {
+  const workspace = workspaceId ? workspaces.value.find((item) => item.id === workspaceId) : null;
+  const refreshKey = workspace?.id || (agentName ? `agent:${agentName}` : 'agent:all');
+  if (refreshingWorkspaceIds.value.includes(refreshKey)) {
     return;
   }
 
@@ -413,23 +414,21 @@ async function handleRefreshWorkspace(workspaceId, agentName = selectedAgent.val
     return;
   }
 
-  addPending(refreshingWorkspaceIds, workspaceId);
+  addPending(refreshingWorkspaceIds, refreshKey);
   try {
     let sessions = [];
-    if (typeof sessionStore.scanWorkspaceAgentSessions === 'function') {
+    if (workspace && typeof sessionStore.scanWorkspaceAgentSessions === 'function') {
       sessions = await sessionStore.scanWorkspaceAgentSessions(agentNames, workspace);
     } else {
       await sessionStore.scanConfiguredAgentSessions(agentNames);
       const agentNameSet = new Set(agentNames);
-      sessions = sessionStore.scannedSessions.filter(
-        (session) => agentNameSet.has(session.agentName) && session.workspaceId === workspace.id
-      );
+      sessions = sessionStore.scannedSessions.filter((session) => agentNameSet.has(session.agentName));
     }
     pushToast(t('workspace.refreshDone', { count: sessions.length }));
   } catch (e) {
     pushToast(getErrorMessage(e), 'danger');
   } finally {
-    removePending(refreshingWorkspaceIds, workspaceId);
+    removePending(refreshingWorkspaceIds, refreshKey);
   }
 }
 
