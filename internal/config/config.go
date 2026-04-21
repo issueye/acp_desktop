@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -206,12 +207,36 @@ func defaultConfig() AgentsConfig {
 				Env:     map[string]string{},
 				SessionScan: jsengine.SessionScanConfig{
 					Enabled: true,
-					Script:  jsengine.DefaultClaudeCodeSessionScanScript(),
+					Script:  jsengine.DefaultSessionScanScript("Claude Code"),
 				},
 			},
-			"Gemini CLI": {Command: "npx", Args: []string{"@google/gemini-cli@latest", "--experimental-acp"}, Env: map[string]string{}},
-			"Codex CLI":  {Command: "npx", Args: []string{"@zed-industries/codex-acp@latest"}, Env: map[string]string{}},
-			"OpenCode":   {Command: "npx", Args: []string{"opencode-ai@latest", "acp"}, Env: map[string]string{}},
+			"Gemini CLI": {
+				Command: "npx",
+				Args:    []string{"@google/gemini-cli@latest", "--experimental-acp"},
+				Env:     map[string]string{},
+				SessionScan: jsengine.SessionScanConfig{
+					Enabled: true,
+					Script:  jsengine.DefaultSessionScanScript("Gemini CLI"),
+				},
+			},
+			"Codex CLI": {
+				Command: "npx",
+				Args:    []string{"@zed-industries/codex-acp@latest"},
+				Env:     map[string]string{},
+				SessionScan: jsengine.SessionScanConfig{
+					Enabled: true,
+					Script:  jsengine.DefaultSessionScanScript("Codex CLI"),
+				},
+			},
+			"OpenCode": {
+				Command: "npx",
+				Args:    []string{"opencode-ai@latest", "acp"},
+				Env:     map[string]string{},
+				SessionScan: jsengine.SessionScanConfig{
+					Enabled: true,
+					Script:  jsengine.DefaultSessionScanScript("OpenCode"),
+				},
+			},
 		},
 	}
 }
@@ -233,13 +258,28 @@ func loadConfig(path string) (AgentsConfig, error) {
 	filtered := make(map[string]AgentConfig, len(allowedAgentNames))
 	for _, name := range allowedAgentNames {
 		if agent, ok := cfg.Agents[name]; ok {
-			filtered[name] = sanitizeAgentConfig(agent)
+			agent = sanitizeAgentConfig(agent)
+			if agent.SessionScan.Script == "" {
+				agent.SessionScan = defaults.Agents[name].SessionScan
+			} else if shouldRefreshDefaultSessionScan(name, agent.SessionScan.Script) {
+				agent.SessionScan.Script = defaults.Agents[name].SessionScan.Script
+			}
+			filtered[name] = agent
 			continue
 		}
 		filtered[name] = defaults.Agents[name]
 	}
 	cfg.Agents = filtered
 	return cfg, nil
+}
+
+func shouldRefreshDefaultSessionScan(name, script string) bool {
+	if name != "Codex CLI" {
+		return false
+	}
+	return strings.Contains(script, `native.joinPath(native.homeDir(), ".codex", "sessions")`) &&
+		strings.Contains(script, `native.listDir(root)`) &&
+		!strings.Contains(script, "collectJsonlFiles")
 }
 
 func sanitizeAgentConfig(cfg AgentConfig) AgentConfig {

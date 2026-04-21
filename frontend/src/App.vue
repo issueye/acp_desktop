@@ -43,6 +43,7 @@ const toastItems = ref([]);
 const pendingResumeSessionIds = ref([]);
 const pendingDisconnectSessionIds = ref([]);
 const pendingDeleteSessionIds = ref([]);
+const refreshingWorkspaceIds = ref([]);
 const isSelectingFolder = ref(false);
 const activeRoute = ref(normalizeRoute(window.location.hash));
 
@@ -56,7 +57,7 @@ const isConnected = computed(() => sessionStore.isConnected);
 const isConnecting = computed(() => sessionStore.isConnecting);
 const error = computed(() => sessionStore.error || configStore.error);
 const hasAgents = computed(() => configStore.hasAgents);
-const savedSessionCount = computed(() => sessionStore.resumableSessions.length);
+const savedSessionCount = computed(() => sessionStore.visibleSessions.length);
 const workspaces = computed(() => sessionStore.workspacesWithCounts);
 const connectedSessionIds = computed(() => sessionStore.connectedSessionIds);
 const pendingSessionIds = computed(() => [
@@ -205,6 +206,17 @@ function syncActiveWorkspaceFallback() {
   }
 }
 
+async function refreshScannedSessions() {
+  try {
+    await sessionStore.scanConfiguredAgentSessions(configStore.agentNames);
+    if (preferencesLoaded) {
+      syncActiveWorkspaceFallback();
+    }
+  } catch (e) {
+    console.warn('Failed to scan agent sessions:', e);
+  }
+}
+
 onMounted(async () => {
   prefsStoreData = await loadStore(prefsStoreName);
   pinnedSessionIds.value = Array.isArray(prefsStoreData.pinnedSessionIds)
@@ -223,6 +235,7 @@ onMounted(async () => {
   await configStore.loadConfig();
   await configStore.setupHotReload();
   await sessionStore.initStore();
+  await refreshScannedSessions();
 
   const savedCwd = readStoredString(prefsStoreData.lastCwd);
   if (savedCwd) selectedCwd.value = savedCwd;
@@ -245,6 +258,16 @@ watch(
     }
     prefsStoreData.authorizationMode = normalizeAuthorizationMode(mode);
     await persistPreferences();
+  }
+);
+
+watch(
+  () => configStore.agentNames.join('\n'),
+  async () => {
+    if (!preferencesLoaded) {
+      return;
+    }
+    await refreshScannedSessions();
   }
 );
 
@@ -364,6 +387,38 @@ async function handleDeleteWorkspace(workspaceId) {
   }
 }
 
+async function handleRefreshWorkspace(workspaceId) {
+  const workspace = workspaces.value.find((item) => item.id === workspaceId);
+  if (!workspace || refreshingWorkspaceIds.value.includes(workspaceId)) {
+    return;
+  }
+
+  const agentNames = selectedAgent.value ? [selectedAgent.value] : configStore.agentNames;
+  if (agentNames.length === 0) {
+    pushToast(t('agent.noneConfigured'), 'info');
+    return;
+  }
+
+  addPending(refreshingWorkspaceIds, workspaceId);
+  try {
+    let sessions = [];
+    if (typeof sessionStore.scanWorkspaceAgentSessions === 'function') {
+      sessions = await sessionStore.scanWorkspaceAgentSessions(agentNames, workspace);
+    } else {
+      await sessionStore.scanConfiguredAgentSessions(agentNames);
+      const agentNameSet = new Set(agentNames);
+      sessions = sessionStore.scannedSessions.filter(
+        (session) => agentNameSet.has(session.agentName) && session.workspaceId === workspace.id
+      );
+    }
+    pushToast(t('workspace.refreshDone', { count: sessions.length }));
+  } catch (e) {
+    pushToast(getErrorMessage(e), 'danger');
+  } finally {
+    removePending(refreshingWorkspaceIds, workspaceId);
+  }
+}
+
 function closeWorkspaceDialog() {
   if (isConnecting.value) return;
   showWorkspaceDialog.value = false;
@@ -420,6 +475,10 @@ async function handleCreateSession() {
 }
 
 async function handleResumeSession(session) {
+  if (session?.external) {
+    pushToast(t('session.externalReadOnly'), 'info');
+    return;
+  }
   if (
     pendingResumeSessionIds.value.includes(session.id) ||
     pendingDisconnectSessionIds.value.includes(session.id) ||
@@ -467,6 +526,9 @@ async function handleDeleteSession(sessionId) {
     return;
   }
   const deletedSession = sessionStore.savedSessions.find((session) => session.id === sessionId);
+  if (!deletedSession) {
+    return;
+  }
   addPending(pendingDeleteSessionIds, sessionId);
   try {
     await sessionStore.deleteSession(sessionId);
@@ -537,6 +599,9 @@ function toggleSidebar() {
 }
 
 async function handleToggleSessionPin(sessionId) {
+  if (!sessionStore.savedSessions.some((session) => session.id === sessionId)) {
+    return;
+  }
   if (pinnedSessionIds.value.includes(sessionId)) {
     pinnedSessionIds.value = pinnedSessionIds.value.filter((id) => id !== sessionId);
   } else {
@@ -637,8 +702,10 @@ function handleGlobalKeydown(event) {
           :connected-session-ids="connectedSessionIds"
           :pending-session-ids="pendingSessionIds"
           :deleting-session-ids="pendingDeleteSessionIds"
+          :refreshing-workspace-ids="refreshingWorkspaceIds"
           @open-workspace="openWorkspaceDialog"
           @add-workspace="handleAddWorkspace"
+          @refresh-workspace="handleRefreshWorkspace"
           @select-workspace="handleSelectWorkspace"
           @delete-workspace="handleDeleteWorkspace"
           @update:query="sessionSearchQuery = $event"

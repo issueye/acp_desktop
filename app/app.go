@@ -152,10 +152,7 @@ func (a *App) ScanAgentSessions(name string) ([]jsengine.SessionScanResult, erro
 }
 
 func (a *App) GetDefaultSessionScanScript(agentName string) string {
-	if strings.Contains(strings.ToLower(agentName), "claude") {
-		return jsengine.DefaultClaudeCodeSessionScanScript()
-	}
-	return ""
+	return jsengine.DefaultSessionScanScript(agentName)
 }
 
 func (a *App) GetMachineID() (string, error) {

@@ -60,6 +60,8 @@ const messages = {
 
     'workspace.title': 'Workspaces',
     'workspace.add': 'Add workspace',
+    'workspace.refresh': 'Refresh workspace sessions',
+    'workspace.refreshDone': 'Workspace refreshed, found {count} sessions.',
     'workspace.remove': 'Remove workspace',
     'workspace.none': 'No workspaces yet.',
     'workspace.added': 'Workspace added',
@@ -89,6 +91,8 @@ const messages = {
     'session.unpin': 'Unpin session',
     'session.pinned': 'PIN',
     'session.confirmDelete': 'Delete this session?',
+    'session.externalScanned': 'Scanned',
+    'session.externalReadOnly': 'Scanned sessions are read-only for now.',
 
     'process.title': 'Process Manager',
     'process.loading': 'Loading process list',
@@ -214,7 +218,7 @@ const messages = {
     'scan.enabled': 'Enable session scan',
     'scan.disabled': 'Disabled',
     'scan.script': 'Scan Script',
-    'scan.useClaudeDefault': 'Claude Code Default',
+    'scan.useClaudeDefault': 'Use default script',
     'scan.test': 'Test scan',
     'scan.scanning': 'Scanning...',
     'scan.scriptConfigured': 'Script configured',
@@ -277,6 +281,8 @@ const messages = {
 
     'workspace.title': '工作区',
     'workspace.add': '添加工作区',
+    'workspace.refresh': '刷新工作区会话',
+    'workspace.refreshDone': '工作区已刷新，发现 {count} 个会话。',
     'workspace.remove': '移除工作区',
     'workspace.none': '暂无工作区。',
     'workspace.added': '已添加工作区',
@@ -306,6 +312,8 @@ const messages = {
     'session.unpin': '取消置顶',
     'session.pinned': '置顶',
     'session.confirmDelete': '确认删除该会话？',
+    'session.externalScanned': '扫描会话',
+    'session.externalReadOnly': '扫描会话当前为只读。',
 
     'process.title': '进程管理',
     'process.loading': '正在加载进程列表',
@@ -431,7 +439,7 @@ const messages = {
     'scan.enabled': '启用会话扫描',
     'scan.disabled': '未启用',
     'scan.script': '扫描脚本',
-    'scan.useClaudeDefault': 'Claude Code 默认脚本',
+    'scan.useClaudeDefault': '使用默认脚本',
     'scan.test': '测试扫描',
     'scan.scanning': '扫描中...',
     'scan.scriptConfigured': '已配置脚本',

@@ -11,6 +11,7 @@ import {
   loadStore,
   onAgentStderr,
   saveStore,
+  scanAgentSessions,
   spawnAgent,
 } from '../lib/wails';
 
@@ -230,6 +231,9 @@ function normalizeWorkspace(workspace) {
 
 export const useSessionStore = defineStore('session', () => {
   const savedSessions = ref([]);
+  const scannedSessions = ref([]);
+  const isScanningSessions = ref(false);
+  const scanSessionError = ref('');
   const workspaces = ref([]);
   const connectedSessions = ref({});
   const activeSessionId = ref('');
@@ -301,10 +305,11 @@ export const useSessionStore = defineStore('session', () => {
   const resumableSessions = computed(() =>
     savedSessions.value.filter((session) => session.supportsLoadSession === true)
   );
+  const visibleSessions = computed(() => [...resumableSessions.value, ...scannedSessions.value]);
   const connectedSessionIds = computed(() => Object.keys(connectedSessions.value));
   const workspacesWithCounts = computed(() => {
     const counts = new Map();
-    resumableSessions.value.forEach((session) => {
+    visibleSessions.value.forEach((session) => {
       counts.set(session.workspaceId, (counts.get(session.workspaceId) || 0) + 1);
     });
     return workspaces.value
@@ -378,7 +383,7 @@ export const useSessionStore = defineStore('session', () => {
   }
 
   async function deleteWorkspace(workspaceId) {
-    const hasSessions = savedSessions.value.some((session) => session.workspaceId === workspaceId);
+    const hasSessions = visibleSessions.value.some((session) => session.workspaceId === workspaceId);
     if (hasSessions) {
       throw new Error('Workspace still has sessions');
     }
@@ -388,6 +393,111 @@ export const useSessionStore = defineStore('session', () => {
 
   function getConnectedSession(sessionId) {
     return connectedSessions.value[sessionId] ?? null;
+  }
+
+  function createScannedSession(agentName, item, ensureWorkspace = true) {
+    const rawPath = item?.path || item?.cwd || '.';
+    const cwd = normalizeWorkspacePath(item?.cwd || rawPath);
+    const workspace = ensureWorkspace ? ensureWorkspaceForCwd(cwd, false) : { id: buildWorkspaceId(cwd) };
+    const rawId = String(item?.id || rawPath || crypto.randomUUID());
+    const updatedAt = Number(item?.updatedAt);
+    return {
+      id: `scan:${agentName}:${rawId}`,
+      external: true,
+      source: 'scan',
+      agentName,
+      sessionId: rawId,
+      title: item?.title || getWorkspaceName(cwd),
+      path: rawPath,
+      cwd,
+      workspaceId: workspace.id,
+      lastUpdated: Number.isFinite(updatedAt) && updatedAt > 0 ? updatedAt : Date.now(),
+      supportsLoadSession: false,
+      messages: [],
+    };
+  }
+
+  async function scanConfiguredAgentSessions(agentNames = []) {
+    const names = [...new Set((agentNames || []).filter(Boolean))];
+    if (names.length === 0) {
+      scannedSessions.value = [];
+      scanSessionError.value = '';
+      return [];
+    }
+
+    isScanningSessions.value = true;
+    scanSessionError.value = '';
+    const nextSessions = [];
+    const errors = [];
+
+    try {
+      for (const agentName of names) {
+        try {
+          const results = await scanAgentSessions(agentName);
+          (Array.isArray(results) ? results : []).forEach((item) => {
+            nextSessions.push(createScannedSession(agentName, item));
+          });
+        } catch (e) {
+          errors.push(`${agentName}: ${e instanceof Error ? e.message : String(e)}`);
+        }
+      }
+      scannedSessions.value = nextSessions;
+      if (nextSessions.length > 0) {
+        workspaces.value = [...workspaces.value];
+      }
+      scanSessionError.value = errors.join('\n');
+      return nextSessions;
+    } finally {
+      isScanningSessions.value = false;
+    }
+  }
+
+  async function scanWorkspaceAgentSessions(agentNames = [], workspace) {
+    const names = [...new Set((agentNames || []).filter(Boolean))];
+    const targetWorkspace = workspace
+      ? {
+          ...workspace,
+          id: workspace.id || buildWorkspaceId(workspace.cwd),
+          cwd: normalizeWorkspacePath(workspace.cwd),
+        }
+      : null;
+
+    if (names.length === 0 || !targetWorkspace?.id) {
+      return [];
+    }
+
+    isScanningSessions.value = true;
+    scanSessionError.value = '';
+    const nextSessions = [];
+    const errors = [];
+
+    try {
+      for (const agentName of names) {
+        try {
+          const results = await scanAgentSessions(agentName);
+          (Array.isArray(results) ? results : []).forEach((item) => {
+            const session = createScannedSession(agentName, item, false);
+            if (session.workspaceId === targetWorkspace.id) {
+              nextSessions.push(createScannedSession(agentName, item, true));
+            }
+          });
+        } catch (e) {
+          errors.push(`${agentName}: ${e instanceof Error ? e.message : String(e)}`);
+        }
+      }
+
+      const nameSet = new Set(names);
+      scannedSessions.value = [
+        ...scannedSessions.value.filter(
+          (session) => !(nameSet.has(session.agentName) && session.workspaceId === targetWorkspace.id)
+        ),
+        ...nextSessions,
+      ];
+      scanSessionError.value = errors.join('\n');
+      return nextSessions;
+    } finally {
+      isScanningSessions.value = false;
+    }
   }
 
   function getConnectedSessionByAcpSessionId(sessionId) {
@@ -1246,6 +1356,7 @@ export const useSessionStore = defineStore('session', () => {
 
   return {
     savedSessions,
+    scannedSessions,
     workspaces,
     workspacesWithCounts,
     connectedSessionIds,
@@ -1272,7 +1383,12 @@ export const useSessionStore = defineStore('session', () => {
     messageList,
     toolCallList,
     resumableSessions,
+    visibleSessions,
+    isScanningSessions,
+    scanSessionError,
     initStore,
+    scanConfiguredAgentSessions,
+    scanWorkspaceAgentSessions,
     addWorkspace,
     deleteWorkspace,
     ensureWorkspaceForCwd,

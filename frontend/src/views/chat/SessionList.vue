@@ -27,11 +27,11 @@ const query = computed(() => props.query ?? '');
 const sessions = computed(() => {
   const pinned = new Set(props.pinnedSessionIds);
   const workspaceSessions = props.workspaceId
-    ? sessionStore.resumableSessions.filter((session) => session.workspaceId === props.workspaceId)
-    : sessionStore.resumableSessions;
+    ? sessionStore.visibleSessions.filter((session) => session.workspaceId === props.workspaceId)
+    : sessionStore.visibleSessions;
   const all = [...workspaceSessions].sort((a, b) => {
-    const aPinned = pinned.has(a.id);
-    const bPinned = pinned.has(b.id);
+    const aPinned = !a.external && pinned.has(a.id);
+    const bPinned = !b.external && pinned.has(b.id);
     if (aPinned !== bPinned) {
       return aPinned ? -1 : 1;
     }
@@ -42,7 +42,8 @@ const sessions = computed(() => {
     return all;
   }
   return all.filter((session) => {
-    const haystack = `${session.title} ${session.agentName} ${session.cwd}`.toLowerCase();
+    const haystack =
+      `${session.title} ${session.agentName} ${session.cwd} ${session.path || ''}`.toLowerCase();
     return haystack.includes(normalizedQuery);
   });
 });
@@ -78,6 +79,10 @@ function isDeletingSession(sessionId) {
 }
 
 function getConnectActionLabel(sessionId) {
+  const session = sessions.value.find((item) => item.id === sessionId);
+  if (session?.external) {
+    return t('session.externalScanned');
+  }
   if (isDeletingSession(sessionId)) {
     return t('session.deleting');
   }
@@ -94,6 +99,9 @@ function getSessionSummary(session) {
 }
 
 function handleResume(session) {
+  if (session.external) {
+    return;
+  }
   emit('resume', session);
 }
 
@@ -103,6 +111,9 @@ function handleActivate(sessionId) {
 
 function handleConnectAction(session, event) {
   event.stopPropagation();
+  if (session.external) {
+    return;
+  }
   if (isPendingSession(session.id) || isDeletingSession(session.id)) {
     return;
   }
@@ -115,6 +126,10 @@ function handleConnectAction(session, event) {
 
 function handleDelete(sessionId, event) {
   event.stopPropagation();
+  const session = sessions.value.find((item) => item.id === sessionId);
+  if (session?.external) {
+    return;
+  }
   if (isPendingSession(sessionId) || isDeletingSession(sessionId)) {
     return;
   }
@@ -142,6 +157,10 @@ const pendingDeleteSession = computed(() =>
 
 function handleTogglePin(sessionId, event) {
   event.stopPropagation();
+  const session = sessions.value.find((item) => item.id === sessionId);
+  if (session?.external) {
+    return;
+  }
   if (isPendingSession(sessionId) || isDeletingSession(sessionId)) {
     return;
   }
@@ -199,6 +218,7 @@ function handleKeyDown(event) {
         :class="{
           selected: idx === selectedIndex,
           active: activeSessionId === session.id,
+          external: session.external,
           busy: isPendingSession(session.id) || isDeletingSession(session.id)
         }"
         :title="getSessionSummary(session)"
@@ -217,9 +237,10 @@ function handleKeyDown(event) {
 
           <div class="session-main">
             <span class="session-title">{{ session.title }}</span>
+            <span v-if="session.external" class="session-source">{{ t('session.externalScanned') }}</span>
           </div>
 
-          <div class="session-actions">
+          <div v-if="!session.external" class="session-actions">
             <button
               class="row-icon-button ued-icon-btn ued-icon-btn--ghost connect-toggle"
               :class="{ disconnect: isConnectedSession(session.id), busy: isPendingSession(session.id) }"
@@ -310,6 +331,7 @@ function handleKeyDown(event) {
               {{ isDeletingSession(session.id) ? '...' : '×' }}
             </button>
           </div>
+          <span v-else class="external-badge">{{ session.agentName }}</span>
         </div>
       </li>
     </ul>
@@ -407,6 +429,16 @@ ul {
   min-width: 0;
 }
 
+.session-source {
+  display: block;
+  margin-top: 1px;
+  color: var(--ued-text-muted);
+  font-size: 0.68rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .session-leading {
   position: relative;
   display: flex;
@@ -432,6 +464,25 @@ ul {
 .session-item:hover .session-title,
 .session-item.selected .session-title {
   color: var(--ued-text-primary);
+}
+
+.session-item.external {
+  cursor: default;
+}
+
+.external-badge {
+  max-width: 72px;
+  flex-shrink: 0;
+  padding: 0.08rem 0.34rem;
+  border: 1px solid var(--ued-border-default);
+  border-radius: 999px;
+  color: var(--ued-text-muted);
+  background: color-mix(in srgb, var(--ued-bg-panel-muted) 68%, transparent);
+  font-size: 0.66rem;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .folder-icon {

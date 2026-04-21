@@ -23,15 +23,20 @@ const props = defineProps({
     connectedSessionIds: { type: Array, required: true },
     pendingSessionIds: { type: Array, required: true },
     deletingSessionIds: { type: Array, required: true },
+    refreshingWorkspaceIds: { type: Array, default: () => [] },
 });
 
-const emit = defineEmits(['navigateRoute', 'openWorkspace', 'addWorkspace', 'selectWorkspace', 'deleteWorkspace', 'update:query', 'resume', 'activate', 'disconnect', 'delete', 'togglePin', 'openSettings', 'openAddAgent']);
+const emit = defineEmits(['navigateRoute', 'openWorkspace', 'addWorkspace', 'refreshWorkspace', 'selectWorkspace', 'deleteWorkspace', 'update:query', 'resume', 'activate', 'disconnect', 'delete', 'togglePin', 'openSettings', 'openAddAgent']);
 
 const { t } = useI18n();
 
 const activeWorkspace = computed(() =>
   props.workspaces.find((workspace) => workspace.id === props.activeWorkspaceId) ?? null
 );
+
+function isRefreshingWorkspace(workspaceId) {
+  return props.refreshingWorkspaceIds.includes(workspaceId);
+}
 </script>
 
 <template>
@@ -135,6 +140,22 @@ const activeWorkspace = computed(() =>
             <small v-if="activeWorkspaceId === workspace.id">{{ workspace.cwd }}</small>
           </span>
           <span class="workspace-count">{{ workspace.sessionCount }}</span>
+          <button
+            v-if="activeWorkspaceId === workspace.id"
+            class="workspace-refresh ued-icon-btn ued-icon-btn--ghost"
+            :class="{ spinning: isRefreshingWorkspace(workspace.id) }"
+            :disabled="isConnecting || isRefreshingWorkspace(workspace.id)"
+            :title="t('workspace.refresh')"
+            :aria-label="t('workspace.refresh')"
+            @click.stop="emit('refreshWorkspace', workspace.id)"
+          >
+            <svg viewBox="0 0 18 18" fill="none" aria-hidden="true">
+              <path d="M14.1 7.2A5.2 5.2 0 0 0 4.4 5.5L3.1 7.1" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round" />
+              <path d="M3 4.5v2.8h2.8" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round" />
+              <path d="M3.9 10.8a5.2 5.2 0 0 0 9.7 1.7l1.3-1.6" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round" />
+              <path d="M15 13.5v-2.8h-2.8" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </button>
           <button
             v-if="workspace.sessionCount === 0"
             class="workspace-delete ued-icon-btn ued-icon-btn--ghost ued-icon-btn--danger"
@@ -357,15 +378,30 @@ const activeWorkspace = computed(() =>
 }
 
 .workspace-add,
-.workspace-delete {
+.workspace-delete,
+.workspace-refresh {
   width: 24px;
   height: 24px;
   flex-shrink: 0;
 }
 
-.workspace-add svg {
+.workspace-add svg,
+.workspace-refresh svg {
   width: 17px;
   height: 17px;
+}
+
+.workspace-refresh.spinning svg {
+  animation: workspace-refresh-spin 0.82s linear infinite;
+}
+
+@keyframes workspace-refresh-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .workspace-empty {
@@ -455,8 +491,16 @@ const activeWorkspace = computed(() =>
   pointer-events: none;
 }
 
+.workspace-refresh {
+  opacity: 0;
+  pointer-events: none;
+  color: var(--ued-text-muted);
+}
+
 .workspace-row:hover .workspace-delete,
-.workspace-row.active .workspace-delete {
+.workspace-row.active .workspace-delete,
+.workspace-row:hover .workspace-refresh,
+.workspace-row.active .workspace-refresh {
   opacity: 1;
   pointer-events: auto;
 }

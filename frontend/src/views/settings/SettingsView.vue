@@ -61,6 +61,15 @@ const detailAgent = computed(() => {
   }
   return selectedAgent.value;
 });
+const visibleScanResults = computed(() =>
+  scanResults.value
+    .map((item) => ({
+      ...item,
+      title: item?.title || item?.cwd || item?.path || '',
+      path: item?.path || item?.cwd || '',
+    }))
+    .filter((item) => item.path)
+);
 
 function createDraft(agent) {
   return {
@@ -594,8 +603,8 @@ watch(
                 <span>{{ detailAgent.sessionScan?.script ? t('scan.scriptConfigured') : t('scan.scriptMissing') }}</span>
               </div>
               <div v-if="scanError" class="scan-error">{{ scanError }}</div>
-              <div v-if="scanResults.length > 0" class="scan-result-list">
-                <div v-for="item in scanResults" :key="item.id || item.path" class="scan-result-row">
+              <div v-if="visibleScanResults.length > 0" class="scan-result-list">
+                <div v-for="item in visibleScanResults" :key="item.id || item.path" class="scan-result-row">
                   <strong>{{ item.title }}</strong>
                   <span>{{ item.path }}</span>
                 </div>
