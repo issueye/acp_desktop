@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue';
 import { useSessionStore } from '../../stores/session';
 import { useI18n } from '../../lib/i18n';
 import AppConfirmDialog from '../../components/AppConfirmDialog.vue';
+import AgentAvatar from '../../components/AgentAvatar.vue';
 
 const props = defineProps({
   query: { type: String, default: '' },
@@ -318,7 +319,7 @@ watch(
             @keydown.enter.stop.prevent="toggleAgent(agent.name)"
             @keydown.space.stop.prevent="toggleAgent(agent.name)"
           ></span>
-          <span class="agent-icon" aria-hidden="true"></span>
+          <AgentAvatar :name="agent.name" :size="15" class="agent-icon" />
           <span class="tree-label">{{ agent.name }}</span>
           <span class="tree-count">{{ agent.sessionCount }}</span>
           <button
@@ -603,8 +604,6 @@ watch(
 .agent-icon {
   width: 15px;
   height: 15px;
-  border: 1.25px solid color-mix(in srgb, var(--ued-text-muted) 82%, transparent);
-  border-radius: 50%;
   flex-shrink: 0;
 }
 

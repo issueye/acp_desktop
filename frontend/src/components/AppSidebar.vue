@@ -1,6 +1,7 @@
 <script setup>
 import SessionTree from '../views/chat/SessionTree.vue';
 import UEDButton from './common/UEDButton.vue';
+import AgentAvatar from './AgentAvatar.vue';
 
 import { useI18n } from '../lib/i18n';
 
@@ -180,7 +181,7 @@ const { t } = useI18n();
         class="route-sidebar__row"
         type="button"
       >
-        <span class="agent-route-icon" aria-hidden="true"></span>
+        <AgentAvatar :name="agentName" :size="16" class="agent-route-icon" />
         <span>{{ agentName }}</span>
       </button>
     </div>
@@ -403,8 +404,6 @@ const { t } = useI18n();
 .agent-route-icon {
   width: 16px;
   height: 16px;
-  border: 1.25px solid color-mix(in srgb, var(--ued-text-muted) 82%, transparent);
-  border-radius: 50%;
   flex-shrink: 0;
 }
 
