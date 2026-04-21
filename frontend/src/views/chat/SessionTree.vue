@@ -211,6 +211,17 @@ function handleAgentClick(agentName) {
 function handleWorkspaceClick(agentName, workspaceId) {
   emit('selectAgent', agentName);
   emit('selectWorkspace', workspaceId);
+
+  const agent = tree.value.find((a) => a.name === agentName);
+  const workspace = agent?.workspaces.find((w) => w.id === workspaceId);
+  if (workspace?.sessions.length === 1) {
+    const session = workspace.sessions[0];
+    if (!session.external && !isConnectedSession(session.id)) {
+      emit('resume', session);
+    } else if (isConnectedSession(session.id)) {
+      emit('activate', session.id);
+    }
+  }
 }
 
 function handleConnectAction(session, event) {
@@ -375,7 +386,6 @@ watch(
               </span>
               <span class="tree-count">{{ workspace.sessions.length }}</span>
               <button
-                v-if="workspace.sessionCount === 0"
                 class="workspace-delete ued-icon-btn ued-icon-btn--ghost ued-icon-btn--danger"
                 :title="t('workspace.remove')"
                 :aria-label="t('workspace.remove')"
@@ -415,6 +425,14 @@ watch(
                   <strong>{{ session.title }}</strong>
                   <small v-if="session.external">{{ t('session.externalScanned') }}</small>
                 </span>
+                <button
+                  class="session-delete ued-icon-btn ued-icon-btn--ghost ued-icon-btn--danger"
+                  :disabled="isPendingSession(session.id) || isDeletingSession(session.id)"
+                  :title="isDeletingSession(session.id) ? t('session.deleting') : t('session.delete')"
+                  @click.stop="(event) => handleDelete(session.id, event)"
+                >
+                  {{ isDeletingSession(session.id) ? '...' : '×' }}
+                </button>
                 <div v-if="!session.external" class="session-actions">
                   <button
                     class="row-icon-button ued-icon-btn ued-icon-btn--ghost connect-toggle"
@@ -696,8 +714,20 @@ watch(
   transition: opacity 0.15s ease;
 }
 
+.session-delete {
+  width: 21px;
+  height: 21px;
+  font-size: 0.76rem;
+  flex-shrink: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
 .tree-row--session:hover .session-actions,
-.tree-row--session.active .session-actions {
+.tree-row--session.active .session-actions,
+.tree-row--session:hover .session-delete,
+.tree-row--session.active .session-delete {
   opacity: 1;
   pointer-events: auto;
 }
@@ -745,6 +775,7 @@ watch(
 
 @media (max-width: 900px) {
   .session-actions,
+  .session-delete,
   .agent-refresh,
   .workspace-delete {
     opacity: 1;

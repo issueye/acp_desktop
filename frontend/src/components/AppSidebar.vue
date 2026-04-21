@@ -9,7 +9,6 @@ const props = defineProps({
     contentVisible: { type: Boolean, required: true },
     isConnecting: { type: Boolean, required: true },
     isConnected: { type: Boolean, required: true },
-    isDisconnectingCurrent: { type: Boolean, required: true },
     savedSessionCount: { type: Number, required: true },
     selectedAgent: { type: String, required: true },
     selectedCwdDisplay: { type: String, required: true },
@@ -61,6 +60,19 @@ const { t } = useI18n();
             <path d="M10 10.2a2.7 2.7 0 1 0 0-5.4 2.7 2.7 0 0 0 0 5.4Z" stroke="currentColor" stroke-width="1.45" />
             <path d="M4.8 16.1c.7-2.3 2.5-3.6 5.2-3.6s4.5 1.3 5.2 3.6" stroke="currentColor" stroke-width="1.45" stroke-linecap="round" />
             <path d="M15.2 5.4l.8-.8M16 8.1h1.2M15.2 10.8l.8.8" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" />
+          </svg>
+        </button>
+        <button
+          class="menu-rail-button"
+          :class="{ active: activeRoute === 'workspaces' }"
+          :title="t('workspace.title')"
+          :aria-label="t('workspace.title')"
+          type="button"
+          @click="emit('navigateRoute', 'workspaces')"
+        >
+          <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+            <path d="M3 7.2a1.4 1.4 0 0 1 1.4-1.4h3l1.2 1.4h5a1.4 1.4 0 0 1 1.4 1.4v4.4a1.4 1.4 0 0 1-1.4 1.4H4.4A1.4 1.4 0 0 1 3 13V7.2Z" stroke="currentColor" stroke-width="1.35" stroke-linejoin="round" />
+            <path d="M7 10.2h6" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" />
           </svg>
         </button>
       </div>
@@ -142,19 +154,6 @@ const { t } = useI18n();
           @view-session="(sessionId) => emit('viewSession', sessionId)"
         />
       </div>
-
-      <div class="sidebar-footer">
-        <UEDButton
-          v-if="isConnected"
-          class="sidebar-footer-btn"
-          variant="danger-soft"
-          block
-          :disabled="isDisconnectingCurrent"
-          @click="emit('disconnect')"
-        >
-          {{ isDisconnectingCurrent ? t('session.disconnecting') : t('app.disconnect') }}
-        </UEDButton>
-      </div>
     </div>
 
     <div v-else-if="contentVisible && activeRoute === 'agents'" class="sidebar-content route-sidebar">
@@ -183,6 +182,38 @@ const { t } = useI18n();
       >
         <AgentAvatar :name="agentName" :size="16" class="agent-route-icon" />
         <span>{{ agentName }}</span>
+      </button>
+    </div>
+
+    <div v-else-if="contentVisible && activeRoute === 'workspaces'" class="sidebar-content route-sidebar">
+      <div class="route-sidebar__header">
+        <span>{{ t('workspace.title') }}</span>
+        <button
+          class="route-sidebar__add ued-icon-btn ued-icon-btn--ghost"
+          :title="t('workspace.add')"
+          :aria-label="t('workspace.add')"
+          @click="emit('addWorkspace')"
+        >
+          +
+        </button>
+      </div>
+
+      <div v-if="workspaces.length === 0" class="route-sidebar__empty">
+        {{ t('workspace.none') }}
+      </div>
+
+      <button
+        v-for="workspace in workspaces"
+        v-else
+        :key="workspace.id"
+        class="route-sidebar__row"
+        type="button"
+      >
+        <span class="workspace-route-icon" aria-hidden="true"></span>
+        <span class="route-sidebar__row-info">
+          <span>{{ workspace.name }}</span>
+          <small>{{ workspace.sessionCount }} {{ t('workspace.sessionUnit') }}</small>
+        </span>
       </button>
     </div>
 
@@ -325,21 +356,6 @@ const { t } = useI18n();
   overflow: hidden;
 }
 
-.sidebar-footer {
-  padding-top: 0.25rem;
-  border-top: none;
-  flex-direction: column;
-}
-
-.sidebar-footer-btn {
-  min-height: 32px;
-  justify-content: flex-start;
-  padding: 0 0.55rem;
-  border-radius: 6px;
-  text-align: left;
-  font-size: 0.82rem;
-}
-
 .route-sidebar {
   gap: 0.35rem;
 }
@@ -401,10 +417,53 @@ const { t } = useI18n();
   font-weight: 500;
 }
 
+.route-sidebar__row-info {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 0;
+}
+
+.route-sidebar__row-info span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.82rem;
+  font-weight: 500;
+}
+
+.route-sidebar__row-info small {
+  color: var(--ued-text-muted);
+  font-size: 0.66rem;
+  font-weight: 400;
+}
+
 .agent-route-icon {
   width: 16px;
   height: 16px;
   flex-shrink: 0;
+}
+
+.workspace-route-icon {
+  width: 15px;
+  height: 11px;
+  border: 1.2px solid color-mix(in srgb, var(--ued-text-muted) 82%, transparent);
+  border-radius: 2px;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.workspace-route-icon::before {
+  content: '';
+  position: absolute;
+  left: 1px;
+  top: -4px;
+  width: 5px;
+  height: 4px;
+  border: 1.2px solid color-mix(in srgb, var(--ued-text-muted) 82%, transparent);
+  border-bottom: none;
+  border-radius: 2px 2px 0 0;
 }
 
 .settings-route-icon {

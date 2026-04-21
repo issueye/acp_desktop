@@ -388,10 +388,13 @@ export const useSessionStore = defineStore('session', () => {
   }
 
   async function deleteWorkspace(workspaceId) {
-    const hasSessions = visibleSessions.value.some((session) => session.workspaceId === workspaceId);
-    if (hasSessions) {
-      throw new Error('Workspace still has sessions');
+    for (const session of savedSessions.value.filter((s) => s.workspaceId === workspaceId)) {
+      if (connectedSessions.value[session.id]) {
+        await disconnect(session.id);
+      }
     }
+    savedSessions.value = savedSessions.value.filter((session) => session.workspaceId !== workspaceId);
+    scannedSessions.value = scannedSessions.value.filter((session) => session.workspaceId !== workspaceId);
     workspaces.value = workspaces.value.filter((workspace) => workspace.id !== workspaceId);
     await saveSessionsToStore();
   }

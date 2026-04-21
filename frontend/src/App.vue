@@ -10,6 +10,7 @@ import ChatView from './views/chat/ChatView.vue';
 import SessionPreview from './views/chat/SessionPreview.vue';
 import PermissionDialog from './views/auth/PermissionDialog.vue';
 import SettingsView from './views/settings/SettingsView.vue';
+import WorkspacesView from './views/workspace/WorkspacesView.vue';
 import AuthMethodDialog from './views/auth/AuthMethodDialog.vue';
 import TrafficMonitor from './views/traffic/TrafficMonitor.vue';
 import ProcessManagerDialog from './views/processes/ProcessManagerDialog.vue';
@@ -106,6 +107,7 @@ const selectedCwdLabel = computed(() => {
 });
 const activeStatusLabel = computed(() => {
   if (activeRoute.value === 'agents') return t('settings.agents');
+  if (activeRoute.value === 'workspaces') return t('workspace.title');
   if (activeRoute.value === 'settings') return t('app.settings');
   if (isConnecting.value) return t('app.statusConnecting');
   if (isConnected.value) return t('app.statusConnected');
@@ -114,7 +116,7 @@ const activeStatusLabel = computed(() => {
 
 function normalizeRoute(hash) {
   const route = String(hash || '').replace(/^#\/?/, '').split('?')[0] || 'chat';
-  return ['chat', 'agents', 'settings'].includes(route) ? route : 'chat';
+  return ['chat', 'agents', 'workspaces', 'settings'].includes(route) ? route : 'chat';
 }
 
 function navigateRoute(route) {
@@ -395,9 +397,10 @@ async function handleDeleteWorkspace(workspaceId) {
       activeWorkspaceId.value = '';
       syncActiveWorkspaceFallback();
     }
+    syncSelectionFromCurrentSession();
     pushToast(`${t('workspace.removed')}: ${workspace?.name || ''}`);
   } catch (e) {
-    pushToast(t('workspace.removeBlocked'), 'danger');
+    pushToast(getErrorMessage(e), 'danger');
   }
 }
 
@@ -701,10 +704,9 @@ function handleGlobalKeydown(event) {
 
       <div class="window-body">
         <AppSidebar
-          :content-visible="showSidebar && activeRoute === 'chat'"
+          :content-visible="showSidebar"
           :is-connecting="isConnecting"
           :is-connected="isConnected && currentSessionInActiveWorkspace"
-          :is-disconnecting-current="pendingDisconnectSessionIds.includes(currentSessionId)"
           :saved-session-count="savedSessionCount"
           :selected-agent="selectedAgent"
           :selected-cwd-display="selectedCwdCompact"
@@ -775,6 +777,19 @@ function handleGlobalKeydown(event) {
                 :start-in-add-mode="openSettingsInAddMode"
                 @notify="pushToast($event.message, $event.tone)"
                 @close="closeSettings"
+              />
+            </section>
+
+            <section v-if="activeRoute === 'workspaces'" class="route-page">
+              <WorkspacesView
+                embedded
+                :title="t('workspace.title')"
+                :eyebrow="t('app.desktopClient')"
+                @notify="pushToast($event.message, $event.tone)"
+                @close="closeSettings"
+                @add-workspace="handleAddWorkspace"
+                @delete-workspace="handleDeleteWorkspace"
+                @delete-session="handleDeleteSession"
               />
             </section>
 
