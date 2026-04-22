@@ -516,8 +516,7 @@ defineExpose({
 }
 
 .csp-session-row:hover,
-.csp-session-row.active,
-.csp-session-row.chat-loading {
+.csp-session-row.active {
   background: rgba(255, 255, 255, 0.52);
   color: var(--ued-text-primary);
 }
