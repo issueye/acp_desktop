@@ -16,8 +16,9 @@ import (
 )
 
 type platformProcess struct {
-	job  windows.Handle
-	once sync.Once
+	job         windows.Handle
+	jobAssigned bool
+	once        sync.Once
 }
 
 func isWindows() bool {
@@ -100,16 +101,15 @@ func bindPlatformProcess(process *platformProcess, cmd *exec.Cmd) error {
 
 	err = windows.AssignProcessToJobObject(process.job, handle)
 	if err != nil {
-		if errors.Is(err, windows.ERROR_ACCESS_DENIED) {
-			return nil
-		}
-		return err
+		return fmt.Errorf("assign process to job object: %w", err)
 	}
+
+	process.jobAssigned = true
 	return nil
 }
 
 func terminateProcessTree(process *platformProcess, cmd *exec.Cmd) error {
-	if process != nil && process.job != 0 {
+	if process != nil && process.job != 0 && process.jobAssigned {
 		if err := windows.TerminateJobObject(process.job, 1); err == nil {
 			return nil
 		}

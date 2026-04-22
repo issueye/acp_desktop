@@ -39,6 +39,7 @@ export function useChatSessionPanel(props, emit) {
   const workspaces = computed(() => sessionStore.workspacesWithCounts);
   const connectedSessionIds = computed(() => sessionStore.connectedSessionIds);
   const currentSessionId = computed(() => sessionStore.currentSession?.id ?? '');
+  const isCurrentSessionLoading = computed(() => sessionStore.isLoading && !!sessionStore.currentSession);
   const currentSessionInActiveWorkspace = computed(() => {
     if (!sessionStore.currentSession) return false;
     if (!activeWorkspaceId.value) return true;
@@ -67,6 +68,10 @@ export function useChatSessionPanel(props, emit) {
 
   function isConnectedSession(sessionId) {
     return connectedSessionIds.value.includes(sessionId);
+  }
+
+  function isChatLoadingSession(sessionId) {
+    return isCurrentSessionLoading.value && currentSessionId.value === sessionId;
   }
 
   const {
@@ -263,6 +268,7 @@ export function useChatSessionPanel(props, emit) {
     handleToggleSessionPin,
     isConnected,
     isConnectedSession,
+    isChatLoadingSession,
     isConnecting,
     isDeletingSession,
     isPendingSession,

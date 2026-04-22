@@ -52,6 +52,7 @@ const {
   handleToggleSessionPin,
   isConnected,
   isConnectedSession,
+  isChatLoadingSession,
   isConnecting,
   isDeletingSession,
   isPendingSession,
@@ -195,7 +196,8 @@ defineExpose({
               :class="{
                 active: isSelectedSession(session.id),
                 external: session.external,
-                busy: isPendingSession(session.id) || isDeletingSession(session.id)
+                busy: isPendingSession(session.id) || isDeletingSession(session.id),
+                'chat-loading': isChatLoadingSession(session.id)
               }"
               :title="getSessionSummary(session)"
               role="button"
@@ -207,7 +209,7 @@ defineExpose({
               <span
                 v-if="currentSessionId === session.id || isConnectedSession(session.id)"
                 class="csp-session-dot"
-                :class="{ active: currentSessionId === session.id }"
+                :class="{ active: currentSessionId === session.id, loading: isChatLoadingSession(session.id) }"
               />
               <span class="csp-session-label">
                 <strong>{{ session.title }}</strong>
@@ -514,7 +516,8 @@ defineExpose({
 }
 
 .csp-session-row:hover,
-.csp-session-row.active {
+.csp-session-row.active,
+.csp-session-row.chat-loading {
   background: rgba(255, 255, 255, 0.52);
   color: var(--ued-text-primary);
 }
@@ -542,6 +545,11 @@ defineExpose({
 
 .csp-session-dot.active {
   background: var(--ued-accent);
+}
+
+.csp-session-dot.loading {
+  background: var(--ued-warning);
+  animation: csp-session-dot-pulse 1.2s ease-in-out infinite;
 }
 
 .csp-session-label {
@@ -605,6 +613,18 @@ defineExpose({
 .csp-connect-icon {
   width: 13px;
   height: 13px;
+}
+
+@keyframes csp-session-dot-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.85;
+  }
+  50% {
+    transform: scale(1.4);
+    opacity: 1;
+  }
 }
 
 @media (max-width: 900px) {
