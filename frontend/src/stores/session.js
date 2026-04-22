@@ -6,12 +6,41 @@ import { AUTHORIZATION_MODES, normalizeAuthorizationMode } from '../lib/authoriz
 
 import { AcpClientBridge, createAcpClient } from '../lib/acp-bridge';
 import {
+  buildPromptParts,
+  buildPromptPayload,
+  buildProxyEnv,
+  buildWorkspaceId,
+  cloneMessages,
+  clonePlanEntries,
+  normalizeWorkspace,
+  normalizeWorkspacePath,
+  sanitizeProxyConfig,
+} from './session/session-models';
+import { createChatMessage } from './session/session-message-parts';
+import {
+  createBoundRuntime,
+  applySessionCapabilities,
+  persistSavedSession,
+  syncRuntimeSnapshot,
+  persistRuntimeSession,
+  refreshRuntimeCollections,
+  handleSessionUpdate,
+} from './session/session-runtime';
+import {
+  executeSessionActionWithAuth,
+  handleSessionLifecycleFailure,
+  initializeSessionClient,
+} from './session/session-connection';
+import {
+  collectScannedSessions,
+  mergeScannedSessions,
+} from './session/session-scanner';
+import {
   getAppVersion,
   killAgent,
   loadStore,
   onAgentStderr,
   saveStore,
-  scanAgentSessions,
   spawnAgent,
 } from '../lib/wails';
 
@@ -35,198 +64,6 @@ function detectPhase(line) {
     return 'starting';
   }
   return null;
-}
-
-function sanitizeProxyConfig(proxy) {
-  if (!proxy) {
-    return undefined;
-  }
-  const cleaned = {
-    enabled: !!proxy.enabled,
-  };
-  const http = proxy.httpProxy?.trim();
-  const https = proxy.httpsProxy?.trim();
-  const all = proxy.allProxy?.trim();
-  const noProxy = proxy.noProxy?.trim();
-  if (http) cleaned.httpProxy = http;
-  if (https) cleaned.httpsProxy = https;
-  if (all) cleaned.allProxy = all;
-  if (noProxy) cleaned.noProxy = noProxy;
-  return cleaned;
-}
-
-function buildProxyEnv(proxy) {
-  const normalized = sanitizeProxyConfig(proxy);
-  if (!normalized || !normalized.enabled) {
-    return {};
-  }
-  const env = {};
-  const setPair = (key, value) => {
-    if (!value) return;
-    env[key] = value;
-    env[key.toLowerCase()] = value;
-  };
-  setPair('HTTP_PROXY', normalized.httpProxy);
-  setPair('HTTPS_PROXY', normalized.httpsProxy);
-  setPair('ALL_PROXY', normalized.allProxy);
-  setPair('NO_PROXY', normalized.noProxy);
-
-  const npmProxy = normalized.httpProxy || normalized.allProxy;
-  const npmHttpsProxy = normalized.httpsProxy || normalized.httpProxy || normalized.allProxy;
-  if (npmProxy) {
-    setPair('NPM_CONFIG_PROXY', npmProxy);
-    setPair('npm_config_proxy', npmProxy);
-  }
-  if (npmHttpsProxy) {
-    setPair('NPM_CONFIG_HTTPS_PROXY', npmHttpsProxy);
-    setPair('npm_config_https_proxy', npmHttpsProxy);
-    setPair('GLOBAL_AGENT_HTTP_PROXY', npmHttpsProxy);
-  }
-  if (normalized.noProxy) {
-    setPair('NPM_CONFIG_NOPROXY', normalized.noProxy);
-    setPair('npm_config_noproxy', normalized.noProxy);
-  }
-  return env;
-}
-
-function normalizeModes(modes) {
-  if (!modes) {
-    return {
-      availableModes: [],
-      currentModeId: '',
-    };
-  }
-  return {
-    availableModes: (modes.availableModes || []).map((mode) => ({
-      id: mode.id,
-      name: mode.name,
-      description: mode.description ?? undefined,
-    })),
-    currentModeId: modes.currentModeId || '',
-  };
-}
-
-function normalizeModels(models) {
-  if (!models) {
-    return {
-      availableModels: [],
-      currentModelId: '',
-    };
-  }
-  return {
-    availableModels: (models.availableModels || []).map((model) => ({
-      modelId: model.modelId,
-      name: model.name,
-      description: model.description ?? undefined,
-    })),
-    currentModelId: models.currentModelId || '',
-  };
-}
-
-function cloneMessagePart(part) {
-  if (!part || typeof part !== 'object') {
-    return null;
-  }
-
-  if (part.type === 'tool_call') {
-    return {
-      ...part,
-      toolCall: {
-        ...part.toolCall,
-        locations: part.toolCall.locations?.map((location) => ({ ...location })),
-      },
-    };
-  }
-  if (part.type === 'plan') {
-    return {
-      ...part,
-      entries: part.entries.map((entry) => ({ ...entry })),
-    };
-  }
-
-  return { ...part };
-}
-
-function buildPromptParts(text) {
-  const parts = [];
-  if (text) {
-    parts.push({
-      type: 'content',
-      content: text,
-    });
-  }
-
-  return parts;
-}
-
-function buildPromptPayload(text) {
-  const payload = [];
-  if (text) {
-    payload.push({
-      type: 'text',
-      text,
-    });
-  }
-
-  return payload;
-}
-
-function cloneMessages(messages) {
-  if (!Array.isArray(messages)) {
-    return [];
-  }
-
-  return messages.map((message) => ({
-    ...message,
-    content: typeof message.content === 'string' ? message.content : '',
-    thought: typeof message.thought === 'string' ? message.thought : undefined,
-    toolCalls: message.toolCalls?.map((toolCall) => ({
-      ...toolCall,
-      locations: toolCall.locations?.map((location) => ({ ...location })),
-    })),
-    planEntries: message.planEntries?.map((entry) => ({ ...entry })),
-    parts: message.parts
-      ?.filter((part) => part?.type !== 'image')
-      .map((part) => cloneMessagePart(part))
-      .filter((part) => part !== null),
-  }));
-}
-
-function clonePlanEntries(entries) {
-  if (!Array.isArray(entries)) {
-    return [];
-  }
-  return entries.map((entry) => ({ ...entry }));
-}
-
-function normalizeWorkspacePath(cwd) {
-  const raw = typeof cwd === 'string' && cwd.trim() ? cwd.trim() : '.';
-  const normalized = raw.replace(/\\/g, '/').replace(/\/+$/g, '');
-  return normalized || '.';
-}
-
-function buildWorkspaceId(cwd) {
-  return normalizeWorkspacePath(cwd).toLowerCase();
-}
-
-function getWorkspaceName(cwd) {
-  const normalized = normalizeWorkspacePath(cwd);
-  if (normalized === '.') {
-    return '.';
-  }
-  const parts = normalized.split('/').filter(Boolean);
-  return parts[parts.length - 1] || normalized;
-}
-
-function normalizeWorkspace(workspace) {
-  const cwd = normalizeWorkspacePath(workspace?.cwd);
-  return {
-    id: workspace?.id || buildWorkspaceId(cwd),
-    name: workspace?.name || getWorkspaceName(cwd),
-    cwd,
-    createdAt: Number.isFinite(workspace?.createdAt) ? workspace.createdAt : Date.now(),
-    lastUpdated: Number.isFinite(workspace?.lastUpdated) ? workspace.lastUpdated : Date.now(),
-  };
 }
 
 export const useSessionStore = defineStore('session', () => {
@@ -403,113 +240,57 @@ export const useSessionStore = defineStore('session', () => {
     return connectedSessions.value[sessionId] ?? null;
   }
 
-  function createScannedSession(agentName, item, ensureWorkspace = true) {
-    const rawPath = item?.path || item?.cwd || '.';
-    const cwd = normalizeWorkspacePath(item?.cwd || rawPath);
-    const workspace = ensureWorkspace ? ensureWorkspaceForCwd(cwd, false) : { id: buildWorkspaceId(cwd) };
-    const rawId = String(item?.id || rawPath || crypto.randomUUID());
-    const updatedAt = Number(item?.updatedAt);
-    return {
-      id: `scan:${agentName}:${rawId}`,
-      external: true,
-      source: 'scan',
-      agentName,
-      sessionId: rawId,
-      title: item?.title || getWorkspaceName(cwd),
-      path: rawPath,
-      cwd,
-      workspaceId: workspace.id,
-      lastUpdated: Number.isFinite(updatedAt) && updatedAt > 0 ? updatedAt : Date.now(),
-      supportsLoadSession: false,
-      messages: [],
-    };
-  }
-
-  async function scanConfiguredAgentSessions(agentNames = []) {
-    const names = [...new Set((agentNames || []).filter(Boolean))];
-    if (names.length === 0) {
-      scannedSessions.value = [];
-      scanSessionError.value = '';
-      return [];
-    }
-
+  async function runSessionScan(agentNames = [], options = {}) {
     isScanningSessions.value = true;
     scanSessionError.value = '';
-    const nextSessions = [];
-    const errors = [];
 
     try {
-      for (const agentName of names) {
-        try {
-          const results = await scanAgentSessions(agentName);
-          (Array.isArray(results) ? results : []).forEach((item) => {
-            nextSessions.push(createScannedSession(agentName, item));
-          });
-        } catch (e) {
-          errors.push(`${agentName}: ${e instanceof Error ? e.message : String(e)}`);
-        }
-      }
-      const nameSet = new Set(names);
-      scannedSessions.value = [
-        ...scannedSessions.value.filter((session) => !nameSet.has(session.agentName)),
-        ...nextSessions,
-      ];
-      if (nextSessions.length > 0) {
-        workspaces.value = [...workspaces.value];
-      }
-      scanSessionError.value = errors.join('\n');
-      return nextSessions;
+      return await collectScannedSessions(agentNames, {
+        ensureWorkspaceForCwd,
+        ...options,
+      });
     } finally {
       isScanningSessions.value = false;
     }
   }
 
+  async function scanConfiguredAgentSessions(agentNames = []) {
+    const { names, nextSessions, errors } = await runSessionScan(agentNames);
+
+    if (names.length === 0) {
+      scannedSessions.value = [];
+      return [];
+    }
+
+    scannedSessions.value = mergeScannedSessions(
+      scannedSessions.value,
+      names,
+      nextSessions
+    );
+    if (nextSessions.length > 0) {
+      workspaces.value = [...workspaces.value];
+    }
+    scanSessionError.value = errors.join('\n');
+    return nextSessions;
+  }
+
   async function scanWorkspaceAgentSessions(agentNames = [], workspace) {
-    const names = [...new Set((agentNames || []).filter(Boolean))];
-    const targetWorkspace = workspace
-      ? {
-          ...workspace,
-          id: workspace.id || buildWorkspaceId(workspace.cwd),
-          cwd: normalizeWorkspacePath(workspace.cwd),
-        }
-      : null;
+    const { names, nextSessions, errors, targetWorkspace } = await runSessionScan(agentNames, {
+      workspace,
+    });
 
     if (names.length === 0 || !targetWorkspace?.id) {
       return [];
     }
 
-    isScanningSessions.value = true;
-    scanSessionError.value = '';
-    const nextSessions = [];
-    const errors = [];
-
-    try {
-      for (const agentName of names) {
-        try {
-          const results = await scanAgentSessions(agentName);
-          (Array.isArray(results) ? results : []).forEach((item) => {
-            const session = createScannedSession(agentName, item, false);
-            if (session.workspaceId === targetWorkspace.id) {
-              nextSessions.push(createScannedSession(agentName, item, true));
-            }
-          });
-        } catch (e) {
-          errors.push(`${agentName}: ${e instanceof Error ? e.message : String(e)}`);
-        }
-      }
-
-      const nameSet = new Set(names);
-      scannedSessions.value = [
-        ...scannedSessions.value.filter(
-          (session) => !(nameSet.has(session.agentName) && session.workspaceId === targetWorkspace.id)
-        ),
-        ...nextSessions,
-      ];
-      scanSessionError.value = errors.join('\n');
-      return nextSessions;
-    } finally {
-      isScanningSessions.value = false;
-    }
+    scannedSessions.value = mergeScannedSessions(
+      scannedSessions.value,
+      names,
+      nextSessions,
+      targetWorkspace
+    );
+    scanSessionError.value = errors.join('\n');
+    return nextSessions;
   }
 
   function getConnectedSessionByAcpSessionId(sessionId) {
@@ -525,25 +306,6 @@ export const useSessionStore = defineStore('session', () => {
       return;
     }
     activeSessionId.value = sessionId;
-  }
-
-  function createConnectedSessionState(
-    session,
-    client
-  ) {
-    return {
-      session,
-      client,
-      isLoading: false,
-      messages: [],
-      currentPlanEntries: clonePlanEntries(session.currentPlanEntries),
-      toolCalls: new Map(),
-      availableModes: [],
-      currentModeId: '',
-      availableCommands: [],
-      availableModels: [],
-      currentModelId: '',
-    };
   }
 
   function applyAuthorizationModeToClient(client) {
@@ -576,20 +338,6 @@ export const useSessionStore = defineStore('session', () => {
       ...connectedSessions.value,
       [runtime.session.id]: runtime,
     };
-  }
-
-  function applySessionCapabilities(
-    runtime,
-    response
-  ) {
-    const normalizedModes = normalizeModes(response?.modes);
-    runtime.availableModes = normalizedModes.availableModes;
-    runtime.currentModeId = normalizedModes.currentModeId;
-
-    const normalizedModels = normalizeModels(response?.models);
-    runtime.availableModels = normalizedModels.availableModels;
-    runtime.currentModelId = normalizedModels.currentModelId;
-    notifyConnectedSessionChanged(runtime);
   }
 
   function clearRuntimePermissionState(sessionId) {
@@ -651,278 +399,6 @@ export const useSessionStore = defineStore('session', () => {
     if (activeSessionId.value === sessionId) {
       activeSessionId.value = Object.keys(next)[0] ?? '';
     }
-  }
-
-  function touchSavedSession(session) {
-    session.lastUpdated = Date.now();
-  }
-
-  function syncRuntimeSnapshot(runtime) {
-    runtime.session.messages = cloneMessages(runtime.messages);
-    runtime.session.currentPlanEntries = clonePlanEntries(runtime.currentPlanEntries);
-  }
-
-  function refreshRuntimeCollections(runtime) {
-    runtime.messages = [...runtime.messages];
-    runtime.currentPlanEntries = [...runtime.currentPlanEntries];
-  }
-
-  function ensureMessageParts(message) {
-    if (!message.parts) {
-      const parts = [];
-      if (message.content) {
-        parts.push({
-          type: 'content',
-          content: message.content,
-        });
-      }
-      if (message.thought) {
-        parts.push({
-          type: 'thought',
-          content: message.thought,
-        });
-      }
-      if (message.planEntries?.length) {
-        parts.push({
-          type: 'plan',
-          entries: message.planEntries.map((entry) => ({ ...entry })),
-        });
-      }
-      if (message.toolCalls?.length) {
-        parts.push(
-          ...message.toolCalls.map((toolCall) => ({
-            type: 'tool_call',
-            toolCall: {
-              ...toolCall,
-              locations: toolCall.locations?.map((location) => ({ ...location })),
-            },
-          }))
-        );
-      }
-      message.parts = parts;
-    }
-    return message.parts;
-  }
-
-  function createChatMessage(role) {
-    return {
-      id: crypto.randomUUID(),
-      role,
-      content: '',
-      timestamp: Date.now(),
-      parts: [],
-    };
-  }
-
-  function getOrCreateTrailingMessage(runtime, role) {
-    const lastMessage = runtime.messages[runtime.messages.length - 1];
-    if (lastMessage && lastMessage.role === role) {
-      ensureMessageParts(lastMessage);
-      return lastMessage;
-    }
-
-    const nextMessage = createChatMessage(role);
-    runtime.messages.push(nextMessage);
-    return nextMessage;
-  }
-
-  function appendTextPart(message, type, text) {
-    if (typeof text !== 'string' || text.length === 0) {
-      return;
-    }
-
-    const parts = ensureMessageParts(message);
-    const lastPart = parts[parts.length - 1];
-    if (lastPart && lastPart.type === type) {
-      lastPart.content = (typeof lastPart.content === 'string' ? lastPart.content : '') + text;
-    } else {
-      parts.push({
-        type,
-        content: text,
-      });
-    }
-
-    if (type === 'content') {
-      message.content = (typeof message.content === 'string' ? message.content : '') + text;
-      return;
-    }
-
-    message.thought = (message.thought || '') + text;
-  }
-
-  function appendToolCallPart(message, toolCall) {
-    const nextToolCall = {
-      ...toolCall,
-      locations: toolCall.locations?.map((location) => ({ ...location })),
-    };
-
-    const parts = ensureMessageParts(message);
-    const existingPart = parts.find(
-      (part) => part.type === 'tool_call' && part.toolCall?.toolCallId === nextToolCall.toolCallId
-    );
-    if (existingPart) {
-      existingPart.toolCall = nextToolCall;
-    } else {
-      parts.push({
-        type: 'tool_call',
-        toolCall: nextToolCall,
-      });
-    }
-
-    if (!message.toolCalls) {
-      message.toolCalls = [];
-    }
-    const existingToolCallIndex = message.toolCalls.findIndex(
-      (entry) => entry.toolCallId === nextToolCall.toolCallId
-    );
-    if (existingToolCallIndex >= 0) {
-      message.toolCalls.splice(existingToolCallIndex, 1, nextToolCall);
-    } else {
-      message.toolCalls.push(nextToolCall);
-    }
-  }
-
-  function upsertPlanMessage(runtime, entries) {
-    const nextEntries = entries.map((entry) => ({ ...entry }));
-    runtime.currentPlanEntries = nextEntries;
-    runtime.session.currentPlanEntries = clonePlanEntries(nextEntries);
-  }
-
-  function updateToolCallParts(messages, update) {
-    for (const msg of messages) {
-      if (msg.toolCalls) {
-        const toolCall = msg.toolCalls.find((entry) => entry.toolCallId === update.toolCallId);
-        if (toolCall) {
-          if ('status' in update) toolCall.status = update.status;
-          if ('title' in update) toolCall.title = update.title;
-          if ('kind' in update) toolCall.kind = update.kind || 'other';
-          if ('locations' in update) {
-            toolCall.locations = Array.isArray(update.locations)
-              ? update.locations.map((location) => ({ ...location }))
-              : update.locations;
-          }
-        }
-      }
-
-      const parts = ensureMessageParts(msg);
-      for (const part of parts) {
-        if (part.type !== 'tool_call' || part.toolCall.toolCallId !== update.toolCallId) {
-          continue;
-        }
-        if ('status' in update) part.toolCall.status = update.status;
-        if ('title' in update) part.toolCall.title = update.title;
-        if ('kind' in update) part.toolCall.kind = update.kind || 'other';
-        if ('locations' in update) {
-          part.toolCall.locations = Array.isArray(update.locations)
-            ? update.locations.map((location) => ({ ...location }))
-            : update.locations;
-        }
-      }
-    }
-  }
-
-  function handleSessionUpdate(runtime, notification) {
-    const update = notification.update;
-    const targetMessages = runtime.messages;
-    const targetToolCalls = runtime.toolCalls;
-
-    switch (update.sessionUpdate) {
-      case 'user_message_chunk': {
-        if (update.content?.type === 'text') {
-          const message = getOrCreateTrailingMessage(runtime, 'user');
-          appendTextPart(message, 'content', update.content.text);
-        }
-        break;
-      }
-
-      case 'agent_message_chunk': {
-        if (update.content?.type === 'text') {
-          const message = getOrCreateTrailingMessage(runtime, 'assistant');
-          appendTextPart(message, 'content', update.content.text);
-        }
-        break;
-      }
-
-      case 'agent_thought_chunk': {
-        if (update.content?.type === 'text') {
-          const message = getOrCreateTrailingMessage(runtime, 'assistant');
-          appendTextPart(message, 'thought', update.content.text);
-        }
-        break;
-      }
-
-      case 'tool_call': {
-        const nextToolCall = {
-          toolCallId: update.toolCallId,
-          title: update.title,
-          kind: update.kind || 'other',
-          status: update.status || 'pending',
-          locations: Array.isArray(update.locations)
-            ? update.locations.map((location) => ({ ...location }))
-            : update.locations,
-        };
-        const message = getOrCreateTrailingMessage(runtime, 'assistant');
-        appendToolCallPart(message, nextToolCall);
-        targetToolCalls.set(update.toolCallId, nextToolCall);
-        break;
-      }
-
-      case 'tool_call_update': {
-        const existing = targetToolCalls.get(update.toolCallId);
-        if (existing) {
-          if ('status' in update) existing.status = update.status;
-          if ('title' in update) existing.title = update.title;
-          if ('kind' in update) existing.kind = update.kind || 'other';
-          if ('locations' in update) {
-            existing.locations = Array.isArray(update.locations)
-              ? update.locations.map((location) => ({ ...location }))
-              : update.locations;
-          }
-        }
-        updateToolCallParts(targetMessages, update);
-        break;
-      }
-
-      case 'plan':
-        if ('entries' in update && Array.isArray(update.entries)) {
-          upsertPlanMessage(runtime, update.entries);
-        }
-        break;
-
-      case 'current_mode_update':
-        if ('modeId' in update && update.modeId) {
-          runtime.currentModeId = update.modeId;
-        }
-        break;
-
-      case 'session_info_update':
-        if ('title' in update) {
-          runtime.session.title = update.title || runtime.session.title;
-        }
-        if ('updatedAt' in update && update.updatedAt) {
-          const nextUpdatedAt = Date.parse(update.updatedAt);
-          if (!Number.isNaN(nextUpdatedAt)) {
-            runtime.session.lastUpdated = nextUpdatedAt;
-          }
-        }
-        break;
-
-      case 'available_commands_update':
-        if ('availableCommands' in update && Array.isArray(update.availableCommands)) {
-          runtime.availableCommands = update.availableCommands.map((command) => ({
-            name: command.name,
-            description: command.description,
-            hint: command.input?.hint ?? undefined,
-          }));
-        }
-        break;
-
-      default:
-        console.log('Unhandled session update:', update);
-    }
-
-    refreshRuntimeCollections(runtime);
-    notifyConnectedSessionChanged(runtime);
   }
 
   async function promptForAuthMethod(authMethods, agentName) {
@@ -1001,20 +477,7 @@ export const useSessionStore = defineStore('session', () => {
 
       startupPhase.value = 'connecting';
 
-      const initResponse = await client.initialize({
-        protocolVersion: PROTOCOL_VERSION,
-        clientCapabilities: {
-          fs: {
-            readTextFile: true,
-            writeTextFile: true,
-          },
-        },
-        clientInfo: {
-          name: 'acp-ui',
-          title: 'ACP DESKTOP',
-          version: appVersion,
-        },
-      });
+      const initResponse = await initializeSessionClient(client, appVersion, PROTOCOL_VERSION);
 
       const supportsLoadSession = initResponse.agentCapabilities?.loadSession ?? false;
       const availableAuthMethods = initResponse.authMethods || [];
@@ -1024,44 +487,28 @@ export const useSessionStore = defineStore('session', () => {
         throw new Error('Connection cancelled');
       }
 
-      let sessionResponse;
-      try {
-        sessionResponse = await client.newSession({
-          cwd,
-          mcpServers: [],
-        });
-      } catch (sessionError) {
-        const errorMessage =
-          sessionError instanceof Error ? sessionError.message : String(sessionError);
-        const isAuthRequired =
-          errorMessage.toLowerCase().includes('authentication required') ||
-          errorMessage.includes('-32000');
+      const sessionResponse = await executeSessionActionWithAuth({
+        client,
+        availableAuthMethods,
+        agentName,
+        promptForAuthMethod: async (authMethods, nextAgentName) => {
+          const selectedMethodId = await promptForAuthMethod(authMethods, nextAgentName);
 
-        if (!isAuthRequired || availableAuthMethods.length === 0) {
-          throw sessionError;
-        }
+          if (!selectedMethodId || connectionAborted) {
+            await client.disconnect();
+            throw new Error(
+              connectionAborted ? 'Connection cancelled' : 'Authentication cancelled by user'
+            );
+          }
 
-        const selectedMethodId = await promptForAuthMethod(availableAuthMethods, agentName);
-
-        if (!selectedMethodId || connectionAborted) {
-          await client.disconnect();
-          throw new Error('Authentication cancelled by user');
-        }
-
-        await client.authenticate({
-          methodId: selectedMethodId,
-        });
-
-        if (connectionAborted) {
-          await client.disconnect();
-          throw new Error('Connection cancelled');
-        }
-
-        sessionResponse = await client.newSession({
-          cwd,
-          mcpServers: [],
-        });
-      }
+          return selectedMethodId;
+        },
+        execute: () =>
+          client.newSession({
+            cwd,
+            mcpServers: [],
+          }),
+      });
 
       const session = {
         id: crypto.randomUUID(),
@@ -1076,28 +523,32 @@ export const useSessionStore = defineStore('session', () => {
         messages: [],
       };
 
-      runtime = createConnectedSessionState(session, client);
-      client.onSessionUpdate = (notification) => handleSessionUpdate(runtime, notification);
-      applySessionCapabilities(runtime, sessionResponse);
-      attachPermissionWatcher(runtime);
-      upsertConnectedSession(runtime);
+      runtime = createBoundRuntime(session, client, {
+        handleSessionUpdate,
+        notifyConnectedSessionChanged,
+        attachPermissionWatcher,
+        upsertConnectedSession,
+      });
+      applySessionCapabilities(runtime, sessionResponse, notifyConnectedSessionChanged);
       syncRuntimeSnapshot(runtime);
 
-      savedSessions.value.push(session);
-      await saveSessionsToStore();
+      await persistSavedSession(savedSessions.value, session, saveSessionsToStore);
 
       trackEvent('SessionCreated', { agentName, success: 'true' });
     } catch (e) {
-      error.value = e instanceof Error ? e.message : String(e);
-      if (runtime) {
-        removeConnectedSession(runtime.session.id);
-      }
-      if (client && !runtime) {
-        await client.disconnect();
-      }
-      trackEvent('SessionCreated', { agentName, success: 'false' });
-      trackError(e instanceof Error ? e : new Error(String(e)));
-      throw e;
+      await handleSessionLifecycleFailure({
+        error: e,
+        runtime,
+        client,
+        removeConnectedSession,
+        setError: (message) => {
+          error.value = message;
+        },
+        trackEvent,
+        trackError,
+        eventName: 'SessionCreated',
+        eventProperties: { agentName },
+      });
     } finally {
       isConnecting.value = false;
       if (startupTimer) {
@@ -1114,8 +565,7 @@ export const useSessionStore = defineStore('session', () => {
   async function resumeSession(savedSession) {
     const existing = getConnectedSession(savedSession.id);
     if (existing) {
-      touchSavedSession(existing.session);
-      await saveSessionsToStore();
+      await persistRuntimeSession(existing, saveSessionsToStore);
       setActiveSession(savedSession.id);
       return;
     }
@@ -1134,94 +584,62 @@ export const useSessionStore = defineStore('session', () => {
       client = await createAcpClient(agentInstance);
       applyAuthorizationModeToClient(client);
 
-      runtime = createConnectedSessionState(savedSession, client);
-      client.onSessionUpdate = (notification) => handleSessionUpdate(runtime, notification);
-      attachPermissionWatcher(runtime);
-      upsertConnectedSession(runtime);
-
-      const initResponse = await client.initialize({
-        protocolVersion: PROTOCOL_VERSION,
-        clientCapabilities: {
-          fs: {
-            readTextFile: true,
-            writeTextFile: true,
-          },
-        },
-        clientInfo: {
-          name: 'acp-ui',
-          title: 'ACP DESKTOP',
-          version: appVersion,
-        },
+      runtime = createBoundRuntime(savedSession, client, {
+        handleSessionUpdate,
+        notifyConnectedSessionChanged,
+        attachPermissionWatcher,
+        upsertConnectedSession,
       });
+
+      const initResponse = await initializeSessionClient(client, appVersion, PROTOCOL_VERSION);
 
       const availableAuthMethods = initResponse.authMethods || [];
 
-      let loadResponse;
-      try {
-        loadResponse = await client.loadSession({
-          sessionId: savedSession.sessionId,
-          cwd: savedSession.cwd,
-          mcpServers: [],
-        });
-      } catch (sessionError) {
-        const errorMessage =
-          sessionError instanceof Error ? sessionError.message : String(sessionError);
-        const isAuthRequired =
-          errorMessage.toLowerCase().includes('authentication required') ||
-          errorMessage.includes('-32000');
+      const loadResponse = await executeSessionActionWithAuth({
+        client,
+        availableAuthMethods,
+        agentName: savedSession.agentName,
+        promptForAuthMethod: async (authMethods, agentName) => {
+          const selectedMethodId = await promptForAuthMethod(authMethods, agentName);
+          if (!selectedMethodId) {
+            await client.disconnect();
+            throw new Error('Authentication cancelled by user');
+          }
+          return selectedMethodId;
+        },
+        execute: () =>
+          client.loadSession({
+            sessionId: savedSession.sessionId,
+            cwd: savedSession.cwd,
+            mcpServers: [],
+          }),
+      });
 
-        if (!isAuthRequired || availableAuthMethods.length === 0) {
-          throw sessionError;
-        }
-
-        const selectedMethodId = await promptForAuthMethod(
-          availableAuthMethods,
-          savedSession.agentName
-        );
-
-        if (!selectedMethodId) {
-          await client.disconnect();
-          throw new Error('Authentication cancelled by user');
-        }
-
-        await client.authenticate({
-          methodId: selectedMethodId,
-        });
-
-        loadResponse = await client.loadSession({
-          sessionId: savedSession.sessionId,
-          cwd: savedSession.cwd,
-          mcpServers: [],
-        });
-      }
-
-      applySessionCapabilities(runtime, loadResponse);
+      applySessionCapabilities(runtime, loadResponse, notifyConnectedSessionChanged);
       if (runtime.messages.length === 0 && savedSession.messages?.length) {
         runtime.messages = cloneMessages(savedSession.messages);
       }
-      touchSavedSession(savedSession);
       ensureWorkspaceForCwd(savedSession.cwd, true);
-      syncRuntimeSnapshot(runtime);
-      await saveSessionsToStore();
+      await persistRuntimeSession(runtime, saveSessionsToStore);
 
       trackEvent('SessionResumed', {
         agentName: savedSession.agentName,
         success: 'true',
       });
     } catch (e) {
-      error.value = e instanceof Error ? e.message : String(e);
-      if (runtime) {
-        removeConnectedSession(runtime.session.id);
-      }
-      if (client && !runtime) {
-        await client.disconnect();
-      }
-      trackEvent('SessionResumed', {
-        agentName: savedSession.agentName,
-        success: 'false',
+      await handleSessionLifecycleFailure({
+        error: e,
+        runtime,
+        client,
+        removeConnectedSession,
+        setError: (message) => {
+          error.value = message;
+        },
+        trackEvent,
+        trackError,
+        eventName: 'SessionResumed',
+        eventProperties: { agentName: savedSession.agentName },
       });
-      trackError(e instanceof Error ? e : new Error(String(e)));
-      throw e;
     } finally {
     }
   }
@@ -1265,9 +683,7 @@ export const useSessionStore = defineStore('session', () => {
         runtime.session.title = titleSource.slice(0, 50) + (titleSource.length > 50 ? '...' : '');
       }
 
-      touchSavedSession(runtime.session);
-      syncRuntimeSnapshot(runtime);
-      await saveSessionsToStore();
+      await persistRuntimeSession(runtime, saveSessionsToStore);
     } catch (e) {
       const nextError = e instanceof Error ? e.message : String(e);
       error.value = nextError;
@@ -1333,9 +749,7 @@ export const useSessionStore = defineStore('session', () => {
     const sessionStart = runtime.session.lastUpdated || Date.now();
     const sessionDuration = Math.round((Date.now() - sessionStart) / 1000);
 
-    touchSavedSession(runtime.session);
-    syncRuntimeSnapshot(runtime);
-    await saveSessionsToStore();
+    await persistRuntimeSession(runtime, saveSessionsToStore);
     await runtime.client.disconnect();
     removeConnectedSession(sessionId);
 

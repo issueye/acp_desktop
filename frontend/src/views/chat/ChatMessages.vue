@@ -733,7 +733,7 @@ function toggleToolCall(toggleKey) {
   align-items: flex-start;
   justify-content: space-between;
   gap: 0.75rem;
-  padding: 0.7rem 0.8rem;
+  padding: 0.3rem 0.4rem;
   border: none;
   background: transparent;
   text-align: left;
