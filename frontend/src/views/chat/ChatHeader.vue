@@ -54,7 +54,7 @@ const { t } = useI18n();
         :disabled="!currentSession?.cwd"
         @click="$emit('open-git')"
       >
-        <SvgIcon name="app-sidebar-03" />
+        <SvgIcon name="git-commit" />
       </button>
       <button
         class="chat-header-action ued-icon-btn"

@@ -175,7 +175,7 @@ defineExpose({
               :aria-label="t('git.open')"
               @click.stop="emit('open-git', workspace.cwd)"
             >
-              <SvgIcon name="app-sidebar-03" />
+              <SvgIcon name="git-commit" />
             </button>
             <button
               class="csp-workspace-new ued-icon-btn ued-icon-btn--ghost"
@@ -239,18 +239,23 @@ defineExpose({
                     :class="{ pinned: isPinned(session.id) }"
                     :disabled="isPendingSession(session.id) || isDeletingSession(session.id)"
                     :title="isPinned(session.id) ? t('session.unpin') : t('session.pin')"
+                    :aria-label="isPinned(session.id) ? t('session.unpin') : t('session.pin')"
                     @click="(event) => handleToggleSessionPin(session.id, event)"
                   >
-                    ★
+                    <SvgIcon name="session-action-pin" class="csp-session-action-icon" />
                   </button>
                 </template>
                 <button
                   class="csp-action-btn ued-icon-btn ued-icon-btn--ghost ued-icon-btn--danger"
                   :disabled="isPendingSession(session.id) || isDeletingSession(session.id)"
                   :title="isDeletingSession(session.id) ? t('session.deleting') : t('session.delete')"
+                  :aria-label="isDeletingSession(session.id) ? t('session.deleting') : t('session.delete')"
                   @click="(event) => handleDelete(session.id, event)"
                 >
-                  {{ isDeletingSession(session.id) ? '...' : '×' }}
+                  <SvgIcon
+                    :name="isDeletingSession(session.id) ? 'session-action-pending' : 'session-action-delete'"
+                    class="csp-session-action-icon"
+                  />
                 </button>
               </div>
             </div>
@@ -625,6 +630,12 @@ defineExpose({
 .csp-connect-icon {
   width: 13px;
   height: 13px;
+}
+
+.csp-session-action-icon {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
 }
 
 @keyframes csp-session-dot-pulse {
