@@ -133,6 +133,13 @@ func (m *Manager) SpawnAgent(name string, cfg config.AgentConfig, envOverrides m
 		return AgentInstance{}, fmt.Errorf("bind agent process: %w", err)
 	}
 
+	if err := resumeProcess(cmd); err != nil {
+		_ = terminateProcessTree(process, cmd)
+		releasePlatformProcess(process)
+		_ = cmd.Wait()
+		return AgentInstance{}, fmt.Errorf("resume agent process: %w", err)
+	}
+
 	info := RunningAgentInfo{
 		ID:              agentID,
 		Name:            name,
@@ -319,8 +326,12 @@ func (m *Manager) waitAgentExit(agentID string, cmd *exec.Cmd) {
 func buildCommand(cfg config.AgentConfig) *exec.Cmd {
 	var cmd *exec.Cmd
 	if isWindows() {
-		args := append([]string{"/C", cfg.Command}, cfg.Args...)
-		cmd = exec.Command("cmd.exe", args...)
+		if path, err := exec.LookPath(cfg.Command); err == nil {
+			cmd = exec.Command(path, cfg.Args...)
+		} else {
+			args := append([]string{"/C", cfg.Command}, cfg.Args...)
+			cmd = exec.Command("cmd.exe", args...)
+		}
 	} else {
 		cmd = exec.Command(cfg.Command, cfg.Args...)
 	}

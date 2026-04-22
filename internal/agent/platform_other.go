@@ -66,3 +66,7 @@ func fallbackKillProcess(cmd *exec.Cmd) error {
 }
 
 func releasePlatformProcess(_ *platformProcess) {}
+
+func resumeProcess(cmd *exec.Cmd) error {
+	return nil
+}

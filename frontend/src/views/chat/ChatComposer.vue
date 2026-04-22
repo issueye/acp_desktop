@@ -96,7 +96,7 @@ function handleCommandSelect(command) {
           @select="handleCommandSelect"
         />
 
-        <div class="composer-surface">
+        <div class="composer-surface" :class="{ 'composer-surface--loading': isLoading }">
           <UEDInput
             v-model="inputText"
             as="textarea"
@@ -126,14 +126,16 @@ function handleCommandSelect(command) {
             <div class="composer-actions composer-actions--text-only">
               <UEDButton
                 class="send-btn send-btn--compact"
+                :class="{ 'send-btn--active': isLoading }"
                 variant="primary"
                 size="lg"
-                :disabled="!canSend"
+                :disabled="!canSend || isLoading"
                 :title="t('chat.send')"
                 :aria-label="t('chat.send')"
                 @click="$emit('send')"
               >
                 <svg
+                  v-if="!isLoading"
                   class="send-btn__icon"
                   viewBox="0 0 24 24"
                   fill="none"
@@ -143,6 +145,25 @@ function handleCommandSelect(command) {
                   <path
                     d="M5.326 18.694L19.43 12 5.326 5.306l1.502 5.163 6.11 1.531-6.11 1.531-1.502 5.163Z"
                     fill="currentColor"
+                  />
+                </svg>
+                <svg
+                  v-else
+                  class="send-btn__spinner"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  aria-hidden="true"
+                >
+                  <circle
+                    cx="12"
+                    cy="12"
+                    r="8"
+                    stroke="currentColor"
+                    stroke-width="2.5"
+                    stroke-linecap="round"
+                    stroke-dasharray="38"
+                    stroke-dashoffset="12"
                   />
                 </svg>
               </UEDButton>
@@ -182,6 +203,29 @@ function handleCommandSelect(command) {
   background: var(--ued-bg-panel);
   box-shadow: var(--ued-shadow-rest);
   transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.composer-surface::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--ued-bg-panel) 60%, transparent);
+  backdrop-filter: blur(2px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+  z-index: 5;
+  border-radius: inherit;
+}
+
+.composer-surface--loading::before {
+  opacity: 1;
+}
+
+.composer-surface--loading {
+  border-color: color-mix(in srgb, var(--ued-accent) 28%, var(--ued-border-default));
 }
 
 .composer-surface:focus-within {
@@ -267,12 +311,37 @@ function handleCommandSelect(command) {
   background: color-mix(in srgb, var(--ued-bg-panel) 96%, white);
   color: var(--ued-text-muted);
   box-shadow: none;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
 }
 
 .send-btn:hover {
   background: var(--ued-bg-panel-hover);
   color: var(--ued-text-primary);
   border-color: color-mix(in srgb, var(--ued-border-default) 82%, transparent);
+}
+
+.send-btn--active {
+  background: color-mix(in srgb, var(--ued-accent) 12%, var(--ued-bg-panel));
+  border-color: color-mix(in srgb, var(--ued-accent) 30%, var(--ued-border-default));
+  color: var(--ued-accent);
+  animation: send-btn-pulse 1.8s ease-in-out infinite;
+}
+
+.send-btn--active:hover {
+  background: color-mix(in srgb, var(--ued-accent) 12%, var(--ued-bg-panel));
+  border-color: color-mix(in srgb, var(--ued-accent) 30%, var(--ued-border-default));
+  color: var(--ued-accent);
+}
+
+@keyframes send-btn-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--ued-accent) 20%, transparent);
+  }
+
+  50% {
+    box-shadow: 0 0 0 6px color-mix(in srgb, var(--ued-accent) 0%, transparent);
+  }
 }
 
 .send-btn--compact {
@@ -286,6 +355,23 @@ function handleCommandSelect(command) {
   width: 12px;
   height: 12px;
   display: block;
+}
+
+.send-btn__spinner {
+  width: 12px;
+  height: 12px;
+  display: block;
+  animation: send-btn-spin 1s linear infinite;
+}
+
+@keyframes send-btn-spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @media (max-width: 900px) {

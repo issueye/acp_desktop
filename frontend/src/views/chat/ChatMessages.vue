@@ -364,31 +364,10 @@ function toggleToolCall(toolCallId) {
                     <span class="tool-location__text">{{ part.toolCall.locations[0].path }}</span>
                   </div>
                 </div>
-                <span :class="['tool-status', `status-${part.toolCall.status}`]">
-                  <svg v-if="part.toolCall.status === 'pending'" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                    <path d="M12 7V12L15 15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-                    <circle cx="12" cy="12" r="7" stroke="currentColor" stroke-width="1.8" />
-                  </svg>
-                  <svg v-else-if="part.toolCall.status === 'in_progress'" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                    <path d="M12 5V8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
-                    <path d="M12 16V19" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
-                    <path d="M5 12H8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
-                    <path d="M16 12H19" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
-                    <path d="M7.05 7.05L9.17 9.17" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
-                    <path d="M14.83 14.83L16.95 16.95" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
-                    <path d="M16.95 7.05L14.83 9.17" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
-                    <path d="M9.17 14.83L7.05 16.95" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
-                  </svg>
-                  <svg v-else-if="part.toolCall.status === 'completed'" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                    <path d="M7.5 12.5L10.5 15.5L16.5 9.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-                    <circle cx="12" cy="12" r="7" stroke="currentColor" stroke-width="1.8" />
-                  </svg>
-                  <svg v-else-if="part.toolCall.status === 'failed'" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                    <circle cx="12" cy="12" r="7" stroke="currentColor" stroke-width="1.8" />
-                    <path d="M9.5 9.5L14.5 14.5M14.5 9.5L9.5 14.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
-                  </svg>
-                  <span>{{ getToolStatusLabel(part.toolCall.status) }}</span>
-                </span>
+                <span
+                  :class="['tool-status', `status-${part.toolCall.status}`]"
+                  :title="getToolStatusLabel(part.toolCall.status)"
+                />
               </div>
             </div>
 
@@ -468,9 +447,7 @@ function toggleToolCall(toolCallId) {
   flex: 1;
   overflow-y: auto;
   padding: 1.4rem 1.4rem 1.2rem;
-  background:
-    radial-gradient(circle at top right, rgba(10, 100, 216, 0.04), transparent 24%),
-    linear-gradient(180deg, var(--ued-bg-panel) 0%, var(--ued-bg-window) 100%);
+  background: var(--ued-bg-window);
 }
 
 .messages-stack {
@@ -534,20 +511,15 @@ function toggleToolCall(toolCallId) {
 }
 
 .message {
-  margin-bottom: 0.95rem;
-  padding: 0.95rem 1rem;
-  border-radius: var(--ued-radius-md);
-  border: 1px solid var(--ued-border-default);
-  box-shadow: var(--ued-shadow-rest);
+  margin-bottom: 0.6rem;
+  padding: 0.6rem 0;
 }
 
 .message-user {
-  background: color-mix(in srgb, var(--ued-accent) 7%, white);
   margin-left: 4rem;
 }
 
 .message-assistant {
-  background: var(--ued-bg-panel);
   margin-right: 4rem;
 }
 
@@ -564,27 +536,23 @@ function toggleToolCall(toolCallId) {
 }
 
 .tool-calls-section {
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.5rem;
   display: flex;
   flex-direction: column;
-  gap: 0.18rem;
+  gap: 0.1rem;
 }
 
 .tool-call-inline {
-  display: grid;
-  grid-template-columns: 20px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.38rem 0.5rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+  padding: 0.2rem 0;
   font-size: 0.8rem;
-  background: color-mix(in srgb, var(--ued-bg-panel-muted) 44%, white);
-  border: none;
-  box-shadow: none;
-  border-radius: 10px;
+  line-height: 1.45;
 }
 
 .tool-call-inline.is-expanded {
-  align-items: start;
+  align-items: flex-start;
 }
 
 .tool-pending,
@@ -595,28 +563,26 @@ function toggleToolCall(toolCallId) {
 }
 
 .tool-icon {
-  width: 20px;
-  height: 20px;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
   display: grid;
   place-items: center;
-  border-radius: 0;
-  background: transparent;
   color: var(--ued-text-muted);
-  border: none;
+  margin-top: 0.12rem;
 }
 
 .tool-icon svg {
-  width: 14px;
-  height: 14px;
+  width: 12px;
+  height: 12px;
   display: block;
 }
 
 .tool-main {
+  flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.08rem;
-  padding: 0.08rem 0;
 }
 
 .tool-topline {
@@ -636,7 +602,6 @@ function toggleToolCall(toolCallId) {
   overflow-wrap: anywhere;
   word-break: break-word;
   white-space: pre-wrap;
-  padding: 0.04rem 0;
 }
 
 .tool-name.is-collapsible {
@@ -650,11 +615,11 @@ function toggleToolCall(toolCallId) {
   display: block;
   -webkit-line-clamp: initial;
   overflow: visible;
-  padding: 0.45rem 0.55rem;
-  border-radius: 8px;
+  padding: 0.4rem 0.5rem;
+  border-radius: 6px;
   background: color-mix(in srgb, var(--ued-accent-soft) 32%, white);
   border: 1px solid color-mix(in srgb, var(--ued-border-subtle) 62%, transparent);
-  line-height: 1.62;
+  line-height: 1.55;
 }
 
 .tool-expand-toggle {
@@ -680,9 +645,9 @@ function toggleToolCall(toolCallId) {
   align-items: center;
   gap: 0.25rem;
   color: var(--ued-text-muted);
-  font-size: 0.74rem;
+  font-size: 0.72rem;
   line-height: 1.45;
-  padding: 0.1rem 0 0;
+  padding-top: 0.05rem;
   opacity: 0.9;
 }
 
@@ -701,45 +666,41 @@ function toggleToolCall(toolCallId) {
 }
 
 .tool-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.22rem;
-  align-self: flex-start;
-  min-height: auto;
-  padding: 0;
-  border-radius: 0;
-  font-size: 0.72rem;
-  font-weight: 500;
-  border: none;
-  background: transparent;
-  white-space: nowrap;
-  opacity: 0.8;
-}
-
-.tool-call-inline.is-expanded .tool-status {
-  padding-top: 0.45rem;
-}
-
-.tool-status svg {
-  width: 12px;
-  height: 12px;
-  display: block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-top: 0.35rem;
 }
 
 .status-pending {
-  color: var(--ued-warning);
+  background: var(--ued-warning);
 }
 
 .status-in_progress {
-  color: var(--ued-accent);
+  background: var(--ued-accent);
+  animation: status-pulse 1.4s ease-in-out infinite;
 }
 
 .status-completed {
-  color: var(--ued-success);
+  background: var(--ued-success);
 }
 
 .status-failed {
-  color: var(--ued-danger);
+  background: var(--ued-danger);
+}
+
+@keyframes status-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.9);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .message-content {
@@ -776,6 +737,54 @@ function toggleToolCall(toolCallId) {
 .message-content :deep(code) {
   font-family: var(--ued-font-mono);
   font-size: 0.88rem;
+}
+
+.message-content :deep(table) {
+  width: 100%;
+  margin: 0.8rem 0;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+  line-height: 1.6;
+  border: 1px solid var(--ued-border-subtle);
+  border-radius: 8px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--ued-bg-panel-muted) 50%, transparent);
+}
+
+.message-content :deep(thead) {
+  background: color-mix(in srgb, var(--ued-accent-soft) 35%, transparent);
+}
+
+.message-content :deep(th) {
+  font-weight: 600;
+  text-align: left;
+  padding: 0.55rem 0.75rem;
+  color: var(--ued-text-primary);
+  border-bottom: 1px solid var(--ued-border-subtle);
+  white-space: nowrap;
+}
+
+.message-content :deep(td) {
+  padding: 0.5rem 0.75rem;
+  color: var(--ued-text-primary);
+  border-bottom: 1px solid color-mix(in srgb, var(--ued-border-subtle) 50%, transparent);
+  vertical-align: top;
+}
+
+.message-content :deep(tbody tr:last-child td) {
+  border-bottom: none;
+}
+
+.message-content :deep(tbody tr:hover) {
+  background: color-mix(in srgb, var(--ued-accent) 4%, transparent);
+}
+
+.message-content :deep(table code) {
+  font-size: 0.84rem;
+  padding: 0.1rem 0.3rem;
+  border-radius: 4px;
+  background: var(--ued-bg-panel-muted);
+  border: 1px solid color-mix(in srgb, var(--ued-border-subtle) 70%, transparent);
 }
 
 .loading-indicator {
@@ -1004,13 +1013,17 @@ function toggleToolCall(toolCallId) {
     bottom: 12px;
   }
 
-  .tool-call-inline {
-    grid-template-columns: 38px minmax(0, 1fr);
+  .message-content :deep(table) {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
   }
 
-  .tool-status {
-    grid-column: 1 / -1;
-    justify-self: flex-start;
+  .message-content :deep(th),
+  .message-content :deep(td) {
+    padding: 0.45rem 0.6rem;
+    font-size: 0.84rem;
   }
 }
 </style>

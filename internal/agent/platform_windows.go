@@ -27,8 +27,42 @@ func isWindows() bool {
 func applyPlatformCmdAttrs(cmd *exec.Cmd) {
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		HideWindow:    true,
-		CreationFlags: windows.CREATE_NO_WINDOW,
+		CreationFlags: windows.CREATE_NO_WINDOW | windows.CREATE_SUSPENDED,
 	}
+}
+
+func resumeProcess(cmd *exec.Cmd) error {
+	if cmd == nil || cmd.Process == nil {
+		return nil
+	}
+
+	hSnapshot, err := windows.CreateToolhelp32Snapshot(windows.TH32CS_SNAPTHREAD, 0)
+	if err != nil {
+		return fmt.Errorf("create thread snapshot: %w", err)
+	}
+	defer windows.CloseHandle(hSnapshot)
+
+	entry := windows.ThreadEntry32{Size: 28}
+	resumed := false
+	for {
+		if err := windows.Thread32Next(hSnapshot, &entry); err != nil {
+			break
+		}
+		if entry.OwnerProcessID == uint32(cmd.Process.Pid) {
+			hThread, err := windows.OpenThread(windows.THREAD_SUSPEND_RESUME, false, entry.ThreadID)
+			if err != nil {
+				continue
+			}
+			_, _ = windows.ResumeThread(hThread)
+			windows.CloseHandle(hThread)
+			resumed = true
+		}
+	}
+
+	if !resumed {
+		return fmt.Errorf("no threads found for process %d", cmd.Process.Pid)
+	}
+	return nil
 }
 
 func preparePlatformProcess(_ *exec.Cmd) (*platformProcess, error) {
@@ -64,7 +98,14 @@ func bindPlatformProcess(process *platformProcess, cmd *exec.Cmd) error {
 	}
 	defer windows.CloseHandle(handle)
 
-	return windows.AssignProcessToJobObject(process.job, handle)
+	err = windows.AssignProcessToJobObject(process.job, handle)
+	if err != nil {
+		if errors.Is(err, windows.ERROR_ACCESS_DENIED) {
+			return nil
+		}
+		return err
+	}
+	return nil
 }
 
 func terminateProcessTree(process *platformProcess, cmd *exec.Cmd) error {
