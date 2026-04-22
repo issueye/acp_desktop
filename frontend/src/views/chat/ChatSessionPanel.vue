@@ -277,6 +277,15 @@ function openWorkspaceDialog() {
   emit('update:showWorkspaceDialog', true);
 }
 
+function handleNewSessionFromWorkspace(workspaceId, event) {
+  event.stopPropagation();
+  const workspace = workspaces.value.find((item) => item.id === workspaceId);
+  if (!workspace) return;
+  activeWorkspaceId.value = workspace.id;
+  selectedCwd.value = workspace.cwd;
+  emit('update:showWorkspaceDialog', true);
+}
+
 async function handleAddWorkspace() {
   if (props.isSelectingFolder || isConnecting.value) return;
   emit('update:isSelectingFolder', true);
@@ -713,6 +722,13 @@ defineExpose({
             </span>
             <span class="csp-workspace-count">{{ workspace.sessions.length }}</span>
             <button
+              class="csp-workspace-new ued-icon-btn ued-icon-btn--ghost"
+              :title="t('app.newSession')"
+              @click.stop="(event) => handleNewSessionFromWorkspace(workspace.id, event)"
+            >
+              +
+            </button>
+            <button
               class="csp-workspace-delete ued-icon-btn ued-icon-btn--ghost ued-icon-btn--danger"
               :title="t('workspace.remove')"
               @click.stop="(event) => handleRemoveWorkspaceClick(workspace.id, event)"
@@ -992,6 +1008,18 @@ defineExpose({
   text-align: right;
 }
 
+.csp-workspace-new {
+  width: 20px;
+  height: 20px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  flex-shrink: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+  color: var(--ued-accent);
+}
+
 .csp-workspace-delete {
   width: 20px;
   height: 20px;
@@ -1002,6 +1030,8 @@ defineExpose({
   transition: opacity 0.15s ease;
 }
 
+.csp-workspace-row:hover .csp-workspace-new,
+.csp-workspace-row.active .csp-workspace-new,
 .csp-workspace-row:hover .csp-workspace-delete,
 .csp-workspace-row.active .csp-workspace-delete {
   opacity: 1;

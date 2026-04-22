@@ -756,14 +756,30 @@ export const useSessionStore = defineStore('session', () => {
       locations: toolCall.locations?.map((location) => ({ ...location })),
     };
 
-    ensureMessageParts(message).push({
-      type: 'tool_call',
-      toolCall: nextToolCall,
-    });
+    const parts = ensureMessageParts(message);
+    const existingPart = parts.find(
+      (part) => part.type === 'tool_call' && part.toolCall?.toolCallId === nextToolCall.toolCallId
+    );
+    if (existingPart) {
+      existingPart.toolCall = nextToolCall;
+    } else {
+      parts.push({
+        type: 'tool_call',
+        toolCall: nextToolCall,
+      });
+    }
+
     if (!message.toolCalls) {
       message.toolCalls = [];
     }
-    message.toolCalls.push(nextToolCall);
+    const existingToolCallIndex = message.toolCalls.findIndex(
+      (entry) => entry.toolCallId === nextToolCall.toolCallId
+    );
+    if (existingToolCallIndex >= 0) {
+      message.toolCalls.splice(existingToolCallIndex, 1, nextToolCall);
+    } else {
+      message.toolCalls.push(nextToolCall);
+    }
   }
 
   function upsertPlanMessage(runtime, entries) {
@@ -777,8 +793,14 @@ export const useSessionStore = defineStore('session', () => {
       if (msg.toolCalls) {
         const toolCall = msg.toolCalls.find((entry) => entry.toolCallId === update.toolCallId);
         if (toolCall) {
-          if (update.status) toolCall.status = update.status;
-          if (update.title) toolCall.title = update.title;
+          if ('status' in update) toolCall.status = update.status;
+          if ('title' in update) toolCall.title = update.title;
+          if ('kind' in update) toolCall.kind = update.kind || 'other';
+          if ('locations' in update) {
+            toolCall.locations = Array.isArray(update.locations)
+              ? update.locations.map((location) => ({ ...location }))
+              : update.locations;
+          }
         }
       }
 
@@ -787,8 +809,14 @@ export const useSessionStore = defineStore('session', () => {
         if (part.type !== 'tool_call' || part.toolCall.toolCallId !== update.toolCallId) {
           continue;
         }
-        if (update.status) part.toolCall.status = update.status;
-        if (update.title) part.toolCall.title = update.title;
+        if ('status' in update) part.toolCall.status = update.status;
+        if ('title' in update) part.toolCall.title = update.title;
+        if ('kind' in update) part.toolCall.kind = update.kind || 'other';
+        if ('locations' in update) {
+          part.toolCall.locations = Array.isArray(update.locations)
+            ? update.locations.map((location) => ({ ...location }))
+            : update.locations;
+        }
       }
     }
   }
@@ -829,7 +857,9 @@ export const useSessionStore = defineStore('session', () => {
           title: update.title,
           kind: update.kind || 'other',
           status: update.status || 'pending',
-          locations: update.locations,
+          locations: Array.isArray(update.locations)
+            ? update.locations.map((location) => ({ ...location }))
+            : update.locations,
         };
         const message = getOrCreateTrailingMessage(runtime, 'assistant');
         appendToolCallPart(message, nextToolCall);
@@ -840,8 +870,14 @@ export const useSessionStore = defineStore('session', () => {
       case 'tool_call_update': {
         const existing = targetToolCalls.get(update.toolCallId);
         if (existing) {
-          if (update.status) existing.status = update.status;
-          if (update.title) existing.title = update.title;
+          if ('status' in update) existing.status = update.status;
+          if ('title' in update) existing.title = update.title;
+          if ('kind' in update) existing.kind = update.kind || 'other';
+          if ('locations' in update) {
+            existing.locations = Array.isArray(update.locations)
+              ? update.locations.map((location) => ({ ...location }))
+              : update.locations;
+          }
         }
         updateToolCallParts(targetMessages, update);
         break;
@@ -1426,4 +1462,3 @@ export const useSessionStore = defineStore('session', () => {
     },
   };
 });
-

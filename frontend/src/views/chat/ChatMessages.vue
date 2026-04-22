@@ -132,34 +132,42 @@ function renderMarkdown(content) {
 }
 
 function getMessageParts(message) {
-  if (message.parts?.length) {
-    return message.parts.filter((part) => {
-      if (part.type === 'content' || part.type === 'thought') {
-        return typeof part.content === 'string' && part.content.length > 0;
-      }
-      return true;
-    });
-  }
+  const rawParts = message.parts?.length
+    ? message.parts.filter((part) => {
+        if (part.type === 'content' || part.type === 'thought') {
+          return typeof part.content === 'string' && part.content.length > 0;
+        }
+        return true;
+      })
+    : [
+        ...(message.content ? [{ type: 'content', content: message.content }] : []),
+        ...(message.thought ? [{ type: 'thought', content: message.thought }] : []),
+        ...(message.planEntries?.length ? [{ type: 'plan', entries: message.planEntries }] : []),
+        ...(message.toolCalls?.length
+          ? message.toolCalls.map((toolCall) => ({
+              type: 'tool_call',
+              toolCall,
+            }))
+          : []),
+      ];
 
-  const parts = [];
-  if (message.content) {
-    parts.push({ type: 'content', content: message.content });
-  }
-  if (message.thought) {
-    parts.push({ type: 'thought', content: message.thought });
-  }
-  if (message.planEntries?.length) {
-    parts.push({ type: 'plan', entries: message.planEntries });
-  }
-  if (message.toolCalls?.length) {
-    parts.push(
-      ...message.toolCalls.map((toolCall) => ({
-        type: 'tool_call',
-        toolCall,
-      }))
-    );
-  }
-  return parts;
+  const seenToolCallIds = new Set();
+  return rawParts.filter((part) => {
+    if (part.type !== 'tool_call') {
+      return true;
+    }
+
+    const toolCallId = part.toolCall?.toolCallId;
+    if (!toolCallId) {
+      return true;
+    }
+    if (seenToolCallIds.has(toolCallId)) {
+      return false;
+    }
+
+    seenToolCallIds.add(toolCallId);
+    return true;
+  });
 }
 
 function getThoughtKey(messageId, index) {
@@ -172,6 +180,8 @@ function getToolKindLabel(kind) {
       return 'Read';
     case 'edit':
       return 'Edit';
+    case 'write':
+      return 'Write';
     case 'delete':
       return 'Delete';
     case 'move':
@@ -213,16 +223,25 @@ function isToolCallCollapsible(toolCall) {
   return text.length > 180 || text.includes('\n');
 }
 
-function isToolCallExpanded(toolCallId) {
-  return expandedToolCalls.value.has(toolCallId);
+function getToolToggleKey(messageId, partIndex, toolCall) {
+  if (toolCall?.toolCallId) {
+    return `${messageId}::${toolCall.toolCallId}`;
+  }
+  return `${messageId}::${partIndex}`;
 }
 
-function toggleToolCall(toolCallId) {
-  if (expandedToolCalls.value.has(toolCallId)) {
-    expandedToolCalls.value.delete(toolCallId);
+function isToolCallExpanded(toggleKey) {
+  return expandedToolCalls.value.has(toggleKey);
+}
+
+function toggleToolCall(toggleKey) {
+  const next = new Set(expandedToolCalls.value);
+  if (next.has(toggleKey)) {
+    next.delete(toggleKey);
   } else {
-    expandedToolCalls.value.add(toolCallId);
+    next.add(toggleKey);
   }
+  expandedToolCalls.value = next;
 }
 </script>
 
@@ -305,70 +324,160 @@ function toggleToolCall(toolCallId) {
                 <div v-else-if="part.type === 'tool_call'" class="tool-calls-section">
                   <div
                     :class="[
-                      'tool-call-inline',
+                      'tool-call-card',
                       `tool-${part.toolCall.status}`,
-                      { 'is-expanded': isToolCallExpanded(part.toolCall.toolCallId) },
+                      { 'is-expanded': isToolCallExpanded(getToolToggleKey(message.id, partIndex, part.toolCall)) },
                     ]"
-                    role="button"
-                    tabindex="0"
-                    @click="toggleToolCall(part.toolCall.toolCallId)"
-                    @keydown.enter.prevent="toggleToolCall(part.toolCall.toolCallId)"
                   >
-                    <span
-                      :class="['tool-status', `status-${part.toolCall.status}`]"
-                      :title="getToolStatusLabel(part.toolCall.status)"
-                    />
-                    <span class="tool-icon" :title="getToolKindLabel(part.toolCall.kind)" aria-hidden="true">
-                      <svg v-if="part.toolCall.kind === 'read'" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M6.75 6.75C6.75 5.78 7.53 5 8.5 5H18V17H8.5C7.53 17 6.75 17.78 6.75 18.75M6.75 6.75V18.75M6.75 6.75H5.75C4.78 6.75 4 7.53 4 8.5V17C4 17.97 4.78 18.75 5.75 18.75H6.75" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
-                      </svg>
-                      <svg v-else-if="part.toolCall.kind === 'edit'" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M4.75 19.25H8.25L18.06 9.44C18.65 8.85 18.65 7.9 18.06 7.31L16.69 5.94C16.1 5.35 15.15 5.35 14.56 5.94L4.75 15.75V19.25Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
-                        <path d="M13.5 7L17 10.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
-                      </svg>
-                      <svg v-else-if="part.toolCall.kind === 'delete'" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M5.5 7.5H18.5M9.5 4.75H14.5M8 7.5V17.25C8 18.22 8.78 19 9.75 19H14.25C15.22 19 16 18.22 16 17.25V7.5M10 10.25V15.5M14 10.25V15.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
-                      </svg>
-                      <svg v-else-if="part.toolCall.kind === 'move'" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M12 4.75L18.5 8.25V15.75L12 19.25L5.5 15.75V8.25L12 4.75Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
-                        <path d="M5.9 8.5L12 12L18.1 8.5M12 12V19" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
-                      </svg>
-                      <svg v-else-if="part.toolCall.kind === 'search'" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <circle cx="10.5" cy="10.5" r="5.75" stroke="currentColor" stroke-width="1.7" />
-                        <path d="M15 15L19 19" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
-                      </svg>
-                      <svg v-else-if="part.toolCall.kind === 'execute'" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M8 6.5L17 12L8 17.5V6.5Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
-                      </svg>
-                      <svg v-else-if="part.toolCall.kind === 'think'" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M9.5 18.5H14.5M10 21H14M8.25 14.75C7 13.74 6.2 12.19 6.2 10.45C6.2 7.44 8.76 5 12 5C15.24 5 17.8 7.44 17.8 10.45C17.8 12.19 17 13.74 15.75 14.75C15.18 15.21 14.82 15.89 14.82 16.63V17H9.18V16.63C9.18 15.89 8.82 15.21 8.25 14.75Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-                      </svg>
-                      <svg v-else-if="part.toolCall.kind === 'fetch'" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M12 5C15.87 5 19 8.13 19 12M12 5C8.13 5 5 8.13 5 12M12 5V12H19M5 12C5 15.87 8.13 19 12 19C15.87 19 19 15.87 19 12" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
-                      </svg>
-                      <svg v-else viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M12 4.75L18.5 8.25V15.75L12 19.25L5.5 15.75V8.25L12 4.75Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
-                        <path d="M12 8.5V12M12 15.25H12.01" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
-                      </svg>
-                    </span>
-                    <span class="tool-kind-label">{{ getToolKindLabel(part.toolCall.kind) }}</span>
-                    <span class="tool-expand-hint">{{ isToolCallExpanded(part.toolCall.toolCallId) ? t('app.collapse') : t('app.expand') }}</span>
-                  </div>
-
-                  <!-- Expanded detail -->
-                  <div v-if="isToolCallExpanded(part.toolCall.toolCallId)" class="tool-detail">
-                    <div v-if="getToolCallText(part.toolCall)" class="tool-detail-text">
-                      {{ getToolCallText(part.toolCall) }}
-                    </div>
-                    <div
-                      v-if="part.toolCall.locations?.length"
-                      class="tool-location"
-                      :title="part.toolCall.locations[0].path"
+                    <button
+                      class="tool-call-summary"
+                      type="button"
+                      :aria-expanded="isToolCallExpanded(getToolToggleKey(message.id, partIndex, part.toolCall))"
+                      @click="toggleToolCall(getToolToggleKey(message.id, partIndex, part.toolCall))"
                     >
-                      <svg class="tool-location__icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                        <path d="M4.75 8.75C4.75 7.78 5.53 7 6.5 7H10L11.5 8.5H17.5C18.47 8.5 19.25 9.28 19.25 10.25V16.5C19.25 17.47 18.47 18.25 17.5 18.25H6.5C5.53 18.25 4.75 17.47 4.75 16.5V8.75Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
-                      </svg>
-                      <span class="tool-location__text">{{ part.toolCall.locations[0].path }}</span>
+                      <span class="tool-call-summary__main">
+                        <span
+                          class="tool-status-icon"
+                          :title="getToolStatusLabel(part.toolCall.status)"
+                        >
+                          <svg
+                            v-if="part.toolCall.status === 'pending' || part.toolCall.status === 'in_progress'"
+                            class="tool-spinner"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                            aria-hidden="true"
+                          >
+                            <path
+                              d="M12 2.25V5.25M12 18.75V21.75M4.93 4.93L7.05 7.05M16.95 16.95L19.07 19.07M2.25 12H5.25M18.75 12H21.75M4.93 19.07L7.05 16.95M16.95 7.05L19.07 4.93"
+                              stroke="currentColor"
+                              stroke-width="2"
+                              stroke-linecap="round"
+                            />
+                          </svg>
+                          <svg
+                            v-else-if="part.toolCall.status === 'completed'"
+                            class="tool-check"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                            aria-hidden="true"
+                          >
+                            <path
+                              d="M5 13l4 4L19 7"
+                              stroke="currentColor"
+                              stroke-width="2.2"
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                            />
+                          </svg>
+                          <svg
+                            v-else-if="part.toolCall.status === 'failed'"
+                            class="tool-cross"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                            aria-hidden="true"
+                          >
+                            <path
+                              d="M6 6l12 12M18 6L6 18"
+                              stroke="currentColor"
+                              stroke-width="2.2"
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                            />
+                          </svg>
+                        </span>
+
+                        <span class="tool-kind-pill">
+                          <span class="tool-icon" :title="getToolKindLabel(part.toolCall.kind)" aria-hidden="true">
+                            <svg v-if="part.toolCall.kind === 'read'" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                              <path d="M6.75 6.75C6.75 5.78 7.53 5 8.5 5H18V17H8.5C7.53 17 6.75 17.78 6.75 18.75M6.75 6.75V18.75M6.75 6.75H5.75C4.78 6.75 4 7.53 4 8.5V17C4 17.97 4.78 18.75 5.75 18.75H6.75" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
+                            </svg>
+                            <svg v-else-if="part.toolCall.kind === 'edit'" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                              <path d="M4.75 19.25H8.25L18.06 9.44C18.65 8.85 18.65 7.9 18.06 7.31L16.69 5.94C16.1 5.35 15.15 5.35 14.56 5.94L4.75 15.75V19.25Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
+                              <path d="M13.5 7L17 10.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
+                            </svg>
+                            <svg v-else-if="part.toolCall.kind === 'write'" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                              <path d="M7.25 5.75H13.25L16.75 9.25V18.25C16.75 19.08 16.08 19.75 15.25 19.75H8.75C7.92 19.75 7.25 19.08 7.25 18.25V5.75Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
+                              <path d="M13 5.75V9.5H16.75" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
+                              <path d="M9.5 13H14.5M9.5 16H12.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+                            </svg>
+                            <svg v-else-if="part.toolCall.kind === 'delete'" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                              <path d="M5.5 7.5H18.5M9.5 4.75H14.5M8 7.5V17.25C8 18.22 8.78 19 9.75 19H14.25C15.22 19 16 18.22 16 17.25V7.5M10 10.25V15.5M14 10.25V15.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
+                            </svg>
+                            <svg v-else-if="part.toolCall.kind === 'move'" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                              <path d="M12 4.75L18.5 8.25V15.75L12 19.25L5.5 15.75V8.25L12 4.75Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
+                              <path d="M5.9 8.5L12 12L18.1 8.5M12 12V19" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
+                            </svg>
+                            <svg v-else-if="part.toolCall.kind === 'search'" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                              <circle cx="10.5" cy="10.5" r="5.75" stroke="currentColor" stroke-width="1.7" />
+                              <path d="M15 15L19 19" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+                            </svg>
+                            <svg v-else-if="part.toolCall.kind === 'execute'" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                              <path d="M8 6.5L17 12L8 17.5V6.5Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
+                            </svg>
+                            <svg v-else-if="part.toolCall.kind === 'think'" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                              <path d="M9.5 18.5H14.5M10 21H14M8.25 14.75C7 13.74 6.2 12.19 6.2 10.45C6.2 7.44 8.76 5 12 5C15.24 5 17.8 7.44 17.8 10.45C17.8 12.19 17 13.74 15.75 14.75C15.18 15.21 14.82 15.89 14.82 16.63V17H9.18V16.63C9.18 15.89 8.82 15.21 8.25 14.75Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                            </svg>
+                            <svg v-else-if="part.toolCall.kind === 'fetch'" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                              <path d="M12 5C15.87 5 19 8.13 19 12M12 5C8.13 5 5 8.13 5 12M12 5V12H19M5 12C5 15.87 8.13 19 12 19C15.87 19 19 15.87 19 12" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
+                            </svg>
+                            <svg v-else viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                              <path d="M12 4.75L18.5 8.25V15.75L12 19.25L5.5 15.75V8.25L12 4.75Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
+                              <path d="M12 8.5V12M12 15.25H12.01" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+                            </svg>
+                          </span>
+                          <span class="tool-kind-label">{{ getToolKindLabel(part.toolCall.kind) }}</span>
+                        </span>
+
+                        <span class="tool-call-id-chip" :title="part.toolCall.toolCallId || ''">
+                          <span class="tool-call-id-chip__label">toolCallId</span>
+                          <code class="tool-call-id">{{ part.toolCall.toolCallId || '—' }}</code>
+                        </span>
+                      </span>
+
+                      <span class="tool-expand-button" aria-hidden="true">
+                        <span class="tool-expand-chevron">
+                          <svg
+                            :class="{ 'is-open': isToolCallExpanded(getToolToggleKey(message.id, partIndex, part.toolCall)) }"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path
+                              d="M8 10L12 14L16 10"
+                              stroke="currentColor"
+                              stroke-width="1.8"
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                            />
+                          </svg>
+                        </span>
+                      </span>
+                    </button>
+
+                    <div v-if="isToolCallExpanded(getToolToggleKey(message.id, partIndex, part.toolCall))" class="tool-detail">
+                      <div v-if="part.toolCall.toolCallId" class="tool-detail-meta">
+                        <span class="tool-detail-label">toolCallId</span>
+                        <code class="tool-detail-value">{{ part.toolCall.toolCallId }}</code>
+                      </div>
+                      <div v-if="getToolCallText(part.toolCall)" class="tool-detail-text">
+                        {{ getToolCallText(part.toolCall) }}
+                      </div>
+                      <div v-if="part.toolCall.locations?.length" class="tool-detail-locations">
+                        <div
+                          v-for="(location, locationIndex) in part.toolCall.locations"
+                          :key="`${getToolToggleKey(message.id, partIndex, part.toolCall)}-location-${locationIndex}`"
+                          class="tool-location"
+                          :title="location.path"
+                        >
+                          <svg class="tool-location__icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                            <path d="M4.75 8.75C4.75 7.78 5.53 7 6.5 7H10L11.5 8.5H17.5C18.47 8.5 19.25 9.28 19.25 10.25V16.5C19.25 17.47 18.47 18.25 17.5 18.25H6.5C5.53 18.25 4.75 17.47 4.75 16.5V8.75Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
+                          </svg>
+                          <span class="tool-location__text">{{ location.path }}</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -590,14 +699,6 @@ function toggleToolCall(toolCallId) {
 }
 
 .tool-calls-section {
-  margin-bottom: 0.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-  width: 100%;
-}
-
-.tool-calls-section {
   margin-bottom: 0.35rem;
   display: flex;
   flex-direction: column;
@@ -605,56 +706,91 @@ function toggleToolCall(toolCallId) {
   width: 100%;
 }
 
-.tool-call-inline {
+.tool-call-card {
+  width: 100%;
+  border: 1px solid color-mix(in srgb, var(--ued-border-subtle) 68%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--ued-bg-panel) 94%, white);
+  overflow: hidden;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+
+.tool-call-card:hover {
+  border-color: color-mix(in srgb, var(--ued-accent) 24%, var(--ued-border-subtle));
+}
+
+.tool-call-card.is-expanded {
+  background: color-mix(in srgb, var(--ued-accent-soft) 14%, white);
+}
+
+.tool-call-summary {
+  width: 100%;
   display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.25rem 0.4rem;
-  font-size: 0.8rem;
-  line-height: 1.45;
-  border-radius: 6px;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.7rem 0.8rem;
+  border: none;
+  background: transparent;
+  text-align: left;
   cursor: pointer;
-  transition: background 0.12s ease;
-  border: 1px solid transparent;
 }
 
-.tool-call-inline:hover {
-  background: rgba(255, 255, 255, 0.55);
-  border-color: var(--ued-border-subtle);
+.tool-call-summary__main {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  flex: 1;
 }
 
-.tool-status {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
+.tool-status-icon {
+  width: 15px;
+  height: 15px;
   flex-shrink: 0;
+  display: grid;
+  place-items: center;
 }
 
-.status-pending {
-  background: var(--ued-warning);
+.tool-status-icon svg {
+  width: 13px;
+  height: 13px;
+  display: block;
 }
 
-.status-in_progress {
-  background: var(--ued-accent);
-  animation: status-pulse 1.4s ease-in-out infinite;
+.tool-spinner {
+  color: var(--ued-accent);
+  animation: tool-spin 1s linear infinite;
 }
 
-.status-completed {
-  background: var(--ued-success);
+.tool-check {
+  color: var(--ued-success);
 }
 
-.status-failed {
-  background: var(--ued-danger);
+.tool-cross {
+  color: var(--ued-danger);
 }
 
-@keyframes status-pulse {
-  0%, 100% { opacity: 0.35; transform: scale(0.9); }
-  50% { opacity: 1; transform: scale(1); }
+@keyframes tool-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+.tool-kind-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  min-width: 0;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  border: none;
 }
 
 .tool-icon {
-  width: 15px;
-  height: 15px;
+  width: 16px;
+  height: 16px;
   flex-shrink: 0;
   display: grid;
   place-items: center;
@@ -668,34 +804,107 @@ function toggleToolCall(toolCallId) {
 }
 
 .tool-kind-label {
-  font-weight: 600;
-  font-size: 0.78rem;
+  font-weight: 500;
+  font-size: 0.76rem;
   color: var(--ued-text-primary);
   min-width: 0;
 }
 
-.tool-expand-hint {
-  margin-left: auto;
-  flex-shrink: 0;
-  font-size: 0.68rem;
-  color: var(--ued-text-muted);
-  opacity: 0;
-  transition: opacity 0.12s ease;
+.tool-call-id-chip {
+  min-width: 0;
+  max-width: min(240px, 100%);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.32rem;
+  padding: 0.14rem 0.42rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ued-accent-soft) 28%, white);
+  border: 1px solid color-mix(in srgb, var(--ued-accent) 14%, var(--ued-border-subtle));
 }
 
-.tool-call-inline:hover .tool-expand-hint {
+.tool-call-id-chip__label {
+  flex-shrink: 0;
+  font-size: 0.66rem;
+  line-height: 1.3;
+  color: var(--ued-text-muted);
+}
+
+.tool-call-id,
+.tool-detail-value {
+  font-family: var(--ued-font-mono);
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: var(--ued-text-primary);
+  overflow-wrap: anywhere;
+  word-break: break-all;
+}
+
+.tool-call-id {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  word-break: normal;
+}
+
+.tool-detail-value {
+  overflow-wrap: anywhere;
+  word-break: break-all;
+}
+
+.tool-expand-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  color: var(--ued-text-muted);
+  opacity: 0.72;
+}
+
+.tool-expand-chevron {
+  width: 14px;
+  height: 14px;
+  display: grid;
+  place-items: center;
+}
+
+.tool-expand-chevron svg {
+  width: 14px;
+  height: 14px;
+  display: block;
+  transition: transform 0.18s ease, opacity 0.18s ease;
+}
+
+.tool-call-summary:hover .tool-expand-button {
   opacity: 1;
 }
 
+.tool-expand-chevron svg.is-open {
+  transform: rotate(180deg);
+}
+
 .tool-detail {
-  margin: 0.2rem 0 0.3rem 1.6rem;
-  padding: 0.45rem 0.6rem;
-  border-radius: 6px;
-  background: color-mix(in srgb, var(--ued-accent-soft) 28%, white);
-  border: 1px solid color-mix(in srgb, var(--ued-border-subtle) 55%, transparent);
+  padding: 0.65rem 0.8rem 0.8rem;
+  border-top: 1px solid color-mix(in srgb, var(--ued-border-subtle) 72%, transparent);
+  background: color-mix(in srgb, var(--ued-bg-panel-muted) 42%, transparent);
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
+  gap: 0.5rem;
+}
+
+.tool-detail-meta {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+}
+
+.tool-detail-label {
+  font-size: 0.68rem;
+  line-height: 1.35;
+  color: var(--ued-text-muted);
 }
 
 .tool-detail-text {
@@ -707,6 +916,13 @@ function toggleToolCall(toolCallId) {
   white-space: pre-wrap;
 }
 
+.tool-detail-locations {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding-top: 0.1rem;
+}
+
 .tool-location {
   min-width: 0;
   display: flex;
@@ -731,155 +947,11 @@ function toggleToolCall(toolCallId) {
   text-overflow: ellipsis;
 }
 
-.tool-call-inline.is-expanded {
-  align-items: center;
-}
-
 .tool-pending,
 .tool-in_progress,
 .tool-completed,
 .tool-failed {
   background: transparent;
-}
-
-.tool-icon {
-  width: 16px;
-  height: 16px;
-  flex-shrink: 0;
-  display: grid;
-  place-items: center;
-  color: var(--ued-text-muted);
-  margin-top: 0.12rem;
-}
-
-.tool-icon svg {
-  width: 12px;
-  height: 12px;
-  display: block;
-}
-
-.tool-main {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.tool-topline {
-  min-width: 0;
-  display: flex;
-  align-items: flex-start;
-  gap: 0.4rem;
-  flex-wrap: wrap;
-}
-
-.tool-name {
-  font-weight: 500;
-  line-height: 1.45;
-  color: var(--ued-text-primary);
-  min-width: 0;
-  flex: 1;
-  overflow-wrap: anywhere;
-  word-break: break-word;
-  white-space: pre-wrap;
-}
-
-.tool-name.is-collapsible {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  overflow: hidden;
-}
-
-.tool-name.is-expanded {
-  display: block;
-  -webkit-line-clamp: initial;
-  overflow: visible;
-  padding: 0.4rem 0.5rem;
-  border-radius: 6px;
-  background: color-mix(in srgb, var(--ued-accent-soft) 32%, white);
-  border: 1px solid color-mix(in srgb, var(--ued-border-subtle) 62%, transparent);
-  line-height: 1.55;
-}
-
-.tool-expand-toggle {
-  flex-shrink: 0;
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: var(--ued-accent);
-  font-size: 0.72rem;
-  line-height: 1.4;
-  font-weight: 500;
-  cursor: pointer;
-}
-
-.tool-expand-toggle:hover {
-  color: var(--ued-accent-hover);
-  text-decoration: underline;
-}
-
-.tool-location {
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  color: var(--ued-text-muted);
-  font-size: 0.72rem;
-  line-height: 1.45;
-  padding-top: 0.05rem;
-  opacity: 0.9;
-}
-
-.tool-location__icon {
-  width: 12px;
-  height: 12px;
-  flex-shrink: 0;
-  opacity: 0.7;
-}
-
-.tool-location__text {
-  min-width: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.tool-status {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.status-pending {
-  background: var(--ued-warning);
-}
-
-.status-in_progress {
-  background: var(--ued-accent);
-  animation: status-pulse 1.4s ease-in-out infinite;
-}
-
-.status-completed {
-  background: var(--ued-success);
-}
-
-.status-failed {
-  background: var(--ued-danger);
-}
-
-@keyframes status-pulse {
-  0%,
-  100% {
-    opacity: 0.35;
-    transform: scale(0.9);
-  }
-
-  50% {
-    opacity: 1;
-    transform: scale(1);
-  }
 }
 
 .message-content {
