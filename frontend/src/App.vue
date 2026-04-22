@@ -4,7 +4,7 @@ import { useConfigStore } from './stores/config';
 import { useSessionStore } from './stores/session';
 import { initTelemetry } from './lib/telemetry';
 import { buildPermissionRequestKey, getAutoConfirmOptionId, normalizeAuthorizationMode } from './lib/authorization';
-import { loadStore, saveStore, selectDirectory, windowClose, windowMinimise, windowToggleMaximise } from './lib/wails';
+import { loadStore, saveStore, windowClose, windowMinimise, windowToggleMaximise } from './lib/wails';
 import { useI18n } from './lib/i18n';
 import ChatView from './views/chat/ChatView.vue';
 import SessionPreview from './views/chat/SessionPreview.vue';
@@ -16,7 +16,7 @@ import TrafficMonitor from './views/traffic/TrafficMonitor.vue';
 import ProcessManagerDialog from './views/processes/ProcessManagerDialog.vue';
 import AppFloatingPanel from './components/AppFloatingPanel.vue';
 import AppHeaderBar from './components/AppHeaderBar.vue';
-import AppSidebar from './components/AppSidebar.vue';
+import SessionSidebar from './views/chat/SessionSidebar.vue';
 import WelcomePanel from './views/chat/WelcomePanel.vue';
 import WorkspaceSessionDialog from './views/workspace/WorkspaceSessionDialog.vue';
 import AppToastStack from './components/AppToastStack.vue';
@@ -25,17 +25,11 @@ const configStore = useConfigStore();
 const sessionStore = useSessionStore();
 const { locale, t, toggleLocale } = useI18n();
 
-const selectedAgent = ref('');
-const selectedCwd = ref('');
 const showSidebar = ref(true);
 const showWorkspaceDialog = ref(false);
 const showTrafficMonitor = ref(false);
 const showProcessManager = ref(false);
 const showStartupDetails = ref(false);
-const sessionSearchQuery = ref('');
-const previewSessionId = ref('');
-const activeWorkspaceId = ref('');
-const pinnedSessionIds = ref([]);
 const openSettingsInAddMode = ref(false);
 const proxyEnabled = ref(false);
 const httpProxy = ref('');
@@ -43,51 +37,34 @@ const httpsProxy = ref('');
 const allProxy = ref('');
 const noProxy = ref('');
 const toastItems = ref([]);
-const pendingResumeSessionIds = ref([]);
-const pendingDisconnectSessionIds = ref([]);
-const pendingDeleteSessionIds = ref([]);
-const refreshingWorkspaceIds = ref([]);
 const isSelectingFolder = ref(false);
 const activeRoute = ref(normalizeRoute(window.location.hash));
+const previewSessionId = ref('');
+const selectedAgent = ref('');
+const selectedCwd = ref('');
+const activeWorkspaceId = ref('');
 
 let prefsStoreData = {};
 const prefsStoreName = 'preferences.json';
-let preferencesLoaded = false;
 const autoConfirmedPermissionKeys = new Set();
 let autoConfirmTimer = null;
 
-const isConnected = computed(() => sessionStore.isConnected);
+const sessionSidebarRef = ref(null);
+
 const isConnecting = computed(() => sessionStore.isConnecting);
+const isConnected = computed(() => sessionStore.isConnected);
 const error = computed(() => sessionStore.error || configStore.error);
 const hasAgents = computed(() => configStore.hasAgents);
-const savedSessionCount = computed(() => sessionStore.visibleSessions.length);
-const workspaces = computed(() => sessionStore.workspacesWithCounts);
-const connectedSessionIds = computed(() => sessionStore.connectedSessionIds);
-const pendingSessionIds = computed(() => [
-  ...new Set([
-    ...pendingResumeSessionIds.value,
-    ...pendingDisconnectSessionIds.value,
-    ...pendingDeleteSessionIds.value,
-  ]),
-]);
-const currentSessionId = computed(() => sessionStore.currentSession?.id ?? '');
+const savedSessionCount = computed(() => sessionSidebarRef.value?.savedSessionCount ?? 0);
+const currentSessionInActiveWorkspace = computed(() => sessionSidebarRef.value?.currentSessionInActiveWorkspace ?? false);
 const previewSession = computed(() =>
   sessionStore.visibleSessions.find((session) => session.id === previewSessionId.value) ?? null
 );
 const shouldShowLiveChat = computed(() =>
   isConnected.value &&
   currentSessionInActiveWorkspace.value &&
-  (!previewSession.value || previewSession.value.id === currentSessionId.value)
+  (!previewSession.value || previewSession.value.id === (sessionSidebarRef.value?.currentSessionId ?? ''))
 );
-const currentSessionInActiveWorkspace = computed(() => {
-  if (!sessionStore.currentSession) {
-    return false;
-  }
-  if (!activeWorkspaceId.value) {
-    return true;
-  }
-  return sessionStore.currentSession.workspaceId === activeWorkspaceId.value;
-});
 const currentSessionTitle = computed(
   () => currentSessionInActiveWorkspace.value
     ? sessionStore.currentSession?.title || t('chat.titleFallback')
@@ -178,423 +155,8 @@ function dismissToast(id) {
   toastItems.value = toastItems.value.filter((item) => item.id !== id);
 }
 
-function getErrorMessage(errorLike) {
-  return errorLike instanceof Error ? errorLike.message : String(errorLike);
-}
-
-function addPending(target, sessionId) {
-  if (!sessionId || target.value.includes(sessionId)) {
-    return false;
-  }
-  target.value = [...target.value, sessionId];
-  return true;
-}
-
-function removePending(target, sessionId) {
-  target.value = target.value.filter((id) => id !== sessionId);
-}
-
-function syncSelectionFromCurrentSession() {
-  const current = sessionStore.currentSession;
-  if (!current) {
-    return;
-  }
-  selectedAgent.value = current.agentName;
-  selectedCwd.value = current.cwd;
-  activeWorkspaceId.value = current.workspaceId || sessionStore.ensureWorkspaceForCwd(current.cwd).id;
-  applyProxyConfig(current.proxy);
-}
-
-function syncActiveWorkspaceFallback() {
-  if (activeWorkspaceId.value && workspaces.value.some((workspace) => workspace.id === activeWorkspaceId.value)) {
-    return;
-  }
-  const preferred = selectedCwd.value
-    ? workspaces.value.find((workspace) => workspace.cwd === selectedCwd.value)
-    : null;
-  activeWorkspaceId.value = preferred?.id || workspaces.value[0]?.id || '';
-  if (activeWorkspaceId.value) {
-    handleSelectWorkspace(activeWorkspaceId.value);
-  }
-}
-
-async function refreshScannedSessions() {
-  try {
-    await sessionStore.scanConfiguredAgentSessions(configStore.agentNames);
-    if (preferencesLoaded) {
-      syncActiveWorkspaceFallback();
-    }
-  } catch (e) {
-    console.warn('Failed to scan agent sessions:', e);
-  }
-}
-
-onMounted(async () => {
-  prefsStoreData = await loadStore(prefsStoreName);
-  pinnedSessionIds.value = Array.isArray(prefsStoreData.pinnedSessionIds)
-    ? (prefsStoreData.pinnedSessionIds)
-    : [];
-  proxyEnabled.value = readStoredBoolean(prefsStoreData.proxyEnabled, false);
-  httpProxy.value = readStoredString(prefsStoreData.httpProxy);
-  httpsProxy.value = readStoredString(prefsStoreData.httpsProxy);
-  allProxy.value = readStoredString(prefsStoreData.allProxy);
-  noProxy.value = readStoredString(prefsStoreData.noProxy);
-  sessionStore.setAuthorizationMode(normalizeAuthorizationMode(prefsStoreData.authorizationMode));
-
-  const telemetryEnabled = readStoredBoolean(prefsStoreData.telemetryEnabled, true);
-  await initTelemetry(telemetryEnabled);
-
-  await configStore.loadConfig();
-  await configStore.setupHotReload();
-  await sessionStore.initStore();
-  await refreshScannedSessions();
-
-  const savedCwd = readStoredString(prefsStoreData.lastCwd);
-  if (savedCwd) selectedCwd.value = savedCwd;
-  activeWorkspaceId.value = readStoredString(prefsStoreData.activeWorkspaceId);
-  syncActiveWorkspaceFallback();
-
-  preferencesLoaded = true;
-  if (!window.location.hash) {
-    window.history.replaceState(null, '', '#/chat');
-  }
-  window.addEventListener('hashchange', handleHashChange);
-  window.addEventListener('keydown', handleGlobalKeydown);
-});
-
-watch(
-  () => sessionStore.authorizationMode,
-  async (mode) => {
-    if (!preferencesLoaded) {
-      return;
-    }
-    prefsStoreData.authorizationMode = normalizeAuthorizationMode(mode);
-    await persistPreferences();
-  }
-);
-
-watch(
-  () => configStore.agentNames.join('\n'),
-  async () => {
-    if (!preferencesLoaded) {
-      return;
-    }
-    await refreshScannedSessions();
-  }
-);
-
-watch(
-  [pendingPermission, () => sessionStore.authorizationMode],
-  async ([request, mode]) => {
-    clearAutoConfirmTimer();
-    const optionId = getAutoConfirmOptionId(request, mode);
-    if (!optionId) {
-      return;
-    }
-
-    const requestKey = buildPermissionRequestKey(request);
-    if (!requestKey || autoConfirmedPermissionKeys.has(requestKey)) {
-      return;
-    }
-
-    autoConfirmedPermissionKeys.add(requestKey);
-    await nextTick();
-    autoConfirmTimer = window.setTimeout(() => {
-      autoConfirmTimer = null;
-      const currentRequest = sessionStore.pendingPermission;
-      if (!currentRequest || buildPermissionRequestKey(currentRequest) !== requestKey) {
-        return;
-      }
-      handlePermissionSelect(optionId);
-    }, 180);
-  }
-);
-
-onBeforeUnmount(() => {
-  clearAutoConfirmTimer();
-  window.removeEventListener('hashchange', handleHashChange);
-  window.removeEventListener('keydown', handleGlobalKeydown);
-});
-
-async function handleAgentSelect(agentName) {
-  selectedAgent.value = agentName;
-}
-
-async function handleSelectFolder() {
-  if (isSelectingFolder.value) {
-    return;
-  }
-  isSelectingFolder.value = true;
-  try {
-    const folder = await selectDirectory();
-    if (!folder) return;
-    selectedCwd.value = folder;
-    const workspace = await sessionStore.addWorkspace(folder);
-    activeWorkspaceId.value = workspace.id;
-    prefsStoreData.lastCwd = folder;
-    prefsStoreData.activeWorkspaceId = workspace.id;
-    await persistPreferences();
-  } finally {
-    isSelectingFolder.value = false;
-  }
-}
-
-function openWorkspaceDialog() {
-  if (!selectedCwd.value && activeWorkspaceId.value) {
-    const workspace = workspaces.value.find((item) => item.id === activeWorkspaceId.value);
-    if (workspace) {
-      selectedCwd.value = workspace.cwd;
-    }
-  }
-  showWorkspaceDialog.value = true;
-}
-
-async function handleAddWorkspace() {
-  if (isSelectingFolder.value || isConnecting.value) {
-    return;
-  }
-  isSelectingFolder.value = true;
-  try {
-    const folder = await selectDirectory();
-    if (!folder) return;
-    const workspace = await sessionStore.addWorkspace(folder);
-    handleSelectWorkspace(workspace.id);
-    pushToast(`${t('workspace.added')}: ${workspace.name}`);
-  } catch (e) {
-    pushToast(getErrorMessage(e), 'danger');
-  } finally {
-    isSelectingFolder.value = false;
-  }
-}
-
-async function handleSelectWorkspace(workspaceId) {
-  const workspace = workspaces.value.find((item) => item.id === workspaceId);
-  if (!workspace) {
-    return;
-  }
-  activeWorkspaceId.value = workspace.id;
-  selectedCwd.value = workspace.cwd;
-  const connectedSessionInWorkspace = sessionStore.savedSessions.find((session) =>
-    session.workspaceId === workspace.id && connectedSessionIds.value.includes(session.id)
-  );
-  if (connectedSessionInWorkspace) {
-    sessionStore.setActiveSession(connectedSessionInWorkspace.id);
-  }
-  prefsStoreData.activeWorkspaceId = workspace.id;
-  prefsStoreData.lastCwd = workspace.cwd;
-  await persistPreferences();
-}
-
-function handleViewSession(sessionId) {
-  previewSessionId.value = sessionId;
-}
-
-async function handleDeleteWorkspace(workspaceId) {
-  const workspace = workspaces.value.find((item) => item.id === workspaceId);
-  try {
-    await sessionStore.deleteWorkspace(workspaceId);
-    if (activeWorkspaceId.value === workspaceId) {
-      activeWorkspaceId.value = '';
-      syncActiveWorkspaceFallback();
-    }
-    syncSelectionFromCurrentSession();
-    pushToast(`${t('workspace.removed')}: ${workspace?.name || ''}`);
-  } catch (e) {
-    pushToast(getErrorMessage(e), 'danger');
-  }
-}
-
-async function handleRefreshWorkspace(workspaceId, agentName = selectedAgent.value) {
-  const workspace = workspaceId ? workspaces.value.find((item) => item.id === workspaceId) : null;
-  const refreshKey = workspace?.id || (agentName ? `agent:${agentName}` : 'agent:all');
-  if (refreshingWorkspaceIds.value.includes(refreshKey)) {
-    return;
-  }
-
-  const agentNames = agentName ? [agentName] : configStore.agentNames;
-  if (agentNames.length === 0) {
-    pushToast(t('agent.noneConfigured'), 'info');
-    return;
-  }
-
-  addPending(refreshingWorkspaceIds, refreshKey);
-  try {
-    let sessions = [];
-    if (workspace && typeof sessionStore.scanWorkspaceAgentSessions === 'function') {
-      sessions = await sessionStore.scanWorkspaceAgentSessions(agentNames, workspace);
-    } else {
-      await sessionStore.scanConfiguredAgentSessions(agentNames);
-      const agentNameSet = new Set(agentNames);
-      sessions = sessionStore.scannedSessions.filter((session) => agentNameSet.has(session.agentName));
-    }
-    pushToast(t('workspace.refreshDone', { count: sessions.length }));
-  } catch (e) {
-    pushToast(getErrorMessage(e), 'danger');
-  } finally {
-    removePending(refreshingWorkspaceIds, refreshKey);
-  }
-}
-
-function closeWorkspaceDialog() {
-  if (isConnecting.value) return;
-  showWorkspaceDialog.value = false;
-  showStartupDetails.value = false;
-}
-
-function buildSessionProxyConfig() {
-  return {
-    enabled: proxyEnabled.value,
-    httpProxy: httpProxy.value.trim() || undefined,
-    httpsProxy: httpsProxy.value.trim() || undefined,
-    allProxy: allProxy.value.trim() || undefined,
-    noProxy: noProxy.value.trim() || undefined,
-  };
-}
-
-function applyProxyConfig(proxy) {
-  proxyEnabled.value = !!proxy?.enabled;
-  httpProxy.value = readStoredString(proxy?.httpProxy);
-  httpsProxy.value = readStoredString(proxy?.httpsProxy);
-  allProxy.value = readStoredString(proxy?.allProxy);
-  noProxy.value = readStoredString(proxy?.noProxy);
-}
-
-async function persistProxyPreferences() {
-  prefsStoreData.proxyEnabled = proxyEnabled.value;
-  prefsStoreData.httpProxy = httpProxy.value;
-  prefsStoreData.httpsProxy = httpsProxy.value;
-  prefsStoreData.allProxy = allProxy.value;
-  prefsStoreData.noProxy = noProxy.value;
-  await persistPreferences();
-}
-
-async function handleCreateSession() {
-  if (!selectedAgent.value || isConnecting.value) return;
-  try {
-    await persistProxyPreferences();
-    await sessionStore.createSession(
-      selectedAgent.value,
-      selectedCwd.value || '.',
-      buildSessionProxyConfig()
-    );
-    syncSelectionFromCurrentSession();
-    previewSessionId.value = currentSessionId.value;
-    prefsStoreData.activeWorkspaceId = activeWorkspaceId.value;
-    prefsStoreData.lastCwd = selectedCwd.value;
-    await persistPreferences();
-    showWorkspaceDialog.value = false;
-    showStartupDetails.value = false;
-    pushToast(`${t('app.newSession')}: ${selectedAgent.value}`);
-  } catch (e) {
-    console.error('Failed to create session:', e);
-    pushToast(getErrorMessage(e), 'danger');
-  }
-}
-
-async function handleResumeSession(session) {
-  if (session?.external) {
-    pushToast(t('session.externalReadOnly'), 'info');
-    return;
-  }
-  if (
-    pendingResumeSessionIds.value.includes(session.id) ||
-    pendingDisconnectSessionIds.value.includes(session.id) ||
-    pendingDeleteSessionIds.value.includes(session.id)
-  ) {
-    return;
-  }
-  selectedAgent.value = session.agentName;
-  selectedCwd.value = session.cwd;
-  activeWorkspaceId.value = session.workspaceId || sessionStore.ensureWorkspaceForCwd(session.cwd).id;
-  applyProxyConfig(session.proxy);
-  prefsStoreData.lastCwd = session.cwd;
-  prefsStoreData.activeWorkspaceId = activeWorkspaceId.value;
-  await persistProxyPreferences();
-  addPending(pendingResumeSessionIds, session.id);
-  try {
-    await sessionStore.resumeSession(session);
-    previewSessionId.value = session.id;
-    pushToast(`${t('session.connect')}: ${session.title}`);
-  } catch (e) {
-    console.error('Failed to resume session:', e);
-    pushToast(getErrorMessage(e), 'danger');
-  } finally {
-    removePending(pendingResumeSessionIds, session.id);
-  }
-}
-
-function handleActivateSession(sessionId) {
-  const session = sessionStore.savedSessions.find((item) => item.id === sessionId);
-  sessionStore.setActiveSession(sessionId);
-  previewSessionId.value = sessionId;
-  if (!session) {
-    return;
-  }
-  selectedAgent.value = session.agentName;
-  selectedCwd.value = session.cwd;
-  activeWorkspaceId.value = session.workspaceId || sessionStore.ensureWorkspaceForCwd(session.cwd).id;
-  applyProxyConfig(session.proxy);
-}
-
-async function handleDeleteSession(sessionId) {
-  if (
-    pendingDeleteSessionIds.value.includes(sessionId) ||
-    pendingResumeSessionIds.value.includes(sessionId) ||
-    pendingDisconnectSessionIds.value.includes(sessionId)
-  ) {
-    return;
-  }
-  const deletedSession = sessionStore.savedSessions.find((session) => session.id === sessionId);
-  if (!deletedSession) {
-    return;
-  }
-  addPending(pendingDeleteSessionIds, sessionId);
-  try {
-    await sessionStore.deleteSession(sessionId);
-    if (pinnedSessionIds.value.includes(sessionId)) {
-      pinnedSessionIds.value = pinnedSessionIds.value.filter((id) => id !== sessionId);
-      prefsStoreData.pinnedSessionIds = pinnedSessionIds.value;
-      await persistPreferences();
-    }
-    syncSelectionFromCurrentSession();
-    if (deletedSession) {
-      pushToast(`${t('session.delete')}: ${deletedSession.title}`);
-    }
-  } catch (e) {
-    pushToast(getErrorMessage(e), 'danger');
-  } finally {
-    removePending(pendingDeleteSessionIds, sessionId);
-  }
-}
-
-async function handleDisconnect(sessionId) {
-  const targetSessionId = sessionId || sessionStore.currentSession?.id || '';
-  if (
-    !targetSessionId ||
-    pendingDisconnectSessionIds.value.includes(targetSessionId) ||
-    pendingResumeSessionIds.value.includes(targetSessionId) ||
-    pendingDeleteSessionIds.value.includes(targetSessionId)
-  ) {
-    return;
-  }
-  const disconnectingSession = sessionStore.savedSessions.find((session) => session.id === targetSessionId)
-    || sessionStore.currentSession;
-  addPending(pendingDisconnectSessionIds, targetSessionId);
-  try {
-    await sessionStore.disconnect(sessionId);
-    syncSelectionFromCurrentSession();
-    if (disconnectingSession) {
-      pushToast(`${t('session.disconnect')}: ${disconnectingSession.title}`, 'info');
-    }
-  } catch (e) {
-    pushToast(getErrorMessage(e), 'danger');
-  } finally {
-    removePending(pendingDisconnectSessionIds, targetSessionId);
-  }
-}
-
-async function handleCancelConnection() {
-  await sessionStore.cancelConnection();
+function handleSidebarNotify(event) {
+  pushToast(event.message, event.tone);
 }
 
 function handlePermissionSelect(optionId) {
@@ -615,19 +177,6 @@ function handleAuthMethodCancel() {
 
 function toggleSidebar() {
   showSidebar.value = !showSidebar.value;
-}
-
-async function handleToggleSessionPin(sessionId) {
-  if (!sessionStore.savedSessions.some((session) => session.id === sessionId)) {
-    return;
-  }
-  if (pinnedSessionIds.value.includes(sessionId)) {
-    pinnedSessionIds.value = pinnedSessionIds.value.filter((id) => id !== sessionId);
-  } else {
-    pinnedSessionIds.value = [...pinnedSessionIds.value, sessionId];
-  }
-  prefsStoreData.pinnedSessionIds = pinnedSessionIds.value;
-  await persistPreferences();
 }
 
 function clearError() {
@@ -665,7 +214,8 @@ function handleHeaderDoubleClick() {
 function handleGlobalKeydown(event) {
   if (event.key !== 'Escape') return;
   if (showWorkspaceDialog.value && !isConnecting.value) {
-    closeWorkspaceDialog();
+    showWorkspaceDialog.value = false;
+    showStartupDetails.value = false;
     return;
   }
   if (activeRoute.value !== 'chat') {
@@ -680,6 +230,76 @@ function handleGlobalKeydown(event) {
     showTrafficMonitor.value = false;
   }
 }
+
+onMounted(async () => {
+  prefsStoreData = await loadStore(prefsStoreName);
+  proxyEnabled.value = readStoredBoolean(prefsStoreData.proxyEnabled, false);
+  httpProxy.value = readStoredString(prefsStoreData.httpProxy);
+  httpsProxy.value = readStoredString(prefsStoreData.httpsProxy);
+  allProxy.value = readStoredString(prefsStoreData.allProxy);
+  noProxy.value = readStoredString(prefsStoreData.noProxy);
+  sessionStore.setAuthorizationMode(normalizeAuthorizationMode(prefsStoreData.authorizationMode));
+
+  const telemetryEnabled = readStoredBoolean(prefsStoreData.telemetryEnabled, true);
+  await initTelemetry(telemetryEnabled);
+
+  await configStore.loadConfig();
+  await configStore.setupHotReload();
+  await sessionStore.initStore();
+
+  preferencesLoaded = true;
+  if (!window.location.hash) {
+    window.history.replaceState(null, '', '#/chat');
+  }
+  window.addEventListener('hashchange', handleHashChange);
+  window.addEventListener('keydown', handleGlobalKeydown);
+});
+
+let preferencesLoaded = false;
+
+watch(
+  () => sessionStore.authorizationMode,
+  async (mode) => {
+    if (!preferencesLoaded) {
+      return;
+    }
+    prefsStoreData.authorizationMode = normalizeAuthorizationMode(mode);
+    await persistPreferences();
+  }
+);
+
+watch(
+  [pendingPermission, () => sessionStore.authorizationMode],
+  async ([request, mode]) => {
+    clearAutoConfirmTimer();
+    const optionId = getAutoConfirmOptionId(request, mode);
+    if (!optionId) {
+      return;
+    }
+
+    const requestKey = buildPermissionRequestKey(request);
+    if (!requestKey || autoConfirmedPermissionKeys.has(requestKey)) {
+      return;
+    }
+
+    autoConfirmedPermissionKeys.add(requestKey);
+    await nextTick();
+    autoConfirmTimer = window.setTimeout(() => {
+      autoConfirmTimer = null;
+      const currentRequest = sessionStore.pendingPermission;
+      if (!currentRequest || buildPermissionRequestKey(currentRequest) !== requestKey) {
+        return;
+      }
+      handlePermissionSelect(optionId);
+    }, 180);
+  }
+);
+
+onBeforeUnmount(() => {
+  clearAutoConfirmTimer();
+  window.removeEventListener('hashchange', handleHashChange);
+  window.removeEventListener('keydown', handleGlobalKeydown);
+});
 </script>
 
 <template>
@@ -703,41 +323,23 @@ function handleGlobalKeydown(event) {
       />
 
       <div class="window-body">
-        <AppSidebar
-          :content-visible="showSidebar"
-          :is-connecting="isConnecting"
-          :is-connected="isConnected && currentSessionInActiveWorkspace"
-          :saved-session-count="savedSessionCount"
-          :selected-agent="selectedAgent"
-          :selected-cwd-display="selectedCwdCompact"
+        <SessionSidebar
+          ref="sessionSidebarRef"
+          v-model:selected-agent="selectedAgent"
+          v-model:selected-cwd="selectedCwd"
+          v-model:active-workspace-id="activeWorkspaceId"
+          v-model:proxy-enabled="proxyEnabled"
+          v-model:http-proxy="httpProxy"
+          v-model:https-proxy="httpsProxy"
+          v-model:all-proxy="allProxy"
+          v-model:no-proxy="noProxy"
+          v-model:is-selecting-folder="isSelectingFolder"
+          v-model:show-workspace-dialog="showWorkspaceDialog"
+          v-model:preview-session-id="previewSessionId"
+          :show-sidebar="showSidebar"
           :active-route="activeRoute"
-          :agent-names="configStore.agentNames"
-          :workspaces="workspaces"
-          :active-workspace-id="activeWorkspaceId"
-          :session-search-query="sessionSearchQuery"
-          :pinned-session-ids="pinnedSessionIds"
-          :active-session-id="currentSessionId"
-          :preview-session-id="previewSessionId"
-          :connected-session-ids="connectedSessionIds"
-          :pending-session-ids="pendingSessionIds"
-          :deleting-session-ids="pendingDeleteSessionIds"
-          :refreshing-workspace-ids="refreshingWorkspaceIds"
-          @open-workspace="openWorkspaceDialog"
-          @add-workspace="handleAddWorkspace"
-          @select-agent="handleAgentSelect"
-          @refresh-workspace="handleRefreshWorkspace"
-          @select-workspace="handleSelectWorkspace"
-          @delete-workspace="handleDeleteWorkspace"
-          @update:query="sessionSearchQuery = $event"
-          @resume="handleResumeSession"
-          @activate="handleActivateSession"
-          @disconnect="handleDisconnect"
-          @delete="handleDeleteSession"
-          @toggle-pin="handleToggleSessionPin"
-          @view-session="handleViewSession"
+          @notify="handleSidebarNotify"
           @navigate-route="navigateRoute"
-          @open-settings="navigateRoute('settings')"
-          @open-add-agent="openSettings(true)"
         />
 
         <div class="content-stage">
@@ -754,7 +356,7 @@ function handleGlobalKeydown(event) {
               <SessionPreview
                 v-else-if="previewSession"
                 :session="previewSession"
-                @resume="handleResumeSession"
+                @resume="sessionSidebarRef?.handleResumeSession($event)"
               />
 
               <WelcomePanel
@@ -764,7 +366,7 @@ function handleGlobalKeydown(event) {
                 :workspace-label="selectedCwd ? selectedCwdLabel : '.'"
                 :saved-session-count="savedSessionCount"
                 :is-connecting="isConnecting"
-                @open-workspace="openWorkspaceDialog"
+                @open-workspace="sessionSidebarRef?.openWorkspaceDialog()"
                 @open-add-agent="openSettings(true)"
               />
             </section>
@@ -787,9 +389,9 @@ function handleGlobalKeydown(event) {
                 :eyebrow="t('app.desktopClient')"
                 @notify="pushToast($event.message, $event.tone)"
                 @close="closeSettings"
-                @add-workspace="handleAddWorkspace"
-                @delete-workspace="handleDeleteWorkspace"
-                @delete-session="handleDeleteSession"
+                @add-workspace="sessionSidebarRef?.handleAddWorkspace()"
+                @delete-workspace="sessionSidebarRef?.handleDeleteWorkspace($event)"
+                @delete-session="sessionSidebarRef?.handleDeleteSession($event)"
               />
             </section>
 
@@ -881,17 +483,17 @@ function handleGlobalKeydown(event) {
       :startup-elapsed="sessionStore.startupElapsed"
       :show-startup-details="showStartupDetails"
       :is-selecting-folder="isSelectingFolder"
-      @update:selectedAgent="handleAgentSelect"
+      @update:selectedAgent="selectedAgent = $event"
       @update:proxyEnabled="proxyEnabled = $event"
       @update:httpProxy="httpProxy = $event"
       @update:httpsProxy="httpsProxy = $event"
       @update:allProxy="allProxy = $event"
       @update:noProxy="noProxy = $event"
       @update:showStartupDetails="showStartupDetails = $event"
-      @select-folder="handleSelectFolder"
-      @create-session="handleCreateSession"
+      @select-folder="sessionSidebarRef?.handleSelectFolder()"
+      @create-session="sessionSidebarRef?.handleCreateSession()"
       @open-add-agent="handleOpenAddAgent"
-      @cancel-connection="handleCancelConnection"
+      @cancel-connection="sessionStore.cancelConnection()"
     />
 
     <PermissionDialog
@@ -1049,4 +651,3 @@ input, textarea, select { user-select: text; }
   }
 }
 </style>
-
