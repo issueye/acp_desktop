@@ -6,6 +6,7 @@ import { useI18n } from '../../lib/i18n';
 import AppConfirmDialog from '../../components/AppConfirmDialog.vue';
 import SessionPreview from '../chat/SessionPreview.vue';
 import AgentAvatar from '../../components/AgentAvatar.vue';
+import GitCommitPanel from './GitCommitPanel.vue';
 
 const emit = defineEmits(['notify']);
 
@@ -56,6 +57,8 @@ const selectedSession = computed(() => {
   return sessionStore.visibleSessions.find((s) => s.id === selectedSessionId.value) ?? null;
 });
 
+const selectedCwd = computed(() => selectedSession.value?.cwd || '');
+
 const totalSessionCount = computed(() => sessionStore.visibleSessions.length);
 
 function isAgentOpen(agentName) {
@@ -95,6 +98,13 @@ async function confirmDelete() {
     emit('notify', { message: e instanceof Error ? e.message : String(e), tone: 'danger' });
   }
   cancelDelete();
+}
+
+async function handleGitCommitted(result) {
+  if (!selectedSession.value?.id || selectedSession.value.external) {
+    return;
+  }
+  await sessionStore.recordSessionGitCommit(selectedSession.value.id, result);
 }
 
 function formatDate(timestamp) {
@@ -206,12 +216,18 @@ watch(
 
       <!-- Right: Session Detail -->
       <section class="sessions-detail-pane">
-        <SessionPreview
-          v-if="selectedSession"
-          :session="selectedSession"
-          :show-connect-button="false"
-          @resume="(session) => emit('notify', { message: `${t('session.connect')}: ${session.title}`, tone: 'success' })"
-        />
+        <template v-if="selectedSession">
+          <SessionPreview
+            :session="selectedSession"
+            :show-connect-button="false"
+            @resume="(session) => emit('notify', { message: `${t('session.connect')}: ${session.title}`, tone: 'success' })"
+          />
+          <GitCommitPanel
+            :cwd="selectedCwd"
+            @notify="emit('notify', $event)"
+            @committed="handleGitCommitted"
+          />
+        </template>
 
         <div v-else class="sessions-detail-empty">
           <strong>{{ t('session.noneSaved') }}</strong>
@@ -502,6 +518,9 @@ watch(
 
 .sessions-detail-pane :deep(.session-preview) {
   border-radius: 0;
+  flex: 1;
+  height: auto;
+  min-height: 0;
 }
 
 @media (max-width: 900px) {

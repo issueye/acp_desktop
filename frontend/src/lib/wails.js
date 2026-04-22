@@ -181,6 +181,26 @@ export async function writeTextFile(path, content) {
   await call("WriteTextFile", path, content);
 }
 
+export async function getGitStatus(cwd) {
+  return call("GetGitStatus", cwd);
+}
+
+export async function generateGitCommitMessage(cwd) {
+  return call("GenerateGitCommitMessage", cwd);
+}
+
+export async function generateGitCommitMessageForFiles(cwd, paths = []) {
+  return call("GenerateGitCommitMessageForFiles", cwd, paths);
+}
+
+export async function commitWorkspaceChanges(cwd, message) {
+  return call("CommitWorkspaceChanges", cwd, message);
+}
+
+export async function commitWorkspaceFiles(cwd, message, paths = []) {
+  return call("CommitWorkspaceFiles", cwd, message, paths);
+}
+
 export async function onAgentMessage(callback) {
   return listenEvent("agent-message", normalizeAgentMessage, callback);
 }

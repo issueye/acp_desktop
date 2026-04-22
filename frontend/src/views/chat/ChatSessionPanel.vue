@@ -499,7 +499,7 @@ defineExpose({
 
 .csp-session-row {
   position: relative;
-  width: 100%;
+  width: calc(100% - 0.3rem);
   min-height: 30px;
   display: flex;
   align-items: center;
@@ -513,6 +513,7 @@ defineExpose({
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease;
   margin: 0.2rem 0;
+  margin-left: 0.3rem;
 }
 
 .csp-session-row:hover,

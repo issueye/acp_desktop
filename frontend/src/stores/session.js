@@ -12,6 +12,9 @@ import {
   buildWorkspaceId,
   cloneMessages,
   clonePlanEntries,
+  applySessionGitMetadata,
+  normalizeSession,
+  normalizeSessionMetadata,
   normalizeWorkspace,
   normalizeWorkspacePath,
   sanitizeProxyConfig,
@@ -174,12 +177,9 @@ export const useSessionStore = defineStore('session', () => {
 
     const saved = Array.isArray(storeData.sessions) ? storeData.sessions : undefined;
     if (saved) {
-      savedSessions.value = saved.map((session) => ({
+      savedSessions.value = saved.map((session) => normalizeSession({
         ...session,
         workspaceId: session.workspaceId || buildWorkspaceId(session.cwd),
-        proxy: sanitizeProxyConfig(session.proxy),
-        messages: cloneMessages(session.messages),
-        currentPlanEntries: clonePlanEntries(session.currentPlanEntries),
       }));
     }
 
@@ -526,6 +526,7 @@ export const useSessionStore = defineStore('session', () => {
         supportsLoadSession,
         proxy: sanitizedProxy,
         messages: [],
+        ...normalizeSessionMetadata({ createdAt: Date.now(), metadataUpdatedAt: Date.now() }),
       };
 
       runtime = createBoundRuntime(session, client, {
@@ -789,6 +790,50 @@ export const useSessionStore = defineStore('session', () => {
     await saveSessionsToStore();
   }
 
+  async function updateSessionMetadata(sessionId, patch) {
+    const existing = savedSessions.value.find((session) => session.id === sessionId);
+    if (!existing) {
+      return null;
+    }
+    const nextSession = normalizeSession({
+      ...existing,
+      ...patch,
+      git: {
+        ...(existing.git || {}),
+        ...(patch?.git || {}),
+      },
+      metadataUpdatedAt: Date.now(),
+    });
+    savedSessions.value = savedSessions.value.map((session) =>
+      session.id === sessionId ? nextSession : session
+    );
+    const runtime = connectedSessions.value[sessionId];
+    if (runtime) {
+      runtime.session = nextSession;
+      notifyConnectedSessionChanged(runtime);
+    }
+    await saveSessionsToStore();
+    return nextSession;
+  }
+
+  async function recordSessionGitCommit(sessionId, commit) {
+    const existing = savedSessions.value.find((session) => session.id === sessionId);
+    if (!existing) {
+      return null;
+    }
+    const nextSession = normalizeSession(applySessionGitMetadata(existing, commit));
+    savedSessions.value = savedSessions.value.map((session) =>
+      session.id === sessionId ? nextSession : session
+    );
+    const runtime = connectedSessions.value[sessionId];
+    if (runtime) {
+      runtime.session = nextSession;
+      notifyConnectedSessionChanged(runtime);
+    }
+    await saveSessionsToStore();
+    return nextSession;
+  }
+
   async function setMode(modeId) {
     const runtime = getConnectedSession(activeSessionId.value);
     if (!runtime) {
@@ -873,6 +918,8 @@ export const useSessionStore = defineStore('session', () => {
     disconnect,
     refreshCurrentSession,
     deleteSession,
+    updateSessionMetadata,
+    recordSessionGitCommit,
     setMode,
     setModel,
     clearError,

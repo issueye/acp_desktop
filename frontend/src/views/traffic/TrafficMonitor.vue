@@ -75,6 +75,7 @@ function formatJson(payload) {
 function getEntryClass(entry) {
   const classes = ['entry', entry.direction];
   if (entry.error) classes.push('error');
+  if (entry.isSlow) classes.push('slow');
   return classes.join(' ');
 }
 
@@ -89,6 +90,16 @@ function getTypeLabel(entry) {
     return '(response)';
   }
   return '';
+}
+
+function formatDuration(entry) {
+  if (!Number.isFinite(entry.durationMs)) {
+    return '';
+  }
+  if (entry.durationMs < 1000) {
+    return `${entry.durationMs}ms`;
+  }
+  return `${(entry.durationMs / 1000).toFixed(1)}s`;
 }
 
 // Auto-scroll when new entries arrive
@@ -199,6 +210,9 @@ function handleCopy(entry) {
           <span class="direction-icon">{{ getDirectionIcon(entry) }}</span>
           <span class="method">{{ entry.method }}</span>
           <span class="type-label">{{ getTypeLabel(entry) }}</span>
+          <span v-if="formatDuration(entry)" class="duration" :class="{ slow: entry.isSlow }">
+            {{ formatDuration(entry) }}
+          </span>
           <span v-if="entry.requestId !== undefined" class="request-id">#{{ entry.requestId }}</span>
           <button 
             class="copy-btn ued-icon-btn ued-icon-btn--ghost" 
@@ -210,6 +224,10 @@ function handleCopy(entry) {
         </div>
         
         <div v-if="expandedIds.has(entry.id)" class="entry-payload">
+          <div v-if="entry.diagnostic" class="diagnostic">
+            <strong>Diagnostic</strong>
+            <span>{{ entry.diagnostic }}</span>
+          </div>
           <pre>{{ formatJson(entry.payload) }}</pre>
         </div>
       </div>
@@ -394,6 +412,7 @@ function handleCopy(entry) {
 .entry.in .direction-icon { color: #059669; }
 .entry.error .direction-icon,
 .entry.error .method { color: #dc2626; }
+.entry.slow .method { color: #b45309; }
 
 .method {
   font-weight: 600;
@@ -403,6 +422,21 @@ function handleCopy(entry) {
 .type-label {
   color: var(--text-muted);
   font-size: 0.7rem;
+}
+
+.duration {
+  flex-shrink: 0;
+  padding: 0.08rem 0.32rem;
+  border-radius: 5px;
+  background: var(--ued-bg-panel-muted);
+  color: var(--ued-text-muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.duration.slow {
+  background: color-mix(in srgb, var(--ued-warning) 18%, white);
+  color: color-mix(in srgb, var(--ued-warning) 78%, black);
 }
 
 .request-id {
@@ -427,6 +461,23 @@ function handleCopy(entry) {
   padding: 0.65rem 0.85rem 0.85rem 2rem;
   background: var(--bg-code);
   overflow-x: auto;
+}
+
+.diagnostic {
+  display: grid;
+  gap: 0.22rem;
+  margin-bottom: 0.65rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--ued-warning) 22%, var(--ued-border-default));
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--ued-warning-soft) 62%, white);
+  color: var(--ued-text-secondary);
+  font-family: var(--ued-font-ui);
+  font-size: 0.76rem;
+}
+
+.diagnostic strong {
+  color: var(--ued-text-primary);
 }
 
 .entry-payload pre {

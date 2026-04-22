@@ -32,6 +32,31 @@ const updatedAtLabel = computed(() => {
   return value > 0 ? new Date(value).toLocaleString() : '';
 });
 
+const summaryText = computed(() => {
+  const summary = props.session?.summary;
+  if (typeof summary === 'string' && summary.trim()) {
+    return summary.trim();
+  }
+  const firstUserMessage = messages.value.find((message) => message.role === 'user');
+  if (firstUserMessage?.content) {
+    return firstUserMessage.content;
+  }
+  return '';
+});
+
+const tagItems = computed(() => (
+  Array.isArray(props.session?.tags) ? props.session.tags.filter(Boolean) : []
+));
+
+const gitSummary = computed(() => {
+  const git = props.session?.git;
+  if (!git?.lastCommitHash) {
+    return '';
+  }
+  const shortHash = String(git.lastCommitHash).slice(0, 8);
+  return git.lastCommitSubject ? `${shortHash} ${git.lastCommitSubject}` : shortHash;
+});
+
 watch(
   () => props.session?.id,
   async () => {
@@ -225,6 +250,14 @@ function createMessage(role, content, timestamp) {
           <span v-if="session?.cwd">{{ session.cwd }}</span>
           <span v-if="updatedAtLabel">{{ updatedAtLabel }}</span>
         </p>
+        <div v-if="summaryText || tagItems.length > 0 || gitSummary" class="preview-metadata">
+          <p v-if="summaryText" class="preview-summary">{{ summaryText }}</p>
+          <div class="preview-badges">
+            <span v-if="session?.status" class="preview-badge">{{ session.status }}</span>
+            <span v-for="tag in tagItems" :key="tag" class="preview-badge">{{ tag }}</span>
+            <span v-if="gitSummary" class="preview-badge preview-badge--git">{{ gitSummary }}</span>
+          </div>
+        </div>
       </div>
       <UEDButton
         v-if="showConnectButton && session && !session.external"
@@ -306,6 +339,50 @@ function createMessage(role, content, timestamp) {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.preview-metadata {
+  display: grid;
+  gap: 0.35rem;
+  margin-top: 0.45rem;
+}
+
+.preview-summary {
+  max-width: 100%;
+  margin: 0;
+  color: var(--ued-text-secondary);
+  font-size: 0.78rem;
+  line-height: 1.45;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.preview-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.preview-badge {
+  display: inline-flex;
+  align-items: center;
+  max-width: 220px;
+  min-height: 22px;
+  padding: 0 0.45rem;
+  border: 1px solid var(--ued-border-subtle);
+  border-radius: 6px;
+  background: var(--ued-bg-panel-muted);
+  color: var(--ued-text-muted);
+  font-size: 0.68rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.preview-badge--git {
+  color: var(--ued-accent);
+  background: color-mix(in srgb, var(--ued-accent) 8%, white);
 }
 
 .preview-error {

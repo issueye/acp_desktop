@@ -136,6 +136,58 @@ export function clonePlanEntries(entries) {
   return entries.map((entry) => ({ ...entry }));
 }
 
+export function normalizeSessionMetadata(session = {}) {
+  const now = Date.now();
+  const git = session.git && typeof session.git === 'object' ? session.git : {};
+  const tags = Array.isArray(session.tags)
+    ? session.tags
+        .map((tag) => String(tag || '').trim())
+        .filter(Boolean)
+    : [];
+  const status = ['active', 'archived'].includes(session.status) ? session.status : 'active';
+  return {
+    summary: typeof session.summary === 'string' ? session.summary : '',
+    status,
+    tags,
+    git: {
+      lastCommitHash: typeof git.lastCommitHash === 'string' ? git.lastCommitHash : '',
+      lastCommitSubject: typeof git.lastCommitSubject === 'string' ? git.lastCommitSubject : '',
+      lastCommittedAt: Number.isFinite(git.lastCommittedAt) ? git.lastCommittedAt : 0,
+    },
+    createdAt: Number.isFinite(session.createdAt) ? session.createdAt : now,
+    metadataUpdatedAt: Number.isFinite(session.metadataUpdatedAt) ? session.metadataUpdatedAt : now,
+  };
+}
+
+export function normalizeSession(session = {}) {
+  const metadata = normalizeSessionMetadata(session);
+  return {
+    ...session,
+    ...metadata,
+    proxy: sanitizeProxyConfig(session.proxy),
+    messages: cloneMessages(session.messages),
+    currentPlanEntries: clonePlanEntries(session.currentPlanEntries),
+  };
+}
+
+export function applySessionGitMetadata(session, commit) {
+  if (!session || !commit) {
+    return session;
+  }
+  const normalized = normalizeSessionMetadata(session);
+  return {
+    ...session,
+    ...normalized,
+    git: {
+      ...normalized.git,
+      lastCommitHash: commit.hash || '',
+      lastCommitSubject: commit.subject || '',
+      lastCommittedAt: Date.now(),
+    },
+    metadataUpdatedAt: Date.now(),
+  };
+}
+
 export function buildPromptParts(text) {
   const parts = [];
   if (text) {

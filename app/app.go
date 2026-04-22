@@ -11,6 +11,7 @@ import (
 
 	"github.com/issueye/acp_desktop/internal/agent"
 	"github.com/issueye/acp_desktop/internal/config"
+	gitservice "github.com/issueye/acp_desktop/internal/git"
 	"github.com/issueye/acp_desktop/internal/jsengine"
 	"github.com/issueye/acp_desktop/internal/store"
 	"github.com/issueye/acp_desktop/internal/system"
@@ -232,4 +233,24 @@ func (a *App) WriteTextFile(path, content string) error {
 		}
 	}
 	return os.WriteFile(path, []byte(content), 0o644)
+}
+
+func (a *App) GetGitStatus(cwd string) (gitservice.Status, error) {
+	return gitservice.GetStatus(cwd)
+}
+
+func (a *App) GenerateGitCommitMessage(cwd string) (gitservice.CommitMessageDraft, error) {
+	return gitservice.GenerateCommitMessage(cwd)
+}
+
+func (a *App) GenerateGitCommitMessageForFiles(cwd string, paths []string) (gitservice.CommitMessageDraft, error) {
+	return gitservice.GenerateCommitMessageForFiles(cwd, paths)
+}
+
+func (a *App) CommitWorkspaceChanges(cwd, message string) (gitservice.CommitResult, error) {
+	return gitservice.CommitWorkspaceChanges(cwd, message)
+}
+
+func (a *App) CommitWorkspaceFiles(cwd, message string, paths []string) (gitservice.CommitResult, error) {
+	return gitservice.CommitWorkspaceFiles(cwd, message, paths)
 }
