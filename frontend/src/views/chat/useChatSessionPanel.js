@@ -38,8 +38,8 @@ export function useChatSessionPanel(props, emit) {
   const savedSessionCount = computed(() => sessionStore.visibleSessions.length);
   const workspaces = computed(() => sessionStore.workspacesWithCounts);
   const connectedSessionIds = computed(() => sessionStore.connectedSessionIds);
+  const loadingSessionIds = computed(() => sessionStore.loadingSessionIds);
   const currentSessionId = computed(() => sessionStore.currentSession?.id ?? '');
-  const isCurrentSessionLoading = computed(() => sessionStore.isLoading && !!sessionStore.currentSession);
   const currentSessionInActiveWorkspace = computed(() => {
     if (!sessionStore.currentSession) return false;
     if (!activeWorkspaceId.value) return true;
@@ -71,7 +71,7 @@ export function useChatSessionPanel(props, emit) {
   }
 
   function isChatLoadingSession(sessionId) {
-    return isCurrentSessionLoading.value && currentSessionId.value === sessionId;
+    return loadingSessionIds.value.includes(sessionId);
   }
 
   const {

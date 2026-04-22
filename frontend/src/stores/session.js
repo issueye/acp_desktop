@@ -144,6 +144,11 @@ export const useSessionStore = defineStore('session', () => {
   );
   const visibleSessions = computed(() => [...resumableSessions.value, ...scannedSessions.value]);
   const connectedSessionIds = computed(() => Object.keys(connectedSessions.value));
+  const loadingSessionIds = computed(() =>
+    Object.entries(connectedSessions.value)
+      .filter(([, runtime]) => runtime?.isLoading === true)
+      .map(([sessionId]) => sessionId)
+  );
   const workspacesWithCounts = computed(() => {
     const counts = new Map();
     visibleSessions.value.forEach((session) => {
@@ -822,6 +827,7 @@ export const useSessionStore = defineStore('session', () => {
     workspaces,
     workspacesWithCounts,
     connectedSessionIds,
+    loadingSessionIds,
     currentSession,
     messages: messageList,
     isConnected,
