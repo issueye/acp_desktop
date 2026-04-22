@@ -7,6 +7,7 @@ import UEDButton from '../../components/common/UEDButton.vue';
 
 const props = defineProps({
   session: { type: Object, default: null },
+  showConnectButton: { type: Boolean, default: true },
 });
 
 const emit = defineEmits(['resume']);
@@ -226,7 +227,7 @@ function createMessage(role, content, timestamp) {
         </p>
       </div>
       <UEDButton
-        v-if="session && !session.external"
+        v-if="showConnectButton && session && !session.external"
         variant="secondary"
         size="sm"
         @click="emit('resume', session)"

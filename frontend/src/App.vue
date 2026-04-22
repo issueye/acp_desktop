@@ -16,10 +16,12 @@ import TrafficMonitor from './views/traffic/TrafficMonitor.vue';
 import ProcessManagerDialog from './views/processes/ProcessManagerDialog.vue';
 import AppFloatingPanel from './components/AppFloatingPanel.vue';
 import AppHeaderBar from './components/AppHeaderBar.vue';
-import SessionSidebar from './views/chat/SessionSidebar.vue';
+import AppSidebar from './components/AppSidebar.vue';
+import ChatSessionPanel from './views/chat/ChatSessionPanel.vue';
 import WelcomePanel from './views/chat/WelcomePanel.vue';
 import WorkspaceSessionDialog from './views/workspace/WorkspaceSessionDialog.vue';
 import AppToastStack from './components/AppToastStack.vue';
+import AppFooter from './components/AppFooter.vue';
 
 const configStore = useConfigStore();
 const sessionStore = useSessionStore();
@@ -46,24 +48,25 @@ const activeWorkspaceId = ref('');
 
 let prefsStoreData = {};
 const prefsStoreName = 'preferences.json';
+let preferencesLoaded = false;
 const autoConfirmedPermissionKeys = new Set();
 let autoConfirmTimer = null;
 
-const sessionSidebarRef = ref(null);
+const chatSessionPanelRef = ref(null);
 
 const isConnecting = computed(() => sessionStore.isConnecting);
 const isConnected = computed(() => sessionStore.isConnected);
 const error = computed(() => sessionStore.error || configStore.error);
 const hasAgents = computed(() => configStore.hasAgents);
-const savedSessionCount = computed(() => sessionSidebarRef.value?.savedSessionCount ?? 0);
-const currentSessionInActiveWorkspace = computed(() => sessionSidebarRef.value?.currentSessionInActiveWorkspace ?? false);
+const savedSessionCount = computed(() => chatSessionPanelRef.value?.savedSessionCount ?? 0);
+const currentSessionInActiveWorkspace = computed(() => chatSessionPanelRef.value?.currentSessionInActiveWorkspace ?? false);
 const previewSession = computed(() =>
   sessionStore.visibleSessions.find((session) => session.id === previewSessionId.value) ?? null
 );
 const shouldShowLiveChat = computed(() =>
   isConnected.value &&
   currentSessionInActiveWorkspace.value &&
-  (!previewSession.value || previewSession.value.id === (sessionSidebarRef.value?.currentSessionId ?? ''))
+  (!previewSession.value || previewSession.value.id === (chatSessionPanelRef.value?.currentSessionId ?? ''))
 );
 const currentSessionTitle = computed(
   () => currentSessionInActiveWorkspace.value
@@ -113,22 +116,14 @@ function handleHashChange() {
 }
 
 function readStoredString(value) {
-  if (typeof value === 'string') {
-    return value;
-  }
-  if (value == null) {
-    return '';
-  }
+  if (typeof value === 'string') return value;
+  if (value == null) return '';
   return String(value);
 }
 
 function readStoredBoolean(value, fallback = false) {
-  if (typeof value === 'boolean') {
-    return value;
-  }
-  if (value == null) {
-    return fallback;
-  }
+  if (typeof value === 'boolean') return value;
+  if (value == null) return fallback;
   return Boolean(value);
 }
 
@@ -255,14 +250,10 @@ onMounted(async () => {
   window.addEventListener('keydown', handleGlobalKeydown);
 });
 
-let preferencesLoaded = false;
-
 watch(
   () => sessionStore.authorizationMode,
   async (mode) => {
-    if (!preferencesLoaded) {
-      return;
-    }
+    if (!preferencesLoaded) return;
     prefsStoreData.authorizationMode = normalizeAuthorizationMode(mode);
     await persistPreferences();
   }
@@ -273,23 +264,17 @@ watch(
   async ([request, mode]) => {
     clearAutoConfirmTimer();
     const optionId = getAutoConfirmOptionId(request, mode);
-    if (!optionId) {
-      return;
-    }
+    if (!optionId) return;
 
     const requestKey = buildPermissionRequestKey(request);
-    if (!requestKey || autoConfirmedPermissionKeys.has(requestKey)) {
-      return;
-    }
+    if (!requestKey || autoConfirmedPermissionKeys.has(requestKey)) return;
 
     autoConfirmedPermissionKeys.add(requestKey);
     await nextTick();
     autoConfirmTimer = window.setTimeout(() => {
       autoConfirmTimer = null;
       const currentRequest = sessionStore.pendingPermission;
-      if (!currentRequest || buildPermissionRequestKey(currentRequest) !== requestKey) {
-        return;
-      }
+      if (!currentRequest || buildPermissionRequestKey(currentRequest) !== requestKey) return;
       handlePermissionSelect(optionId);
     }, 180);
   }
@@ -323,26 +308,30 @@ onBeforeUnmount(() => {
       />
 
       <div class="window-body">
-        <SessionSidebar
-          ref="sessionSidebarRef"
-          v-model:selected-agent="selectedAgent"
-          v-model:selected-cwd="selectedCwd"
-          v-model:active-workspace-id="activeWorkspaceId"
-          v-model:proxy-enabled="proxyEnabled"
-          v-model:http-proxy="httpProxy"
-          v-model:https-proxy="httpsProxy"
-          v-model:all-proxy="allProxy"
-          v-model:no-proxy="noProxy"
-          v-model:is-selecting-folder="isSelectingFolder"
-          v-model:show-workspace-dialog="showWorkspaceDialog"
-          v-model:preview-session-id="previewSessionId"
-          :show-sidebar="showSidebar"
+        <AppSidebar
           :active-route="activeRoute"
-          @notify="handleSidebarNotify"
           @navigate-route="navigateRoute"
         />
 
         <div class="content-stage">
+          <ChatSessionPanel
+            v-if="activeRoute === 'chat'"
+            ref="chatSessionPanelRef"
+            v-model:selected-agent="selectedAgent"
+            v-model:selected-cwd="selectedCwd"
+            v-model:active-workspace-id="activeWorkspaceId"
+            v-model:proxy-enabled="proxyEnabled"
+            v-model:http-proxy="httpProxy"
+            v-model:https-proxy="httpsProxy"
+            v-model:all-proxy="allProxy"
+            v-model:no-proxy="noProxy"
+            v-model:is-selecting-folder="isSelectingFolder"
+            v-model:show-workspace-dialog="showWorkspaceDialog"
+            v-model:preview-session-id="previewSessionId"
+            :show="showSidebar"
+            @notify="handleSidebarNotify"
+          />
+
           <main class="main-content">
             <div v-if="error" class="error-banner">
               <span class="error-icon">!</span>
@@ -356,7 +345,7 @@ onBeforeUnmount(() => {
               <SessionPreview
                 v-else-if="previewSession"
                 :session="previewSession"
-                @resume="sessionSidebarRef?.handleResumeSession($event)"
+                @resume="chatSessionPanelRef?.handleResumeSession($event)"
               />
 
               <WelcomePanel
@@ -366,7 +355,7 @@ onBeforeUnmount(() => {
                 :workspace-label="selectedCwd ? selectedCwdLabel : '.'"
                 :saved-session-count="savedSessionCount"
                 :is-connecting="isConnecting"
-                @open-workspace="sessionSidebarRef?.openWorkspaceDialog()"
+                @open-workspace="chatSessionPanelRef?.openWorkspaceDialog()"
                 @open-add-agent="openSettings(true)"
               />
             </section>
@@ -384,14 +373,7 @@ onBeforeUnmount(() => {
 
             <section v-if="activeRoute === 'workspaces'" class="route-page">
               <WorkspacesView
-                embedded
-                :title="t('workspace.title')"
-                :eyebrow="t('app.desktopClient')"
                 @notify="pushToast($event.message, $event.tone)"
-                @close="closeSettings"
-                @add-workspace="sessionSidebarRef?.handleAddWorkspace()"
-                @delete-workspace="sessionSidebarRef?.handleDeleteWorkspace($event)"
-                @delete-session="sessionSidebarRef?.handleDeleteSession($event)"
               />
             </section>
 
@@ -413,7 +395,7 @@ onBeforeUnmount(() => {
           class="floating-sidebar-toggle no-drag"
           :class="{ 'is-open': showSidebar }"
           :style="{
-            left: showSidebar ? 'var(--app-sidebar-width)' : '48px',
+            left: showSidebar ? '280px' : '48px',
             transform: showSidebar ? 'translate(-50%, -50%)' : 'translateY(-50%)',
           }"
           :title="showSidebar ? t('app.collapseSidebar') : t('app.expandSidebar')"
@@ -449,6 +431,12 @@ onBeforeUnmount(() => {
           </span>
         </button>
       </div>
+
+      <AppFooter
+        :active-route="activeRoute"
+        :selected-agent="selectedAgent"
+        :selected-cwd="selectedCwd"
+      />
     </div>
 
     <AppFloatingPanel
@@ -490,8 +478,8 @@ onBeforeUnmount(() => {
       @update:allProxy="allProxy = $event"
       @update:noProxy="noProxy = $event"
       @update:showStartupDetails="showStartupDetails = $event"
-      @select-folder="sessionSidebarRef?.handleSelectFolder()"
-      @create-session="sessionSidebarRef?.handleCreateSession()"
+      @select-folder="chatSessionPanelRef?.handleSelectFolder()"
+      @create-session="chatSessionPanelRef?.handleCreateSession()"
       @open-add-agent="handleOpenAddAgent"
       @cancel-connection="sessionStore.cancelConnection()"
     />
@@ -565,9 +553,9 @@ input, textarea, select { user-select: text; }
 <style scoped>
 .app-shell { height: 100vh; padding: 0; }
 .window-frame { height: 100%; display: flex; flex-direction: column; overflow: hidden; border-radius: 0; background: var(--ued-bg-window); border: none; box-shadow: none; }
-.window-body { position: relative; flex: 1; min-height: 0; display: flex; gap: 0; padding: 0; background: var(--ued-bg-window); }
-.content-stage { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 0; background: var(--ued-bg-panel); }
-.main-content { position: relative; flex: 1; min-height: 0; overflow: hidden; background: linear-gradient(180deg, var(--ued-bg-panel) 0%, var(--ued-bg-window) 100%); }
+.window-body { position: relative; flex: 1; min-height: 0; display: flex; gap: 0; padding: 0; background: var(--ued-bg-window); overflow: hidden; }
+.content-stage { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: row; gap: 0; background: var(--ued-bg-panel); }
+.main-content { position: relative; flex: 1; min-width: 0; min-height: 0; overflow: hidden; background: linear-gradient(180deg, var(--ued-bg-panel) 0%, var(--ued-bg-window) 100%); }
 .route-page { height: 100%; min-height: 0; overflow: hidden; }
 .route-page--chat { display: flex; flex-direction: column; }
 .floating-sidebar-toggle {
