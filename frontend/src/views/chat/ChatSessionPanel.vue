@@ -166,7 +166,6 @@ defineExpose({
             </span>
             <span class="csp-workspace-label">
               <strong>{{ workspace.name }}</strong>
-              <small>{{ workspace.cwd }}</small>
             </span>
             <span class="csp-workspace-count">{{ workspace.sessions.length }}</span>
             <button
