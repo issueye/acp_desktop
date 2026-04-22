@@ -425,9 +425,13 @@ watch(
                   class="session-delete ued-icon-btn ued-icon-btn--ghost ued-icon-btn--danger"
                   :disabled="isPendingSession(session.id) || isDeletingSession(session.id)"
                   :title="isDeletingSession(session.id) ? t('session.deleting') : t('session.delete')"
+                  :aria-label="isDeletingSession(session.id) ? t('session.deleting') : t('session.delete')"
                   @click.stop="(event) => handleDelete(session.id, event)"
                 >
-                  {{ isDeletingSession(session.id) ? '...' : '×' }}
+                  <SvgIcon
+                    :name="isDeletingSession(session.id) ? 'session-action-pending' : 'session-action-delete'"
+                    class="session-action-icon"
+                  />
                 </button>
                 <div v-if="!session.external" class="session-actions">
                   <button
@@ -445,17 +449,22 @@ watch(
                     :class="{ pinned: isPinned(session.id) }"
                     :disabled="isPendingSession(session.id) || isDeletingSession(session.id)"
                     :title="isPinned(session.id) ? t('session.unpin') : t('session.pin')"
+                    :aria-label="isPinned(session.id) ? t('session.unpin') : t('session.pin')"
                     @click="(event) => handleTogglePin(session.id, event)"
                   >
-                    ★
+                    <SvgIcon name="session-action-pin" class="session-action-icon" />
                   </button>
                   <button
                     class="row-icon-button ued-icon-btn ued-icon-btn--ghost ued-icon-btn--danger danger"
                     :disabled="isPendingSession(session.id) || isDeletingSession(session.id)"
                     :title="isDeletingSession(session.id) ? t('session.deleting') : t('session.delete')"
+                    :aria-label="isDeletingSession(session.id) ? t('session.deleting') : t('session.delete')"
                     @click="(event) => handleDelete(session.id, event)"
                   >
-                    {{ isDeletingSession(session.id) ? '...' : '×' }}
+                    <SvgIcon
+                      :name="isDeletingSession(session.id) ? 'session-action-pending' : 'session-action-delete'"
+                      class="session-action-icon"
+                    />
                   </button>
                 </div>
               </div>
@@ -733,6 +742,12 @@ watch(
   width: 21px;
   height: 21px;
   font-size: 0.76rem;
+}
+
+.session-action-icon {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
 }
 
 .row-icon-button.pinned {

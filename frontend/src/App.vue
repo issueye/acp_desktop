@@ -16,10 +16,12 @@ import AuthMethodDialog from './views/auth/AuthMethodDialog.vue';
 import TrafficMonitor from './views/traffic/TrafficMonitor.vue';
 import ProcessManagerDialog from './views/processes/ProcessManagerDialog.vue';
 import AppFloatingPanel from './components/AppFloatingPanel.vue';
+import AppDialogShell from './components/AppDialogShell.vue';
 import AppHeaderBar from './components/AppHeaderBar.vue';
 import AppSidebar from './components/AppSidebar.vue';
 import ChatSessionPanel from './views/chat/ChatSessionPanel.vue';
 import WelcomePanel from './views/chat/WelcomePanel.vue';
+import GitCommitPanel from './views/chat/GitCommitPanel.vue';
 import WorkspaceSessionDialog from './views/workspace/WorkspaceSessionDialog.vue';
 import AppToastStack from './components/AppToastStack.vue';
 import AppFooter from './components/AppFooter.vue';
@@ -32,6 +34,7 @@ const showSidebar = ref(true);
 const showWorkspaceDialog = ref(false);
 const showTrafficMonitor = ref(false);
 const showProcessManager = ref(false);
+const showGitDialog = ref(false);
 const showStartupDetails = ref(false);
 const openSettingsInAddMode = ref(false);
 const proxyEnabled = ref(false);
@@ -45,6 +48,7 @@ const activeRoute = ref(normalizeRoute(window.location.hash));
 const previewSessionId = ref('');
 const selectedAgent = ref('');
 const selectedCwd = ref('');
+const gitDialogCwd = ref('');
 const activeWorkspaceId = ref('');
 
 let prefsStoreData = {};
@@ -203,6 +207,19 @@ function handleOpenAddAgent() {
   openSettings(true);
 }
 
+function handleOpenGitDialog(cwd = '') {
+  gitDialogCwd.value = cwd || sessionStore.currentSession?.cwd || selectedCwd.value || '';
+  showGitDialog.value = true;
+}
+
+async function handleGitCommitted(result) {
+  const currentSession = sessionStore.currentSession;
+  if (!currentSession?.id || currentSession.external || currentSession.cwd !== gitDialogCwd.value) {
+    return;
+  }
+  await sessionStore.recordSessionGitCommit(currentSession.id, result);
+}
+
 function handleHeaderDoubleClick() {
   windowToggleMaximise();
 }
@@ -331,6 +348,7 @@ onBeforeUnmount(() => {
             v-model:preview-session-id="previewSessionId"
             :show="showSidebar"
             @notify="handleSidebarNotify"
+            @open-git="handleOpenGitDialog"
           />
 
           <main class="main-content">
@@ -341,7 +359,11 @@ onBeforeUnmount(() => {
             </div>
 
             <section v-show="activeRoute === 'chat'" class="route-page route-page--chat">
-              <ChatView v-if="shouldShowLiveChat" />
+              <ChatView
+                v-if="shouldShowLiveChat"
+                @notify="pushToast($event.message, $event.tone)"
+                @open-git="handleOpenGitDialog"
+              />
 
               <SessionPreview
                 v-else-if="previewSession"
@@ -464,6 +486,20 @@ onBeforeUnmount(() => {
       @open-add-agent="handleOpenAddAgent"
       @cancel-connection="sessionStore.cancelConnection()"
     />
+
+    <AppDialogShell
+      v-model="showGitDialog"
+      :title="t('git.title')"
+      :eyebrow="t('git.eyebrow')"
+      max-width="760px"
+      max-height="min(760px, calc(100dvh - 56px))"
+    >
+      <GitCommitPanel
+        :cwd="gitDialogCwd"
+        @notify="pushToast($event.message, $event.tone)"
+        @committed="handleGitCommitted"
+      />
+    </AppDialogShell>
 
     <PermissionDialog
       v-if="pendingPermission"

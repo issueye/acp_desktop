@@ -31,6 +31,7 @@ const emit = defineEmits([
   'update:showWorkspaceDialog',
   'update:previewSessionId',
   'notify',
+  'open-git',
 ]);
 
 const {
@@ -168,6 +169,14 @@ defineExpose({
               <small>{{ workspace.cwd }}</small>
             </span>
             <span class="csp-workspace-count">{{ workspace.sessions.length }}</span>
+            <button
+              class="csp-workspace-git ued-icon-btn ued-icon-btn--ghost"
+              :title="t('git.open')"
+              :aria-label="t('git.open')"
+              @click.stop="emit('open-git', workspace.cwd)"
+            >
+              <SvgIcon name="app-sidebar-03" />
+            </button>
             <button
               class="csp-workspace-new ued-icon-btn ued-icon-btn--ghost"
               :title="t('app.newSession')"
@@ -454,6 +463,7 @@ defineExpose({
   text-align: right;
 }
 
+.csp-workspace-git,
 .csp-workspace-new {
   width: 20px;
   height: 20px;
@@ -475,12 +485,15 @@ defineExpose({
   transition: opacity 0.15s ease;
 }
 
+.csp-workspace-git .svg-icon,
 .csp-workspace-new .svg-icon,
 .csp-workspace-delete .svg-icon {
   width: 15px;
   height: 15px;
 }
 
+.csp-workspace-row:hover .csp-workspace-git,
+.csp-workspace-row.active .csp-workspace-git,
 .csp-workspace-row:hover .csp-workspace-new,
 .csp-workspace-row.active .csp-workspace-new,
 .csp-workspace-row:hover .csp-workspace-delete,

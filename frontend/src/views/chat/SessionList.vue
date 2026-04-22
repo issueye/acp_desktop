@@ -259,16 +259,21 @@ function handleKeyDown(event) {
               :disabled="isPendingSession(session.id) || isDeletingSession(session.id)"
               @click.stop="(e) => handleTogglePin(session.id, e)"
               :title="isPinned(session.id) ? t('session.unpin') : t('session.pin')"
+              :aria-label="isPinned(session.id) ? t('session.unpin') : t('session.pin')"
             >
-              ★
+              <SvgIcon name="session-action-pin" class="session-action-icon" />
             </button>
             <button
               class="row-icon-button ued-icon-btn ued-icon-btn--ghost ued-icon-btn--danger danger"
               :disabled="isPendingSession(session.id) || isDeletingSession(session.id)"
               @click.stop="(e) => handleDelete(session.id, e)"
               :title="isDeletingSession(session.id) ? t('session.deleting') : t('session.delete')"
+              :aria-label="isDeletingSession(session.id) ? t('session.deleting') : t('session.delete')"
             >
-              {{ isDeletingSession(session.id) ? '...' : '×' }}
+              <SvgIcon
+                :name="isDeletingSession(session.id) ? 'session-action-pending' : 'session-action-delete'"
+                class="session-action-icon"
+              />
             </button>
           </div>
           <span v-else class="external-badge">{{ session.agentName }}</span>
@@ -513,6 +518,12 @@ ul {
   width: 22px;
   height: 22px;
   font-size: 0.78rem;
+}
+
+.session-action-icon {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
 }
 
 .row-icon-button:hover {

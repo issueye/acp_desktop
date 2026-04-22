@@ -7,6 +7,8 @@ import ChatComposer from './ChatComposer.vue';
 import ChatHeader from './ChatHeader.vue';
 import ChatMessages from './ChatMessages.vue';
 
+const emit = defineEmits(['notify', 'open-git']);
+
 const sessionStore = useSessionStore();
 const { t } = useI18n();
 
@@ -97,6 +99,7 @@ async function handleRefreshSession() {
     isRefreshingSession.value = false;
   }
 }
+
 </script>
 
 <template>
@@ -110,6 +113,7 @@ async function handleRefreshSession() {
       :is-loading="isLoading"
       :is-refreshing-session="isRefreshingSession"
       @refresh="handleRefreshSession"
+      @open-git="emit('open-git', currentSession?.cwd || '')"
       @model-change="handleModelChange"
       @mode-change="handleModeChange"
     />

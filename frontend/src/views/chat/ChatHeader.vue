@@ -35,7 +35,7 @@ defineProps({
   },
 });
 
-defineEmits(['refresh', 'model-change', 'mode-change']);
+defineEmits(['refresh', 'open-git', 'model-change', 'mode-change']);
 
 const { t } = useI18n();
 </script>
@@ -47,6 +47,15 @@ const { t } = useI18n();
       <span class="agent-name">{{ currentSession?.agentName }}</span>
     </div>
     <div class="header-right">
+      <button
+        class="chat-header-action ued-icon-btn"
+        :title="t('git.open')"
+        :aria-label="t('git.open')"
+        :disabled="!currentSession?.cwd"
+        @click="$emit('open-git')"
+      >
+        <SvgIcon name="app-sidebar-03" />
+      </button>
       <button
         class="chat-header-action ued-icon-btn"
         :class="{ 'is-spinning': isRefreshingSession }"

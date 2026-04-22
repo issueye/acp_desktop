@@ -78,6 +78,7 @@ const messages = {
 
     'git.eyebrow': 'Workspace Git',
     'git.title': 'Commit Changes',
+    'git.open': 'Open Git changes',
     'git.refresh': 'Refresh',
     'git.refreshing': 'Refreshing...',
     'git.loading': 'Loading git status...',
@@ -339,6 +340,7 @@ const messages = {
 
     'git.eyebrow': '工作区 Git',
     'git.title': '提交变更',
+    'git.open': '打开 Git 变更',
     'git.refresh': '刷新',
     'git.refreshing': '刷新中...',
     'git.loading': '正在读取 Git 状态...',
