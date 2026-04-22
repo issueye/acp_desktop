@@ -29,7 +29,7 @@ const { t } = useI18n();
     </div>
 
     <div class="window-status">
-      <span class="status-dot" :class="{ live: isLive }"></span>
+      <!-- <span class="status-dot" :class="{ live: isLive }"></span>
       <div class="status-copy">
         <strong>{{ currentSessionTitle }}</strong>
         <span>
@@ -38,7 +38,7 @@ const { t } = useI18n();
             · {{ cwdLabel }}
           </template>
         </span>
-      </div>
+      </div> -->
     </div>
 
     <div class="window-actions no-drag">
@@ -148,7 +148,7 @@ const { t } = useI18n();
   gap: 0.75rem;
   align-items: center;
   min-height: 46px;
-  padding: 0.38rem 0.72rem;
+  padding: 0.3rem 0.4rem;
   background: var(--bg-header);
   color: var(--ued-text-primary);
   border-bottom: 1px solid var(--ued-border-default);

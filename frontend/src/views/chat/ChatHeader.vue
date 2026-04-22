@@ -84,7 +84,7 @@ const { t } = useI18n();
 
 <style scoped>
 .chat-header {
-  padding: 0.66rem 1.15rem;
+  padding: 0.3rem 0.4rem;
   border-bottom: 1px solid var(--ued-border-default);
   display: flex;
   align-items: center;
