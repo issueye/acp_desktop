@@ -14,11 +14,15 @@ const { t } = useI18n();
 const props = defineProps({
   show: { type: Boolean, default: true },
   isSelectingFolder: { type: Boolean, required: true },
+  selectedAgent: { type: String, default: '' },
+  selectedCwd: { type: String, default: '' },
+  activeWorkspaceId: { type: String, default: '' },
   proxyEnabled: { type: Boolean, required: true },
   httpProxy: { type: String, required: true },
   httpsProxy: { type: String, required: true },
   allProxy: { type: String, required: true },
   noProxy: { type: String, required: true },
+  previewSessionId: { type: String, default: '' },
 });
 
 const emit = defineEmits([
@@ -36,11 +40,23 @@ const emit = defineEmits([
   'notify',
 ]);
 
-const selectedAgent = ref('');
-const selectedCwd = ref('');
-const activeWorkspaceId = ref('');
+const selectedAgent = computed({
+  get: () => props.selectedAgent,
+  set: (value) => emit('update:selectedAgent', value),
+});
+const selectedCwd = computed({
+  get: () => props.selectedCwd,
+  set: (value) => emit('update:selectedCwd', value),
+});
+const activeWorkspaceId = computed({
+  get: () => props.activeWorkspaceId,
+  set: (value) => emit('update:activeWorkspaceId', value),
+});
 const sessionSearchQuery = ref('');
-const previewSessionId = ref('');
+const previewSessionId = computed({
+  get: () => props.previewSessionId,
+  set: (value) => emit('update:previewSessionId', value),
+});
 const pinnedSessionIds = ref([]);
 const pendingResumeSessionIds = ref([]);
 const pendingDisconnectSessionIds = ref([]);
@@ -49,6 +65,8 @@ const refreshingWorkspaceIds = ref([]);
 const expandedWorkspaces = ref(new Set());
 const showDeleteConfirm = ref(false);
 const pendingDeleteSessionId = ref('');
+const showWorkspaceDeleteConfirm = ref(false);
+const pendingDeleteWorkspaceId = ref('');
 
 let prefsStoreData = {};
 const prefsStoreName = 'preferences.json';
@@ -78,11 +96,11 @@ const normalizedQuery = computed(() => sessionSearchQuery.value.trim().toLowerCa
 
 function sessionsForWorkspace(workspaceId) {
   const pinned = new Set(pinnedSessionIds.value);
-  return sessionStore.visibleSessions
+  return sessionStore.savedSessions
     .filter((s) => s.workspaceId === workspaceId)
     .sort((a, b) => {
-      const aPinned = !a.external && pinned.has(a.id);
-      const bPinned = !b.external && pinned.has(b.id);
+      const aPinned = pinned.has(a.id);
+      const bPinned = pinned.has(b.id);
       if (aPinned !== bPinned) return aPinned ? -1 : 1;
       return b.lastUpdated - a.lastUpdated;
     });
@@ -177,9 +195,6 @@ function syncSelectionFromCurrentSession() {
   selectedCwd.value = current.cwd;
   activeWorkspaceId.value = current.workspaceId || sessionStore.ensureWorkspaceForCwd(current.cwd).id;
   applyProxyConfig(current.proxy);
-  emit('update:selectedAgent', selectedAgent.value);
-  emit('update:selectedCwd', selectedCwd.value);
-  emit('update:activeWorkspaceId', activeWorkspaceId.value);
 }
 
 function syncActiveWorkspaceFallback() {
@@ -233,7 +248,6 @@ function buildSessionProxyConfig() {
 
 async function handleAgentSelect(agentName) {
   selectedAgent.value = agentName;
-  emit('update:selectedAgent', agentName);
 }
 
 async function handleSelectFolder() {
@@ -248,8 +262,6 @@ async function handleSelectFolder() {
     prefsStoreData.lastCwd = folder;
     prefsStoreData.activeWorkspaceId = workspace.id;
     await persistPreferences();
-    emit('update:selectedCwd', folder);
-    emit('update:activeWorkspaceId', workspace.id);
   } finally {
     emit('update:isSelectingFolder', false);
   }
@@ -260,7 +272,6 @@ function openWorkspaceDialog() {
     const workspace = workspaces.value.find((item) => item.id === activeWorkspaceId.value);
     if (workspace) {
       selectedCwd.value = workspace.cwd;
-      emit('update:selectedCwd', workspace.cwd);
     }
   }
   emit('update:showWorkspaceDialog', true);
@@ -296,15 +307,18 @@ async function handleSelectWorkspace(workspaceId) {
   prefsStoreData.activeWorkspaceId = workspace.id;
   prefsStoreData.lastCwd = workspace.cwd;
   await persistPreferences();
-  emit('update:activeWorkspaceId', workspace.id);
-  emit('update:selectedCwd', workspace.cwd);
   // auto-expand selected workspace
   expandedWorkspaces.value = new Set([...expandedWorkspaces.value, workspace.id]);
 }
 
 function handleViewSession(sessionId) {
   previewSessionId.value = sessionId;
-  emit('update:previewSessionId', sessionId);
+}
+
+function handleRemoveWorkspaceClick(workspaceId, event) {
+  event.stopPropagation();
+  pendingDeleteWorkspaceId.value = workspaceId;
+  showWorkspaceDeleteConfirm.value = true;
 }
 
 async function handleDeleteWorkspace(workspaceId) {
@@ -320,6 +334,39 @@ async function handleDeleteWorkspace(workspaceId) {
   } catch (e) {
     emit('notify', { message: String(e), tone: 'danger' });
   }
+}
+
+async function confirmDeleteWorkspace() {
+  const workspaceId = pendingDeleteWorkspaceId.value;
+  if (!workspaceId) return;
+  const workspace = workspaces.value.find((w) => w.id === workspaceId);
+  const sessionsToDelete = sessionStore.visibleSessions.filter((s) => s.workspaceId === workspaceId);
+
+  // Delete all sessions under this workspace first
+  for (const session of sessionsToDelete) {
+    if (
+      !pendingDeleteSessionIds.value.includes(session.id) &&
+      !pendingResumeSessionIds.value.includes(session.id) &&
+      !pendingDisconnectSessionIds.value.includes(session.id)
+    ) {
+      try {
+        await sessionStore.deleteSession(session.id);
+      } catch (e) {
+        console.warn('Failed to delete session:', session.id, e);
+      }
+    }
+  }
+
+  // Then delete the workspace
+  await handleDeleteWorkspace(workspaceId);
+
+  pendingDeleteWorkspaceId.value = '';
+  showWorkspaceDeleteConfirm.value = false;
+}
+
+function cancelDeleteWorkspace() {
+  pendingDeleteWorkspaceId.value = '';
+  showWorkspaceDeleteConfirm.value = false;
 }
 
 async function handleRefreshWorkspace(workspaceId, agentName = selectedAgent.value) {
@@ -362,7 +409,6 @@ async function handleCreateSession() {
     );
     syncSelectionFromCurrentSession();
     previewSessionId.value = currentSessionId.value;
-    emit('update:previewSessionId', currentSessionId.value);
     prefsStoreData.activeWorkspaceId = activeWorkspaceId.value;
     prefsStoreData.lastCwd = selectedCwd.value;
     await persistPreferences();
@@ -397,10 +443,6 @@ async function handleResumeSession(session) {
   try {
     await sessionStore.resumeSession(session);
     previewSessionId.value = session.id;
-    emit('update:previewSessionId', session.id);
-    emit('update:selectedAgent', session.agentName);
-    emit('update:selectedCwd', session.cwd);
-    emit('update:activeWorkspaceId', activeWorkspaceId.value);
     emit('notify', { message: `${t('session.connect')}: ${session.title}`, tone: 'success' });
   } catch (e) {
     console.error('Failed to resume session:', e);
@@ -414,15 +456,11 @@ function handleActivateSession(sessionId) {
   const session = sessionStore.savedSessions.find((item) => item.id === sessionId);
   sessionStore.setActiveSession(sessionId);
   previewSessionId.value = sessionId;
-  emit('update:previewSessionId', sessionId);
   if (!session) return;
   selectedAgent.value = session.agentName;
   selectedCwd.value = session.cwd;
   activeWorkspaceId.value = session.workspaceId || sessionStore.ensureWorkspaceForCwd(session.cwd).id;
   applyProxyConfig(session.proxy);
-  emit('update:selectedAgent', session.agentName);
-  emit('update:selectedCwd', session.cwd);
-  emit('update:activeWorkspaceId', activeWorkspaceId.value);
 }
 
 function handleSessionClick(session) {
@@ -445,8 +483,7 @@ function handleConnectAction(session, event) {
 
 function handleDelete(sessionId, event) {
   event.stopPropagation();
-  const session = sessionStore.visibleSessions.find((item) => item.id === sessionId);
-  if (session?.external || isPendingSession(sessionId) || isDeletingSession(sessionId)) return;
+  if (isPendingSession(sessionId) || isDeletingSession(sessionId)) return;
   pendingDeleteSessionId.value = sessionId;
   showDeleteConfirm.value = true;
 }
@@ -466,7 +503,7 @@ async function handleDeleteSession(sessionId) {
   ) {
     return;
   }
-  const deletedSession = sessionStore.savedSessions.find((session) => session.id === sessionId);
+  const deletedSession = sessionStore.visibleSessions.find((session) => session.id === sessionId);
   if (!deletedSession) return;
   addPending(pendingDeleteSessionIds, sessionId);
   try {
@@ -477,9 +514,7 @@ async function handleDeleteSession(sessionId) {
       await persistPreferences();
     }
     syncSelectionFromCurrentSession();
-    if (deletedSession) {
-      emit('notify', { message: `${t('session.delete')}: ${deletedSession.title}`, tone: 'success' });
-    }
+    emit('notify', { message: `${t('session.delete')}: ${deletedSession.title}`, tone: 'success' });
   } catch (e) {
     emit('notify', { message: String(e), tone: 'danger' });
   } finally {
@@ -550,10 +585,8 @@ onMounted(async () => {
   const savedCwd = readStoredString(prefsStoreData.lastCwd);
   if (savedCwd) {
     selectedCwd.value = savedCwd;
-    emit('update:selectedCwd', savedCwd);
   }
   activeWorkspaceId.value = readStoredString(prefsStoreData.activeWorkspaceId);
-  emit('update:activeWorkspaceId', activeWorkspaceId.value);
   syncActiveWorkspaceFallback();
 
   preferencesLoaded = true;
@@ -679,6 +712,13 @@ defineExpose({
               <small>{{ workspace.cwd }}</small>
             </span>
             <span class="csp-workspace-count">{{ workspace.sessions.length }}</span>
+            <button
+              class="csp-workspace-delete ued-icon-btn ued-icon-btn--ghost ued-icon-btn--danger"
+              :title="t('workspace.remove')"
+              @click.stop="(event) => handleRemoveWorkspaceClick(workspace.id, event)"
+            >
+              ×
+            </button>
           </button>
 
           <div v-if="isWorkspaceOpen(workspace.id)" class="csp-workspace-sessions">
@@ -708,29 +748,31 @@ defineExpose({
                 <small v-if="session.external">{{ t('session.externalScanned') }}</small>
               </span>
 
-              <div v-if="!session.external" class="csp-session-actions">
-                <button
-                  class="csp-action-btn ued-icon-btn ued-icon-btn--ghost connect-toggle"
-                  :class="{ disconnect: isConnectedSession(session.id), busy: isPendingSession(session.id) }"
-                  :disabled="isPendingSession(session.id) || isDeletingSession(session.id)"
-                  :title="getConnectActionLabel(session)"
-                  @click="(event) => handleConnectAction(session, event)"
-                >
-                  <svg class="csp-connect-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                    <path d="M6 5L4.2 3.2a2.4 2.4 0 0 0-3.4 3.4L2.6 8.4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
-                    <path d="M10 11l1.8 1.8a2.4 2.4 0 0 0 3.4-3.4L13.4 7.6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
-                    <path d="M5 11l6-6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
-                  </svg>
-                </button>
-                <button
-                  class="csp-action-btn ued-icon-btn ued-icon-btn--ghost"
-                  :class="{ pinned: isPinned(session.id) }"
-                  :disabled="isPendingSession(session.id) || isDeletingSession(session.id)"
-                  :title="isPinned(session.id) ? t('session.unpin') : t('session.pin')"
-                  @click="(event) => handleTogglePin(session.id, event)"
-                >
-                  ★
-                </button>
+              <div class="csp-session-actions">
+                <template v-if="!session.external">
+                  <button
+                    class="csp-action-btn ued-icon-btn ued-icon-btn--ghost connect-toggle"
+                    :class="{ disconnect: isConnectedSession(session.id), busy: isPendingSession(session.id) }"
+                    :disabled="isPendingSession(session.id) || isDeletingSession(session.id)"
+                    :title="getConnectActionLabel(session)"
+                    @click="(event) => handleConnectAction(session, event)"
+                  >
+                    <svg class="csp-connect-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                      <path d="M6 5L4.2 3.2a2.4 2.4 0 0 0-3.4 3.4L2.6 8.4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+                      <path d="M10 11l1.8 1.8a2.4 2.4 0 0 0 3.4-3.4L13.4 7.6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+                      <path d="M5 11l6-6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
+                    </svg>
+                  </button>
+                  <button
+                    class="csp-action-btn ued-icon-btn ued-icon-btn--ghost"
+                    :class="{ pinned: isPinned(session.id) }"
+                    :disabled="isPendingSession(session.id) || isDeletingSession(session.id)"
+                    :title="isPinned(session.id) ? t('session.unpin') : t('session.pin')"
+                    @click="(event) => handleTogglePin(session.id, event)"
+                  >
+                    ★
+                  </button>
+                </template>
                 <button
                   class="csp-action-btn ued-icon-btn ued-icon-btn--ghost ued-icon-btn--danger"
                   :disabled="isPendingSession(session.id) || isDeletingSession(session.id)"
@@ -757,13 +799,25 @@ defineExpose({
       @confirm="confirmDelete"
       @cancel="cancelDelete"
     />
+
+    <AppConfirmDialog
+      :model-value="showWorkspaceDeleteConfirm"
+      :title="t('workspace.remove')"
+      :message="t('workspace.confirmRemove', { name: workspaces.find((w) => w.id === pendingDeleteWorkspaceId)?.name || '' })"
+      :confirm-label="t('workspace.remove')"
+      :cancel-label="t('common.cancel')"
+      tone="danger"
+      @update:modelValue="(value) => { if (!value) cancelDeleteWorkspace(); }"
+      @confirm="confirmDeleteWorkspace"
+      @cancel="cancelDeleteWorkspace"
+    />
   </aside>
 </template>
 
 <style scoped>
 .chat-session-panel {
-  width: 232px;
-  min-width: 232px;
+  width: 300px;
+  min-width: 300px;
   display: flex;
   flex-direction: column;
   gap: 0.45rem;
@@ -936,6 +990,22 @@ defineExpose({
   color: var(--ued-text-muted);
   font-size: 0.7rem;
   text-align: right;
+}
+
+.csp-workspace-delete {
+  width: 20px;
+  height: 20px;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+.csp-workspace-row:hover .csp-workspace-delete,
+.csp-workspace-row.active .csp-workspace-delete {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .csp-workspace-sessions {

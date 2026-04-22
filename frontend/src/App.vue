@@ -395,7 +395,7 @@ onBeforeUnmount(() => {
           class="floating-sidebar-toggle no-drag"
           :class="{ 'is-open': showSidebar }"
           :style="{
-            left: showSidebar ? '280px' : '48px',
+            left: showSidebar ? '365px' : '48px',
             transform: showSidebar ? 'translate(-50%, -50%)' : 'translateY(-50%)',
           }"
           :title="showSidebar ? t('app.collapseSidebar') : t('app.expandSidebar')"
