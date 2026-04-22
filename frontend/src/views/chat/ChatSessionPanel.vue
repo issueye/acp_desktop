@@ -1,4 +1,5 @@
 <script setup>
+import SvgIcon from '../../components/common/SvgIcon.vue';
 import AgentAvatar from '../../components/AgentAvatar.vue';
 import AppConfirmDialog from '../../components/AppConfirmDialog.vue';
 import { useChatSessionPanel } from './useChatSessionPanel';
@@ -115,10 +116,7 @@ defineExpose({
         :aria-label="t('workspace.add')"
         @click="handleAddWorkspace"
       >
-        <svg viewBox="0 0 18 18" fill="none" aria-hidden="true">
-          <path d="M3 6.2a1.4 1.4 0 0 1 1.4-1.4h3l1.2 1.4h5a1.4 1.4 0 0 1 1.4 1.4v5a1.4 1.4 0 0 1-1.4 1.4H4.4A1.4 1.4 0 0 1 3 12.6V6.2Z" stroke="currentColor" stroke-width="1.35" stroke-linejoin="round" />
-          <path d="M9 8.1v3.8M7.1 10h3.8" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" />
-        </svg>
+        <SvgIcon name="chat-session-panel-01" />
       </button>
       <button
         class="chat-session-panel__btn ued-icon-btn ued-icon-btn--ghost"
@@ -127,7 +125,7 @@ defineExpose({
         :aria-label="t('app.newSession')"
         @click="openWorkspaceDialog"
       >
-        +
+        <SvgIcon name="chat-session-panel-02" />
       </button>
     </div>
 
@@ -163,9 +161,7 @@ defineExpose({
               :class="{ open: isWorkspaceOpen(workspace.id) }"
             />
             <span class="csp-workspace-icon" aria-hidden="true">
-              <svg viewBox="0 0 16 16" fill="none" width="14" height="14">
-                <path d="M1.5 4a1 1 0 0 1 1-1h2.5l1 1h5a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-8.5a1 1 0 0 1-1-1V4z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
-              </svg>
+              <SvgIcon name="chat-session-panel-03" width="14" height="14" />
             </span>
             <span class="csp-workspace-label">
               <strong>{{ workspace.name }}</strong>
@@ -175,16 +171,18 @@ defineExpose({
             <button
               class="csp-workspace-new ued-icon-btn ued-icon-btn--ghost"
               :title="t('app.newSession')"
+              :aria-label="t('app.newSession')"
               @click.stop="(event) => handleNewSessionFromWorkspace(workspace.id, event)"
             >
-              +
+              <SvgIcon name="chat-session-panel-04" />
             </button>
             <button
               class="csp-workspace-delete ued-icon-btn ued-icon-btn--ghost ued-icon-btn--danger"
               :title="t('workspace.remove')"
+              :aria-label="t('workspace.remove')"
               @click.stop="(event) => handleRemoveWorkspaceClick(workspace.id, event)"
             >
-              ×
+              <SvgIcon name="chat-session-panel-05" />
             </button>
           </button>
 
@@ -225,11 +223,7 @@ defineExpose({
                     :title="getConnectActionLabel(session)"
                     @click="(event) => handleConnectAction(session, event)"
                   >
-                    <svg class="csp-connect-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                      <path d="M6 5L4.2 3.2a2.4 2.4 0 0 0-3.4 3.4L2.6 8.4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
-                      <path d="M10 11l1.8 1.8a2.4 2.4 0 0 0 3.4-3.4L13.4 7.6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
-                      <path d="M5 11l6-6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
-                    </svg>
+                    <SvgIcon name="chat-session-panel-06" class="csp-connect-icon" />
                   </button>
                   <button
                     class="csp-action-btn ued-icon-btn ued-icon-btn--ghost"
@@ -309,7 +303,7 @@ defineExpose({
   font-weight: 500;
 }
 
-.chat-session-panel__btn svg {
+.chat-session-panel__btn .svg-icon {
   width: 17px;
   height: 17px;
 }
@@ -475,11 +469,16 @@ defineExpose({
 .csp-workspace-delete {
   width: 20px;
   height: 20px;
-  font-size: 0.85rem;
   flex-shrink: 0;
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.15s ease;
+}
+
+.csp-workspace-new .svg-icon,
+.csp-workspace-delete .svg-icon {
+  width: 15px;
+  height: 15px;
 }
 
 .csp-workspace-row:hover .csp-workspace-new,

@@ -1,4 +1,5 @@
 <script setup>
+import SvgIcon from './components/common/SvgIcon.vue';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useConfigStore } from './stores/config';
 import { useSessionStore } from './stores/session';
@@ -402,30 +403,10 @@ onBeforeUnmount(() => {
           :aria-label="showSidebar ? t('app.collapseSidebar') : t('app.expandSidebar')"
           @click="toggleSidebar"
         >
-          <svg
+          <SvgIcon
+            :name="showSidebar ? 'app-sidebar-collapse' : 'app-sidebar-expand'"
             class="floating-sidebar-toggle__icon"
-            viewBox="0 0 24 24"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            aria-hidden="true"
-          >
-            <path
-              v-if="showSidebar"
-              d="M14.5 6.5L9 12L14.5 17.5"
-              stroke="currentColor"
-              stroke-width="1.9"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-            <path
-              v-else
-              d="M9.5 6.5L15 12L9.5 17.5"
-              stroke="currentColor"
-              stroke-width="1.9"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-          </svg>
+          />
           <span v-if="!showSidebar && savedSessionCount > 0" class="floating-sidebar-toggle__badge">
             {{ savedSessionCount }}
           </span>

@@ -1,4 +1,5 @@
 <script setup>
+import SvgIcon from '../../components/common/SvgIcon.vue';
 import { computed, ref, watch } from 'vue';
 import { useSessionStore } from '../../stores/session';
 
@@ -249,69 +250,8 @@ function handleKeyDown(event) {
               :aria-label="getConnectActionLabel(session.id)"
               @click="(event) => handleConnectAction(session, event)"
             >
-              <svg
-                v-if="isConnectedSession(session.id)"
-                class="connect-icon"
-                viewBox="0 0 16 16"
-                fill="none"
-                aria-hidden="true"
-              >
-                <path
-                  d="M6 5L4.2 3.2a2.4 2.4 0 0 0-3.4 3.4L2.6 8.4"
-                  stroke="currentColor"
-                  stroke-width="1.4"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                />
-                <path
-                  d="M10 11l1.8 1.8a2.4 2.4 0 0 0 3.4-3.4L13.4 7.6"
-                  stroke="currentColor"
-                  stroke-width="1.4"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                />
-                <path
-                  d="M6 10l4-4"
-                  stroke="currentColor"
-                  stroke-width="1.4"
-                  stroke-linecap="round"
-                />
-                <path
-                  d="M4.6 11.4L11.4 4.6"
-                  stroke="currentColor"
-                  stroke-width="1.4"
-                  stroke-linecap="round"
-                  opacity="0.72"
-                />
-              </svg>
-              <svg
-                v-else
-                class="connect-icon"
-                viewBox="0 0 16 16"
-                fill="none"
-                aria-hidden="true"
-              >
-                <path
-                  d="M6 5L4.2 3.2a2.4 2.4 0 0 0-3.4 3.4L2.6 8.4"
-                  stroke="currentColor"
-                  stroke-width="1.4"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                />
-                <path
-                  d="M10 11l1.8 1.8a2.4 2.4 0 0 0 3.4-3.4L13.4 7.6"
-                  stroke="currentColor"
-                  stroke-width="1.4"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                />
-                <path
-                  d="M5 11l6-6"
-                  stroke="currentColor"
-                  stroke-width="1.4"
-                  stroke-linecap="round"
-                />
-              </svg>
+              <SvgIcon name="session-list-01" v-if="isConnectedSession(session.id)" class="connect-icon" />
+              <SvgIcon name="session-list-02" v-else class="connect-icon" />
             </button>
             <button
               class="row-icon-button ued-icon-btn ued-icon-btn--ghost"

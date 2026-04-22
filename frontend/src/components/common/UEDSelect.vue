@@ -1,4 +1,5 @@
 <script setup>
+import SvgIcon from './SvgIcon.vue';
 defineOptions({
   inheritAttrs: false,
 });
@@ -31,15 +32,7 @@ function handleChange(event) {
       <slot />
     </select>
     <span class="ued-select-wrap__icon" aria-hidden="true">
-      <svg viewBox="0 0 16 16" fill="none">
-        <path
-          d="M4.25 6.5L8 10.25L11.75 6.5"
-          stroke="currentColor"
-          stroke-width="1.4"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        />
-      </svg>
+      <SvgIcon name="uedselect-01" />
     </span>
   </div>
 </template>
@@ -72,7 +65,7 @@ function handleChange(event) {
   transition: color 0.14s ease;
 }
 
-.ued-select-wrap__icon svg {
+.ued-select-wrap__icon .svg-icon {
   width: 100%;
   height: 100%;
 }

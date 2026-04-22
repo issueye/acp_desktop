@@ -1,0 +1,14 @@
+<svg
+                              class="tool-spinner"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              xmlns="http://www.w3.org/2000/svg"
+                              aria-hidden="true"
+                            >
+                              <path
+                                d="M12 2.25V5.25M12 18.75V21.75M4.93 4.93L7.05 7.05M16.95 16.95L19.07 19.07M2.25 12H5.25M18.75 12H21.75M4.93 19.07L7.05 16.95M16.95 7.05L19.07 4.93"
+                                stroke="currentColor"
+                                stroke-width="2"
+                                stroke-linecap="round"
+                              />
+                            </svg>

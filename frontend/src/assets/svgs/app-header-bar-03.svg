@@ -1,0 +1,10 @@
+<svg class="header-action-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <circle cx="12" cy="12" r="7.25" stroke="currentColor" stroke-width="1.7" />
+          <path
+            d="M4.75 12H19.25M12 4.75C14 6.7 15.05 9.12 15.05 12C15.05 14.88 14 17.3 12 19.25C10 17.3 8.95 14.88 8.95 12C8.95 9.12 10 6.7 12 4.75Z"
+            stroke="currentColor"
+            stroke-width="1.7"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>

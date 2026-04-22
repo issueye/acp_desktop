@@ -1,4 +1,5 @@
 <script setup>
+import SvgIcon from '../../components/common/SvgIcon.vue';
 import { ref, nextTick, watch, onBeforeUnmount, onMounted, onUpdated } from 'vue';
 import { marked } from 'marked';
 import { useI18n } from '../../lib/i18n';
@@ -265,12 +266,7 @@ function toggleToolCall(toggleKey) {
         >
           <!-- AI Avatar -->
           <div v-if="message.role === 'assistant'" class="msg-avatar msg-avatar--ai" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect x="3" y="3" width="18" height="18" rx="4" fill="var(--ued-accent-soft)" stroke="var(--ued-accent)" stroke-width="1.5"/>
-              <circle cx="9" cy="10" r="1.2" fill="var(--ued-accent)"/>
-              <circle cx="15" cy="10" r="1.2" fill="var(--ued-accent)"/>
-              <path d="M8 15c1.2 1.2 2.8 1.8 4 1.8s2.8-.6 4-1.8" stroke="var(--ued-accent)" stroke-width="1.5" stroke-linecap="round"/>
-            </svg>
+            <SvgIcon name="chat-messages-01" />
           </div>
 
           <div class="msg-body" :class="`msg-body--${message.role}`">
@@ -283,34 +279,13 @@ function toggleToolCall(toggleKey) {
                 <div v-if="part.type === 'thought' && message.role === 'assistant'" class="thought-section">
                   <button class="thought-toggle ued-btn ued-btn--ghost" @click="toggleThought(getThoughtKey(message.id, partIndex))">
                     <span class="thought-icon" aria-hidden="true">
-                      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path
-                          d="M9.5 18.5H14.5M10 21H14M8.25 14.75C7 13.74 6.2 12.19 6.2 10.45C6.2 7.44 8.76 5 12 5C15.24 5 17.8 7.44 17.8 10.45C17.8 12.19 17 13.74 15.75 14.75C15.18 15.21 14.82 15.89 14.82 16.63V17H9.18V16.63C9.18 15.89 8.82 15.21 8.25 14.75Z"
-                          stroke="currentColor"
-                          stroke-width="1.8"
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                        />
-                      </svg>
+                      <SvgIcon name="chat-messages-02" />
                     </span>
                     <span class="thought-label">
                       {{ isThoughtExpanded(getThoughtKey(message.id, partIndex)) ? t('chat.hideThinking') : t('chat.showThinking') }}
                     </span>
                     <span class="thought-chevron" aria-hidden="true">
-                      <svg
-                        :class="{ 'is-open': isThoughtExpanded(getThoughtKey(message.id, partIndex)) }"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
-                      >
-                        <path
-                          d="M8 10L12 14L16 10"
-                          stroke="currentColor"
-                          stroke-width="1.8"
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                        />
-                      </svg>
+                      <SvgIcon name="chat-messages-03" :class="{ 'is-open': isThoughtExpanded(getThoughtKey(message.id, partIndex)) }" />
                     </span>
                   </button>
                   <div
@@ -341,93 +316,23 @@ function toggleToolCall(toggleKey) {
                             class="tool-status-icon"
                             :title="getToolStatusLabel(part.toolCall.status)"
                           >
-                            <svg
-                              v-if="part.toolCall.status === 'pending' || part.toolCall.status === 'in_progress'"
-                              class="tool-spinner"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              xmlns="http://www.w3.org/2000/svg"
-                              aria-hidden="true"
-                            >
-                              <path
-                                d="M12 2.25V5.25M12 18.75V21.75M4.93 4.93L7.05 7.05M16.95 16.95L19.07 19.07M2.25 12H5.25M18.75 12H21.75M4.93 19.07L7.05 16.95M16.95 7.05L19.07 4.93"
-                                stroke="currentColor"
-                                stroke-width="2"
-                                stroke-linecap="round"
-                              />
-                            </svg>
-                            <svg
-                              v-else-if="part.toolCall.status === 'completed'"
-                              class="tool-check"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              xmlns="http://www.w3.org/2000/svg"
-                              aria-hidden="true"
-                            >
-                              <path
-                                d="M5 13l4 4L19 7"
-                                stroke="currentColor"
-                                stroke-width="2.2"
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                              />
-                            </svg>
-                            <svg
-                              v-else-if="part.toolCall.status === 'failed'"
-                              class="tool-cross"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              xmlns="http://www.w3.org/2000/svg"
-                              aria-hidden="true"
-                            >
-                              <path
-                                d="M6 6l12 12M18 6L6 18"
-                                stroke="currentColor"
-                                stroke-width="2.2"
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                              />
-                            </svg>
+                            <SvgIcon name="chat-messages-04" v-if="part.toolCall.status === 'pending' || part.toolCall.status === 'in_progress'" class="tool-spinner" />
+                            <SvgIcon name="chat-messages-05" v-else-if="part.toolCall.status === 'completed'" class="tool-check" />
+                            <SvgIcon name="chat-messages-06" v-else-if="part.toolCall.status === 'failed'" class="tool-cross" />
                           </span>
 
                           <span class="tool-kind-pill">
                             <span class="tool-icon" :title="getToolKindLabel(part.toolCall.kind)" aria-hidden="true">
-                              <svg v-if="part.toolCall.kind === 'read'" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M6.75 6.75C6.75 5.78 7.53 5 8.5 5H18V17H8.5C7.53 17 6.75 17.78 6.75 18.75M6.75 6.75V18.75M6.75 6.75H5.75C4.78 6.75 4 7.53 4 8.5V17C4 17.97 4.78 18.75 5.75 18.75H6.75" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
-                              </svg>
-                              <svg v-else-if="part.toolCall.kind === 'edit'" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M4.75 19.25H8.25L18.06 9.44C18.65 8.85 18.65 7.9 18.06 7.31L16.69 5.94C16.1 5.35 15.15 5.35 14.56 5.94L4.75 15.75V19.25Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
-                                <path d="M13.5 7L17 10.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
-                              </svg>
-                              <svg v-else-if="part.toolCall.kind === 'write'" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M7.25 5.75H13.25L16.75 9.25V18.25C16.75 19.08 16.08 19.75 15.25 19.75H8.75C7.92 19.75 7.25 19.08 7.25 18.25V5.75Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
-                                <path d="M13 5.75V9.5H16.75" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
-                                <path d="M9.5 13H14.5M9.5 16H12.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
-                              </svg>
-                              <svg v-else-if="part.toolCall.kind === 'delete'" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M5.5 7.5H18.5M9.5 4.75H14.5M8 7.5V17.25C8 18.22 8.78 19 9.75 19H14.25C15.22 19 16 18.22 16 17.25V7.5M10 10.25V15.5M14 10.25V15.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
-                              </svg>
-                              <svg v-else-if="part.toolCall.kind === 'move'" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M12 4.75L18.5 8.25V15.75L12 19.25L5.5 15.75V8.25L12 4.75Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
-                                <path d="M5.9 8.5L12 12L18.1 8.5M12 12V19" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
-                              </svg>
-                              <svg v-else-if="part.toolCall.kind === 'search'" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <circle cx="10.5" cy="10.5" r="5.75" stroke="currentColor" stroke-width="1.7" />
-                                <path d="M15 15L19 19" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
-                              </svg>
-                              <svg v-else-if="part.toolCall.kind === 'execute'" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M8 6.5L17 12L8 17.5V6.5Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
-                              </svg>
-                              <svg v-else-if="part.toolCall.kind === 'think'" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M9.5 18.5H14.5M10 21H14M8.25 14.75C7 13.74 6.2 12.19 6.2 10.45C6.2 7.44 8.76 5 12 5C15.24 5 17.8 7.44 17.8 10.45C17.8 12.19 17 13.74 15.75 14.75C15.18 15.21 14.82 15.89 14.82 16.63V17H9.18V16.63C9.18 15.89 8.82 15.21 8.25 14.75Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-                              </svg>
-                              <svg v-else-if="part.toolCall.kind === 'fetch'" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M12 5C15.87 5 19 8.13 19 12M12 5C8.13 5 5 8.13 5 12M12 5V12H19M5 12C5 15.87 8.13 19 12 19C15.87 19 19 15.87 19 12" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
-                              </svg>
-                              <svg v-else viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M12 4.75L18.5 8.25V15.75L12 19.25L5.5 15.75V8.25L12 4.75Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
-                                <path d="M12 8.5V12M12 15.25H12.01" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
-                              </svg>
+                              <SvgIcon name="chat-messages-07" v-if="part.toolCall.kind === 'read'" />
+                              <SvgIcon name="chat-messages-08" v-else-if="part.toolCall.kind === 'edit'" />
+                              <SvgIcon name="chat-messages-09" v-else-if="part.toolCall.kind === 'write'" />
+                              <SvgIcon name="chat-messages-10" v-else-if="part.toolCall.kind === 'delete'" />
+                              <SvgIcon name="chat-messages-11" v-else-if="part.toolCall.kind === 'move'" />
+                              <SvgIcon name="chat-messages-12" v-else-if="part.toolCall.kind === 'search'" />
+                              <SvgIcon name="chat-messages-13" v-else-if="part.toolCall.kind === 'execute'" />
+                              <SvgIcon name="chat-messages-14" v-else-if="part.toolCall.kind === 'think'" />
+                              <SvgIcon name="chat-messages-15" v-else-if="part.toolCall.kind === 'fetch'" />
+                              <SvgIcon name="chat-messages-16" v-else />
                             </span>
                             <span class="tool-kind-label">{{ getToolKindLabel(part.toolCall.kind) }}</span>
                           </span>
@@ -443,20 +348,7 @@ function toggleToolCall(toggleKey) {
 
                       <span class="tool-expand-button" aria-hidden="true">
                         <span class="tool-expand-chevron">
-                          <svg
-                            :class="{ 'is-open': isToolCallExpanded(getToolToggleKey(message.id, partIndex, part.toolCall)) }"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            xmlns="http://www.w3.org/2000/svg"
-                          >
-                            <path
-                              d="M8 10L12 14L16 10"
-                              stroke="currentColor"
-                              stroke-width="1.8"
-                              stroke-linecap="round"
-                              stroke-linejoin="round"
-                            />
-                          </svg>
+                          <SvgIcon name="chat-messages-17" :class="{ 'is-open': isToolCallExpanded(getToolToggleKey(message.id, partIndex, part.toolCall)) }" />
                         </span>
                       </span>
                     </button>
@@ -476,9 +368,7 @@ function toggleToolCall(toggleKey) {
                           class="tool-location"
                           :title="location.path"
                         >
-                          <svg class="tool-location__icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                            <path d="M4.75 8.75C4.75 7.78 5.53 7 6.5 7H10L11.5 8.5H17.5C18.47 8.5 19.25 9.28 19.25 10.25V16.5C19.25 17.47 18.47 18.25 17.5 18.25H6.5C5.53 18.25 4.75 17.47 4.75 16.5V8.75Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
-                          </svg>
+                          <SvgIcon name="chat-messages-18" class="tool-location__icon" />
                           <span class="tool-location__text">{{ location.path }}</span>
                         </div>
                       </div>
@@ -497,25 +387,13 @@ function toggleToolCall(toggleKey) {
 
           <!-- User Avatar -->
           <div v-if="message.role === 'user'" class="msg-avatar msg-avatar--user" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="12" cy="12" r="9" fill="var(--ued-accent-soft)" stroke="var(--ued-accent)" stroke-width="1.5"/>
-              <circle cx="12" cy="10" r="2.5" fill="var(--ued-accent)"/>
-              <path d="M7.5 16.5c1-2 3.5-3 4.5-3s3.5 1 4.5 3" stroke="var(--ued-accent)" stroke-width="1.5" stroke-linecap="round"/>
-            </svg>
+            <SvgIcon name="chat-messages-19" />
           </div>
         </div>
 
         <div v-if="isLoading" class="loading-indicator" role="status" aria-live="polite">
           <span class="loading-indicator__icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path
-                d="M9.5 18.5H14.5M10 21H14M8.25 14.75C7 13.74 6.2 12.19 6.2 10.45C6.2 7.44 8.76 5 12 5C15.24 5 17.8 7.44 17.8 10.45C17.8 12.19 17 13.74 15.75 14.75C15.18 15.21 14.82 15.89 14.82 16.63V17H9.18V16.63C9.18 15.89 8.82 15.21 8.25 14.75Z"
-                stroke="currentColor"
-                stroke-width="1.8"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              />
-            </svg>
+            <SvgIcon name="chat-messages-20" />
           </span>
           <span class="loading-indicator__label">{{ t('chat.thinking') }}</span>
           <span class="loading-indicator__dots" aria-hidden="true">
@@ -539,17 +417,7 @@ function toggleToolCall(toggleKey) {
             aria-label="置底"
             @click="scrollToBottom"
           >
-            <svg
-              class="scroll-jump__icon"
-              viewBox="0 0 24 24"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-              aria-hidden="true"
-            >
-              <path d="M12 5.5V17.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
-              <path d="M7.5 13L12 17.5L16.5 13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-              <path d="M6 19.5H18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
-            </svg>
+            <SvgIcon name="chat-messages-21" class="scroll-jump__icon" />
           </UEDButton>
         </div>
       </Transition>
@@ -655,7 +523,7 @@ function toggleToolCall(toggleKey) {
   margin-top: 0.15rem;
 }
 
-.msg-avatar svg {
+.msg-avatar .svg-icon {
   width: 100%;
   height: 100%;
   display: block;
@@ -776,7 +644,7 @@ function toggleToolCall(toggleKey) {
   place-items: center;
 }
 
-.tool-status-icon svg {
+.tool-status-icon .svg-icon {
   width: 13px;
   height: 13px;
   display: block;
@@ -821,7 +689,7 @@ function toggleToolCall(toggleKey) {
   color: var(--ued-text-muted);
 }
 
-.tool-icon svg {
+.tool-icon .svg-icon {
   width: 12px;
   height: 12px;
   display: block;
@@ -897,7 +765,7 @@ function toggleToolCall(toggleKey) {
   place-items: center;
 }
 
-.tool-expand-chevron svg {
+.tool-expand-chevron .svg-icon {
   width: 14px;
   height: 14px;
   display: block;
@@ -908,7 +776,7 @@ function toggleToolCall(toggleKey) {
   opacity: 1;
 }
 
-.tool-expand-chevron svg.is-open {
+.tool-expand-chevron .svg-icon.is-open {
   transform: rotate(180deg);
 }
 
@@ -1091,7 +959,7 @@ function toggleToolCall(toggleKey) {
   color: var(--ued-text-muted);
 }
 
-.loading-indicator__icon svg {
+.loading-indicator__icon .svg-icon {
   width: 13px;
   height: 13px;
   display: block;
@@ -1178,7 +1046,7 @@ function toggleToolCall(toggleKey) {
   border: none;
 }
 
-.thought-icon svg {
+.thought-icon .svg-icon {
   width: 13px;
   height: 13px;
   display: block;
@@ -1200,14 +1068,14 @@ function toggleToolCall(toggleKey) {
   opacity: 0.72;
 }
 
-.thought-chevron svg {
+.thought-chevron .svg-icon {
   width: 14px;
   height: 14px;
   display: block;
   transition: transform 0.18s ease;
 }
 
-.thought-chevron svg.is-open {
+.thought-chevron .svg-icon.is-open {
   transform: rotate(180deg);
 }
 

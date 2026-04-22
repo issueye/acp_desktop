@@ -1,0 +1,9 @@
+<svg class="header-action-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path
+            d="M4.75 13.25C6.75 10.25 8.75 10.25 10.75 13.25C12.75 16.25 14.75 16.25 16.75 13.25C17.55 12.05 18.35 11.3 19.25 11"
+            stroke="currentColor"
+            stroke-width="1.7"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>

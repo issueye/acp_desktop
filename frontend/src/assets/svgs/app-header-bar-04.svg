@@ -1,0 +1,11 @@
+<svg class="header-action-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path
+            d="M10.1 5.25L10.55 3.9H13.45L13.9 5.25C14.08 5.8 14.67 6.1 15.22 5.9L16.55 5.42L18 7.92L16.92 8.8C16.47 9.17 16.47 9.83 16.92 10.2L18 11.08L16.55 13.58L15.22 13.1C14.67 12.9 14.08 13.2 13.9 13.75L13.45 15.1H10.55L10.1 13.75C9.92 13.2 9.33 12.9 8.78 13.1L7.45 13.58L6 11.08L7.08 10.2C7.53 9.83 7.53 9.17 7.08 8.8L6 7.92L7.45 5.42L8.78 5.9C9.33 6.1 9.92 5.8 10.1 5.25Z"
+            stroke="currentColor"
+            stroke-width="1.55"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            transform="translate(0 2.5)"
+          />
+          <circle cx="12" cy="12" r="2.15" stroke="currentColor" stroke-width="1.55" />
+        </svg>

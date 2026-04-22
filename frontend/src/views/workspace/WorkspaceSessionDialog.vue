@@ -1,4 +1,5 @@
 <script setup>
+import SvgIcon from '../../components/common/SvgIcon.vue';
 import { computed } from 'vue';
 import { useI18n } from '../../lib/i18n';
 import AppDialogShell from '../../components/AppDialogShell.vue';
@@ -189,26 +190,7 @@ function closeDialog() {
                 :aria-label="props.isSelectingFolder ? t('app.selectingFolder') : t('app.selectFolder')"
                 @click="emit('selectFolder')"
               >
-                <svg
-                  class="folder-picker-icon"
-                  :class="{ spinning: props.isSelectingFolder }"
-                  viewBox="0 0 20 20"
-                  fill="none"
-                  aria-hidden="true"
-                >
-                  <path
-                    d="M2.5 6.5a1.5 1.5 0 0 1 1.5-1.5h3.3l1.3 1.6H16a1.5 1.5 0 0 1 1.5 1.5v5.9a1.5 1.5 0 0 1-1.5 1.5H4A1.5 1.5 0 0 1 2.5 14V6.5Z"
-                    stroke="currentColor"
-                    stroke-width="1.5"
-                    stroke-linejoin="round"
-                  />
-                  <path
-                    d="M10 8.4v4.2M7.9 10.5h4.2"
-                    stroke="currentColor"
-                    stroke-width="1.5"
-                    stroke-linecap="round"
-                  />
-                </svg>
+                <SvgIcon name="workspace-session-dialog-01" class="folder-picker-icon" :class="{ spinning: props.isSelectingFolder }" />
               </button>
             </div>
             <UEDCard muted class="cwd-card" :title="selectedCwd || t('app.currentDirectory')">

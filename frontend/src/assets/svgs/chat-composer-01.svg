@@ -1,0 +1,12 @@
+<svg
+                  class="send-btn__icon"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M5.326 18.694L19.43 12 5.326 5.306l1.502 5.163 6.11 1.531-6.11 1.531-1.502 5.163Z"
+                    fill="currentColor"
+                  />
+                </svg>

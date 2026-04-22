@@ -1,4 +1,5 @@
 <script setup>
+import SvgIcon from '../../components/common/SvgIcon.vue';
 import { computed, ref, watch } from 'vue';
 import { useSessionStore } from '../../stores/session';
 import { useI18n } from '../../lib/i18n';
@@ -341,12 +342,7 @@ watch(
             :aria-label="t('workspace.refresh')"
             @click.stop="emit('selectAgent', agent.name); emit('refreshWorkspace', '', agent.name)"
           >
-            <svg viewBox="0 0 18 18" fill="none" aria-hidden="true">
-              <path d="M14.1 7.2A5.2 5.2 0 0 0 4.4 5.5L3.1 7.1" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round" />
-              <path d="M3 4.5v2.8h2.8" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round" />
-              <path d="M3.9 10.8a5.2 5.2 0 0 0 9.7 1.7l1.3-1.6" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round" />
-              <path d="M15 13.5v-2.8h-2.8" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round" />
-            </svg>
+            <SvgIcon name="session-tree-01" />
           </button>
         </button>
 
@@ -391,7 +387,7 @@ watch(
                 :aria-label="t('workspace.remove')"
                 @click.stop="emit('deleteWorkspace', workspace.id)"
               >
-                ×
+                <SvgIcon name="session-tree-02" />
               </button>
             </div>
 
@@ -442,11 +438,7 @@ watch(
                     :aria-label="getConnectActionLabel(session)"
                     @click="(event) => handleConnectAction(session, event)"
                   >
-                    <svg class="connect-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                      <path d="M6 5L4.2 3.2a2.4 2.4 0 0 0-3.4 3.4L2.6 8.4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
-                      <path d="M10 11l1.8 1.8a2.4 2.4 0 0 0 3.4-3.4L13.4 7.6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
-                      <path d="M5 11l6-6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
-                    </svg>
+                    <SvgIcon name="session-tree-03" class="connect-icon" />
                   </button>
                   <button
                     class="row-icon-button ued-icon-btn ued-icon-btn--ghost"
@@ -678,9 +670,14 @@ watch(
   pointer-events: none;
 }
 
-.agent-refresh svg {
+.agent-refresh .svg-icon {
   width: 16px;
   height: 16px;
+}
+
+.workspace-delete .svg-icon {
+  width: 15px;
+  height: 15px;
 }
 
 .tree-row--agent:hover .agent-refresh,
@@ -691,7 +688,7 @@ watch(
   pointer-events: auto;
 }
 
-.agent-refresh.spinning svg {
+.agent-refresh.spinning .svg-icon {
   animation: workspace-refresh-spin 0.82s linear infinite;
 }
 

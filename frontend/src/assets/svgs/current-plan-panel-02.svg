@@ -1,0 +1,15 @@
+<svg class="plan-toggle-mark" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path
+              d="M3.5 4.5h5M3.5 8h7M3.5 11.5h4"
+              stroke="currentColor"
+              stroke-width="1.3"
+              stroke-linecap="round"
+            />
+            <path
+              d="M11.25 4.25l1 1 1.75-2"
+              stroke="currentColor"
+              stroke-width="1.3"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>

@@ -1,4 +1,5 @@
 <script setup>
+import SvgIcon from '../../components/common/SvgIcon.vue';
 import { useI18n } from '../../lib/i18n';
 import ModePicker from './ModePicker.vue';
 import ModelPicker from './ModelPicker.vue';
@@ -54,15 +55,7 @@ const { t } = useI18n();
         :disabled="!currentSession || isLoading || isRefreshingSession"
         @click="$emit('refresh')"
       >
-        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-          <path
-            d="M18 8.5V5.5M18 5.5H15M18 5.5L14.75 8.75C13.97 7.97 12.89 7.5 11.7 7.5C9.32 7.5 7.35 9.39 7.25 11.77M6 15.5V18.5M6 18.5H9M6 18.5L9.25 15.25C10.03 16.03 11.11 16.5 12.3 16.5C14.68 16.5 16.65 14.61 16.75 12.23"
-            stroke="currentColor"
-            stroke-width="1.8"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-        </svg>
+        <SvgIcon name="chat-header-01" />
       </button>
       <ModelPicker
         v-if="availableModels.length > 0"
@@ -125,13 +118,13 @@ const { t } = useI18n();
   height: 32px;
 }
 
-.chat-header-action svg {
+.chat-header-action .svg-icon {
   width: 15px;
   height: 15px;
   display: block;
 }
 
-.chat-header-action.is-spinning svg {
+.chat-header-action.is-spinning .svg-icon {
   animation: chat-refresh-spin 0.9s linear infinite;
 }
 

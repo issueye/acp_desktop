@@ -1,4 +1,5 @@
 <script setup>
+import SvgIcon from '../../components/common/SvgIcon.vue';
 import { computed, ref } from 'vue';
 import { useI18n } from '../../lib/i18n';
 import CommandPalette from './CommandPalette.vue';
@@ -134,38 +135,8 @@ function handleCommandSelect(command) {
                 :aria-label="t('chat.send')"
                 @click="$emit('send')"
               >
-                <svg
-                  v-if="!isLoading"
-                  class="send-btn__icon"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                  aria-hidden="true"
-                >
-                  <path
-                    d="M5.326 18.694L19.43 12 5.326 5.306l1.502 5.163 6.11 1.531-6.11 1.531-1.502 5.163Z"
-                    fill="currentColor"
-                  />
-                </svg>
-                <svg
-                  v-else
-                  class="send-btn__spinner"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                  aria-hidden="true"
-                >
-                  <circle
-                    cx="12"
-                    cy="12"
-                    r="8"
-                    stroke="currentColor"
-                    stroke-width="2.5"
-                    stroke-linecap="round"
-                    stroke-dasharray="38"
-                    stroke-dashoffset="12"
-                  />
-                </svg>
+                <SvgIcon name="chat-composer-01" v-if="!isLoading" class="send-btn__icon" />
+                <SvgIcon name="chat-composer-02" v-else class="send-btn__spinner" />
               </UEDButton>
             </div>
           </div>

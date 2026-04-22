@@ -1,4 +1,5 @@
 <script setup>
+import SvgIcon from '../../components/common/SvgIcon.vue';
 import { computed } from 'vue';
 import PlanCard from './PlanCard.vue';
 
@@ -33,19 +34,7 @@ const panelSummaryLabel = computed(
       @click="emit('toggle')"
     >
       <span class="plan-rail-toggle__icon" aria-hidden="true">
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <path
-            d="M14.5 6.5L9 12L14.5 17.5"
-            stroke="currentColor"
-            stroke-width="1.9"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-        </svg>
+        <SvgIcon name="current-plan-panel-01" />
       </span>
       <span class="plan-rail-toggle__count">{{ entries.length }}</span>
       <span class="plan-rail-toggle__label">{{ t('chat.currentPlan') }}</span>
@@ -54,21 +43,7 @@ const panelSummaryLabel = computed(
     <div v-else class="plan-shell">
       <div class="plan-panel-header">
         <div class="plan-panel-summary">
-          <svg class="plan-toggle-mark" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-            <path
-              d="M3.5 4.5h5M3.5 8h7M3.5 11.5h4"
-              stroke="currentColor"
-              stroke-width="1.3"
-              stroke-linecap="round"
-            />
-            <path
-              d="M11.25 4.25l1 1 1.75-2"
-              stroke="currentColor"
-              stroke-width="1.3"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-          </svg>
+          <SvgIcon name="current-plan-panel-02" class="plan-toggle-mark" />
           <div class="plan-panel-copy">
             <strong>{{ t('chat.currentPlan') }}</strong>
             <span>{{ panelSummaryLabel }}</span>
@@ -82,20 +57,7 @@ const panelSummaryLabel = computed(
           :title="t('chat.currentPlan')"
           @click="emit('toggle')"
         >
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            aria-hidden="true"
-          >
-            <path
-              d="M9.5 6.5L15 12L9.5 17.5"
-              stroke="currentColor"
-              stroke-width="1.9"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-          </svg>
+          <SvgIcon name="current-plan-panel-03" />
         </button>
       </div>
 
@@ -177,7 +139,7 @@ const panelSummaryLabel = computed(
   display: block;
 }
 
-.plan-rail-toggle__icon svg {
+.plan-rail-toggle__icon .svg-icon {
   width: 16px;
   height: 16px;
   display: block;
@@ -278,7 +240,7 @@ const panelSummaryLabel = computed(
   background: white;
 }
 
-.plan-panel-toggle svg {
+.plan-panel-toggle .svg-icon {
   width: 14px;
   height: 14px;
   display: block;

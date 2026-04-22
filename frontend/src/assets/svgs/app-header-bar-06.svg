@@ -1,0 +1,8 @@
+<svg class="header-action-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path
+            d="M8 8L16 16M16 8L8 16"
+            stroke="currentColor"
+            stroke-width="1.85"
+            stroke-linecap="round"
+          />
+        </svg>
