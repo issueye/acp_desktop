@@ -24,6 +24,18 @@ const panelSummaryLabel = computed(
 
 <template>
   <section class="current-plan-panel" :class="{ 'is-collapsed': collapsed }">
+    <button
+      v-if="!collapsed"
+      type="button"
+      class="plan-floating-toggle plan-floating-toggle--collapse"
+      :aria-expanded="true"
+      :aria-label="t('chat.currentPlan')"
+      :title="t('chat.currentPlan')"
+      @click="emit('toggle')"
+    >
+      <SvgIcon name="current-plan-panel-03" />
+    </button>
+
     <div class="plan-shell">
       <div class="plan-panel-header">
         <div class="plan-panel-summary">
@@ -33,36 +45,26 @@ const panelSummaryLabel = computed(
             <span>{{ panelSummaryLabel }}</span>
           </div>
         </div>
-        <button
-          type="button"
-          class="plan-panel-toggle"
-          :aria-expanded="!collapsed"
-          :aria-label="t('chat.currentPlan')"
-          :title="t('chat.currentPlan')"
-          @click="emit('toggle')"
-        >
-          <SvgIcon :name="collapsed ? 'current-plan-panel-01' : 'current-plan-panel-03'" />
-        </button>
       </div>
 
-      <div v-show="!collapsed" class="plan-panel-body">
+      <div class="plan-panel-body">
         <PlanCard :entries="entries" />
       </div>
     </div>
 
     <button
+      v-if="collapsed"
       type="button"
-      class="plan-rail-toggle"
-      :aria-expanded="!collapsed"
+      class="plan-floating-toggle plan-floating-toggle--expand"
+      :aria-expanded="false"
       :aria-label="panelSummaryLabel"
       :title="panelSummaryLabel"
       @click="emit('toggle')"
     >
-      <span class="plan-rail-toggle__icon" aria-hidden="true">
+      <span class="plan-floating-toggle__icon" aria-hidden="true">
         <SvgIcon name="current-plan-panel-01" />
       </span>
-      <span class="plan-rail-toggle__count">{{ entries.length }}</span>
-      <span class="plan-rail-toggle__label">{{ t('chat.currentPlan') }}</span>
+      <span class="plan-floating-toggle__count">{{ entries.length }}</span>
     </button>
   </section>
 </template>
@@ -70,7 +72,6 @@ const panelSummaryLabel = computed(
 <style scoped>
 .current-plan-panel {
   --plan-panel-width: 260px;
-  --plan-rail-visible-width: 42px;
   position: absolute;
   top: 0;
   right: 0;
@@ -84,7 +85,7 @@ const panelSummaryLabel = computed(
 }
 
 .current-plan-panel.is-collapsed {
-  width: var(--plan-rail-visible-width);
+  width: 0;
 }
 
 .plan-shell {
@@ -106,17 +107,17 @@ const panelSummaryLabel = computed(
 }
 
 .current-plan-panel.is-collapsed .plan-shell {
-  transform: translateX(calc(100% - var(--plan-rail-visible-width)));
-  opacity: 0.98;
+  transform: translateX(100%);
+  opacity: 0;
+  pointer-events: none;
 }
 
-.plan-rail-toggle {
+.plan-floating-toggle {
   position: absolute;
   top: 50%;
-  right: 12px;
   z-index: 10;
-  width: 30px;
-  height: 60px;
+  width: 32px;
+  height: 64px;
   border: 1px solid color-mix(in srgb, var(--ued-border-default) 82%, white);
   border-radius: 999px;
   background: color-mix(in srgb, var(--ued-bg-panel) 88%, white);
@@ -135,34 +136,39 @@ const panelSummaryLabel = computed(
     border-color 0.16s ease,
     box-shadow 0.16s ease,
     color 0.16s ease,
-    opacity 0.16s ease;
+    opacity 0.16s ease,
+    left 0.22s ease,
+    right 0.22s ease;
 }
 
-.current-plan-panel:not(.is-collapsed) .plan-rail-toggle {
-  opacity: 0;
-  pointer-events: none;
-}
-
-.plan-rail-toggle:hover {
+.plan-floating-toggle:hover {
   color: var(--ued-accent);
   border-color: color-mix(in srgb, var(--ued-accent) 26%, var(--ued-border-default));
   background: color-mix(in srgb, var(--ued-bg-panel) 94%, white);
   box-shadow: 0 10px 28px rgba(19, 31, 52, 0.12);
 }
 
-.plan-rail-toggle__icon {
+.plan-floating-toggle--collapse {
+  left: -16px;
+}
+
+.plan-floating-toggle--expand {
+  right: 8px;
+}
+
+.plan-floating-toggle__icon {
   width: 16px;
   height: 16px;
   display: block;
 }
 
-.plan-rail-toggle__icon .svg-icon {
+.plan-floating-toggle__icon .svg-icon {
   width: 16px;
   height: 16px;
   display: block;
 }
 
-.plan-rail-toggle__count {
+.plan-floating-toggle__count {
   position: absolute;
   right: -4px;
   bottom: -3px;
@@ -177,15 +183,6 @@ const panelSummaryLabel = computed(
   color: var(--ued-text-on-accent);
   font-size: 0.64rem;
   font-weight: 700;
-}
-
-.plan-rail-toggle__label {
-  display: none;
-  writing-mode: vertical-rl;
-  transform: rotate(180deg);
-  font-size: 0.74rem;
-  letter-spacing: 0.08em;
-  color: var(--ued-text-muted);
 }
 
 .plan-panel-header {
@@ -232,42 +229,6 @@ const panelSummaryLabel = computed(
   color: var(--ued-text-muted);
 }
 
-.plan-panel-toggle {
-  width: 28px;
-  height: 28px;
-  min-width: 28px;
-  padding: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--ued-border-default);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--ued-bg-panel) 92%, white);
-  color: var(--ued-text-muted);
-  cursor: pointer;
-  transition:
-    background-color 0.16s ease,
-    border-color 0.16s ease,
-    color 0.16s ease,
-    transform 0.16s ease;
-}
-
-.plan-panel-toggle:hover {
-  color: var(--ued-accent);
-  border-color: color-mix(in srgb, var(--ued-accent) 24%, var(--ued-border-default));
-  background: white;
-}
-
-.plan-panel-toggle .svg-icon {
-  width: 14px;
-  height: 14px;
-  display: block;
-}
-
-.current-plan-panel.is-collapsed .plan-panel-toggle {
-  transform: rotate(180deg);
-}
-
 .plan-panel-body {
   flex: 1;
   min-height: 0;
@@ -284,7 +245,6 @@ const panelSummaryLabel = computed(
 @media (max-width: 900px) {
   .current-plan-panel {
     --plan-panel-width: min(300px, calc(100vw - 24px));
-    --plan-rail-visible-width: 38px;
     height: calc(100% - 12px);
   }
 
@@ -293,15 +253,6 @@ const panelSummaryLabel = computed(
     border-top: 1px solid var(--ued-border-default);
     border-top-left-radius: var(--ued-radius-md);
     border-bottom-left-radius: var(--ued-radius-md);
-  }
-
-  .plan-rail-toggle {
-    top: auto;
-    right: 8px;
-    bottom: 86px;
-    width: 28px;
-    height: 54px;
-    transform: none;
   }
 }
 </style>

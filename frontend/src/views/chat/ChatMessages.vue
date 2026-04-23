@@ -458,7 +458,7 @@ function toggleToolCall(toggleKey) {
   position: sticky;
   bottom: 16px;
   display: flex;
-  justify-content: flex-end;
+  justify-content: center;
   width: min(920px, 100%);
   margin: 0 auto;
   padding-top: 0.25rem;
