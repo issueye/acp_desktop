@@ -32,6 +32,7 @@ const emit = defineEmits([
   'update:previewSessionId',
   'notify',
   'open-git',
+  'open-session-tab',
 ]);
 
 const {

@@ -7,8 +7,8 @@ import { initTelemetry } from './lib/telemetry';
 import { buildPermissionRequestKey, getAutoConfirmOptionId, normalizeAuthorizationMode } from './lib/authorization';
 import { loadStore, saveStore, windowClose, windowMinimise, windowToggleMaximise } from './lib/wails';
 import { useI18n } from './lib/i18n';
-import ChatView from './views/chat/ChatView.vue';
-import SessionPreview from './views/chat/SessionPreview.vue';
+import ChatTabsView from './views/chat/ChatTabsView.vue';
+import { useChatTabs } from './views/chat/useChatTabs';
 import PermissionDialog from './views/auth/PermissionDialog.vue';
 import SettingsView from './views/settings/SettingsView.vue';
 import WorkspacesView from './views/workspace/WorkspacesView.vue';
@@ -20,7 +20,6 @@ import AppDialogShell from './components/AppDialogShell.vue';
 import AppHeaderBar from './components/AppHeaderBar.vue';
 import AppSidebar from './components/AppSidebar.vue';
 import ChatSessionPanel from './views/chat/ChatSessionPanel.vue';
-import WelcomePanel from './views/chat/WelcomePanel.vue';
 import GitCommitPanel from './views/chat/GitCommitPanel.vue';
 import WorkspaceSessionDialog from './views/workspace/WorkspaceSessionDialog.vue';
 import AppToastStack from './components/AppToastStack.vue';
@@ -59,25 +58,29 @@ let autoConfirmTimer = null;
 
 const chatSessionPanelRef = ref(null);
 
+const {
+  activeChatTabId,
+  activeTabSession,
+  tabItems,
+  openSessionTab,
+  setActiveTab,
+  closeChatTab,
+} = useChatTabs({
+  sessionStore,
+  previewSessionId,
+});
+
 const isConnecting = computed(() => sessionStore.isConnecting);
 const isConnected = computed(() => sessionStore.isConnected);
 const error = computed(() => sessionStore.error || configStore.error);
 const hasAgents = computed(() => configStore.hasAgents);
 const savedSessionCount = computed(() => chatSessionPanelRef.value?.savedSessionCount ?? 0);
-const currentSessionInActiveWorkspace = computed(() => chatSessionPanelRef.value?.currentSessionInActiveWorkspace ?? false);
-const previewSession = computed(() =>
-  sessionStore.visibleSessions.find((session) => session.id === previewSessionId.value) ?? null
-);
-const shouldShowLiveChat = computed(() =>
-  isConnected.value &&
-  currentSessionInActiveWorkspace.value &&
-  (!previewSession.value || previewSession.value.id === (chatSessionPanelRef.value?.currentSessionId ?? ''))
-);
-const currentSessionTitle = computed(
-  () => currentSessionInActiveWorkspace.value
-    ? sessionStore.currentSession?.title || t('chat.titleFallback')
-    : t('chat.titleFallback')
-);
+const currentSessionTitle = computed(() => {
+  if (activeRoute.value !== 'chat') {
+    return t('chat.titleFallback');
+  }
+  return activeTabSession.value?.title || sessionStore.currentSession?.title || t('chat.titleFallback');
+});
 const pendingPermission = computed(() => sessionStore.pendingPermission);
 const pendingAuthMethods = computed(() => sessionStore.pendingAuthMethods);
 const pendingAuthAgentName = computed(() => sessionStore.pendingAuthAgentName);
@@ -349,6 +352,7 @@ onBeforeUnmount(() => {
             :show="showSidebar"
             @notify="handleSidebarNotify"
             @open-git="handleOpenGitDialog"
+            @open-session-tab="openSessionTab"
           />
 
           <main class="main-content">
@@ -359,27 +363,24 @@ onBeforeUnmount(() => {
             </div>
 
             <section v-show="activeRoute === 'chat'" class="route-page route-page--chat">
-              <ChatView
-                v-if="shouldShowLiveChat"
-                @notify="pushToast($event.message, $event.tone)"
-                @open-git="handleOpenGitDialog"
-              />
-
-              <SessionPreview
-                v-else-if="previewSession"
-                :session="previewSession"
-                @resume="chatSessionPanelRef?.handleResumeSession($event)"
-              />
-
-              <WelcomePanel
-                v-else
+              <ChatTabsView
+                :active-tab-id="activeChatTabId"
+                :active-session="activeTabSession"
+                :tab-items="tabItems"
+                :connected-session-ids="sessionStore.connectedSessionIds"
+                :loading-session-ids="sessionStore.loadingSessionIds"
                 :has-agents="hasAgents"
                 :selected-agent-label="hasAgents ? selectedAgent || configStore.agentNames[0] : '0'"
                 :workspace-label="selectedCwd ? selectedCwdLabel : '.'"
                 :saved-session-count="savedSessionCount"
                 :is-connecting="isConnecting"
+                @activate-tab="setActiveTab"
+                @close-tab="closeChatTab"
+                @resume-session="chatSessionPanelRef?.handleResumeSession($event)"
                 @open-workspace="chatSessionPanelRef?.openWorkspaceDialog()"
                 @open-add-agent="openSettings(true)"
+                @notify="pushToast($event.message, $event.tone)"
+                @open-git="handleOpenGitDialog"
               />
             </section>
 

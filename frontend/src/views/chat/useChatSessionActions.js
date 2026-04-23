@@ -70,6 +70,9 @@ export function useChatSessionActions({
       );
       syncSelectionFromCurrentSession();
       previewSessionId.value = sessionStore.currentSession?.id ?? '';
+      if (sessionStore.currentSession) {
+        emit('open-session-tab', sessionStore.currentSession);
+      }
       await persistPreferences({
         activeWorkspaceId: activeWorkspaceId.value,
         lastCwd: selectedCwd.value,
@@ -107,6 +110,7 @@ export function useChatSessionActions({
     try {
       await sessionStore.resumeSession(session);
       previewSessionId.value = session.id;
+      emit('open-session-tab', sessionStore.currentSession?.id === session.id ? sessionStore.currentSession : session);
       emit('notify', { message: `${t('session.connect')}: ${session.title}`, tone: 'success' });
     } catch (e) {
       console.error('Failed to resume session:', e);
@@ -129,6 +133,7 @@ export function useChatSessionActions({
 
   function handleSessionClick(session) {
     previewSessionId.value = session.id;
+    emit('open-session-tab', session);
     if (session.external) return;
     if (isConnectedSession(session.id)) {
       handleActivateSession(session.id);
