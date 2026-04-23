@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, watch } from 'vue';
+import { ref, computed } from 'vue';
 import { useSessionStore } from '../../stores/session';
 import { useI18n } from '../../lib/i18n';
 import { AUTHORIZATION_MODES } from '../../lib/authorization';
@@ -32,21 +32,6 @@ const authorizationModeOptions = computed(() => [
   { id: AUTHORIZATION_MODES.MANUAL, label: t('chat.authorizationDefault') },
   { id: AUTHORIZATION_MODES.POPUP_AUTO_FIRST, label: t('chat.authorizationFullAccess') },
 ]);
-
-watch(
-  currentPlanEntries,
-  (entries, previousEntries) => {
-    if (entries.length === 0) {
-      isPlanCollapsed.value = false;
-      return;
-    }
-
-    if (JSON.stringify(entries) !== JSON.stringify(previousEntries ?? [])) {
-      isPlanCollapsed.value = false;
-    }
-  },
-  { deep: true }
-);
 
 async function handleSend() {
   if (!canSend.value) return;
