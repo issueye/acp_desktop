@@ -13,7 +13,7 @@ const sessionStore = useSessionStore();
 const { t } = useI18n();
 
 const inputText = ref('');
-const inputHeight = '200px';
+const inputHeight = '190px';
 const isRefreshingSession = ref(false);
 const isPlanCollapsed = ref(false);
 
