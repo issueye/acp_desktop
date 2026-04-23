@@ -434,11 +434,16 @@ function toggleToolCall(toggleKey) {
 
 <style scoped>
 .chat-content {
+  position: relative;
   display: flex;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .messages-container {
   flex: 1;
+  min-width: 0;
   overflow-y: auto;
   padding: 1.4rem 1.4rem 1.2rem;
   background: var(--ued-bg-window);

@@ -24,23 +24,7 @@ const panelSummaryLabel = computed(
 
 <template>
   <section class="current-plan-panel" :class="{ 'is-collapsed': collapsed }">
-    <button
-      v-if="collapsed"
-      type="button"
-      class="plan-rail-toggle"
-      :aria-expanded="false"
-      :aria-label="panelSummaryLabel"
-      :title="panelSummaryLabel"
-      @click="emit('toggle')"
-    >
-      <span class="plan-rail-toggle__icon" aria-hidden="true">
-        <SvgIcon name="current-plan-panel-01" />
-      </span>
-      <span class="plan-rail-toggle__count">{{ entries.length }}</span>
-      <span class="plan-rail-toggle__label">{{ t('chat.currentPlan') }}</span>
-    </button>
-
-    <div v-else class="plan-shell">
+    <div class="plan-shell">
       <div class="plan-panel-header">
         <div class="plan-panel-summary">
           <SvgIcon name="current-plan-panel-02" class="plan-toggle-mark" />
@@ -52,59 +36,85 @@ const panelSummaryLabel = computed(
         <button
           type="button"
           class="plan-panel-toggle"
-          :aria-expanded="true"
+          :aria-expanded="!collapsed"
           :aria-label="t('chat.currentPlan')"
           :title="t('chat.currentPlan')"
           @click="emit('toggle')"
         >
-          <SvgIcon name="current-plan-panel-03" />
+          <SvgIcon :name="collapsed ? 'current-plan-panel-01' : 'current-plan-panel-03'" />
         </button>
       </div>
 
-      <div class="plan-panel-body">
+      <div v-show="!collapsed" class="plan-panel-body">
         <PlanCard :entries="entries" />
       </div>
     </div>
+
+    <button
+      type="button"
+      class="plan-rail-toggle"
+      :aria-expanded="!collapsed"
+      :aria-label="panelSummaryLabel"
+      :title="panelSummaryLabel"
+      @click="emit('toggle')"
+    >
+      <span class="plan-rail-toggle__icon" aria-hidden="true">
+        <SvgIcon name="current-plan-panel-01" />
+      </span>
+      <span class="plan-rail-toggle__count">{{ entries.length }}</span>
+      <span class="plan-rail-toggle__label">{{ t('chat.currentPlan') }}</span>
+    </button>
   </section>
 </template>
 
 <style scoped>
 .current-plan-panel {
-  position: relative;
-  width: 240px;
-  min-width: 240px;
+  --plan-panel-width: 260px;
+  --plan-rail-visible-width: 42px;
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: var(--plan-panel-width);
   height: 100%;
   display: flex;
-  border-left: 1px solid var(--ued-border-default);
-  background: color-mix(in srgb, var(--ued-bg-panel) 92%, white);
+  justify-content: flex-end;
+  pointer-events: none;
   overflow: visible;
-  z-index: 4;
-  transition:
-    width 0.2s ease,
-    min-width 0.2s ease,
-    background-color 0.16s ease;
+  z-index: 8;
 }
 
 .current-plan-panel.is-collapsed {
-  width: 0;
-  min-width: 0;
-  border-left: none;
-  background: transparent;
+  width: var(--plan-rail-visible-width);
 }
 
 .plan-shell {
-  width: 100%;
+  width: var(--plan-panel-width);
   min-width: 0;
+  height: 100%;
   display: flex;
   flex-direction: column;
-  background: transparent;
+  pointer-events: auto;
+  border-left: 1px solid var(--ued-border-default);
+  background: color-mix(in srgb, var(--ued-bg-panel) 92%, white);
+  box-shadow: -10px 0 28px rgba(19, 31, 52, 0.08);
+  transform: translateX(0);
+  opacity: 1;
+  transition:
+    transform 0.22s ease,
+    opacity 0.18s ease,
+    background-color 0.16s ease;
+}
+
+.current-plan-panel.is-collapsed .plan-shell {
+  transform: translateX(calc(100% - var(--plan-rail-visible-width)));
+  opacity: 0.98;
 }
 
 .plan-rail-toggle {
   position: absolute;
   top: 50%;
   right: 12px;
-  z-index: 9;
+  z-index: 10;
   width: 30px;
   height: 60px;
   border: 1px solid color-mix(in srgb, var(--ued-border-default) 82%, white);
@@ -118,12 +128,19 @@ const panelSummaryLabel = computed(
   box-shadow: 0 8px 24px rgba(19, 31, 52, 0.08);
   backdrop-filter: blur(10px);
   cursor: pointer;
+  pointer-events: auto;
   transform: translateY(-50%);
   transition:
     background-color 0.16s ease,
     border-color 0.16s ease,
     box-shadow 0.16s ease,
-    color 0.16s ease;
+    color 0.16s ease,
+    opacity 0.16s ease;
+}
+
+.current-plan-panel:not(.is-collapsed) .plan-rail-toggle {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .plan-rail-toggle:hover {
@@ -231,7 +248,8 @@ const panelSummaryLabel = computed(
   transition:
     background-color 0.16s ease,
     border-color 0.16s ease,
-    color 0.16s ease;
+    color 0.16s ease,
+    transform 0.16s ease;
 }
 
 .plan-panel-toggle:hover {
@@ -246,6 +264,10 @@ const panelSummaryLabel = computed(
   display: block;
 }
 
+.current-plan-panel.is-collapsed .plan-panel-toggle {
+  transform: rotate(180deg);
+}
+
 .plan-panel-body {
   flex: 1;
   min-height: 0;
@@ -255,35 +277,27 @@ const panelSummaryLabel = computed(
 
 @media (max-width: 1100px) {
   .current-plan-panel {
-    width: 240px;
-    min-width: 240px;
-  }
-
-  .current-plan-panel.is-collapsed {
-    width: 0;
-    min-width: 0;
+    --plan-panel-width: 240px;
   }
 }
 
 @media (max-width: 900px) {
   .current-plan-panel {
-    width: 100%;
-    min-width: 0;
-    height: auto;
-    border-left: none;
-    border-top: 1px solid var(--ued-border-default);
+    --plan-panel-width: min(300px, calc(100vw - 24px));
+    --plan-rail-visible-width: 38px;
+    height: calc(100% - 12px);
   }
 
-  .current-plan-panel.is-collapsed {
-    width: 0;
-    min-width: 0;
-    min-height: 0;
-    border-top: none;
+  .plan-shell {
+    border-left: 1px solid var(--ued-border-default);
+    border-top: 1px solid var(--ued-border-default);
+    border-top-left-radius: var(--ued-radius-md);
+    border-bottom-left-radius: var(--ued-radius-md);
   }
 
   .plan-rail-toggle {
     top: auto;
-    right: 12px;
+    right: 8px;
     bottom: 86px;
     width: 28px;
     height: 54px;
