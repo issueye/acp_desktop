@@ -243,21 +243,12 @@ function createMessage(role, content, timestamp) {
   <div class="session-preview">
     <header class="preview-header">
       <div class="preview-title">
-        <span class="preview-kicker">{{ session?.external ? t('session.externalScanned') : t('session.preview') }}</span>
         <h2>{{ session?.title || t('chat.titleFallback') }}</h2>
         <p>
           <span>{{ session?.agentName }}</span>
           <span v-if="session?.cwd">{{ session.cwd }}</span>
           <span v-if="updatedAtLabel">{{ updatedAtLabel }}</span>
         </p>
-        <div v-if="summaryText || tagItems.length > 0 || gitSummary" class="preview-metadata">
-          <p v-if="summaryText" class="preview-summary">{{ summaryText }}</p>
-          <div class="preview-badges">
-            <span v-if="session?.status" class="preview-badge">{{ session.status }}</span>
-            <span v-for="tag in tagItems" :key="tag" class="preview-badge">{{ tag }}</span>
-            <span v-if="gitSummary" class="preview-badge preview-badge--git">{{ gitSummary }}</span>
-          </div>
-        </div>
       </div>
       <UEDButton
         v-if="showConnectButton && session && !session.external"

@@ -1,5 +1,5 @@
 <script setup>
-import { computed, nextTick, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 const props = defineProps({
   modelValue: { type: [String, Number], default: '' },
@@ -11,7 +11,14 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue', 'change']);
 
-const tabRefs = ref({});
+const tabRefs = new Map();
+const navWrapRef = ref(null);
+const navListRef = ref(null);
+const navOffset = ref(0);
+const maxNavOffset = ref(0);
+const hasNavOverflow = ref(false);
+
+let resizeObserver = null;
 
 const normalizedItems = computed(() =>
   props.items
@@ -38,10 +45,16 @@ const classes = computed(() => [
   'ued-tabs',
   props.size !== 'md' ? `ued-tabs--${props.size}` : '',
   props.fullWidth ? 'ued-tabs--full-width' : '',
+  hasNavOverflow.value ? 'is-scrollable' : '',
   props.disabled ? 'is-disabled' : '',
 ]);
 
 const tabPanelId = computed(() => `ued-tabs-panel-${String(activeId.value).replace(/[^a-zA-Z0-9_-]/g, '-')}`);
+const navListStyle = computed(() => ({
+  transform: hasNavOverflow.value ? `translateX(-${navOffset.value}px)` : 'translateX(0)',
+}));
+const canScrollPrev = computed(() => navOffset.value > 0);
+const canScrollNext = computed(() => navOffset.value < maxNavOffset.value);
 
 function getTabId(item) {
   return `ued-tabs-tab-${String(item.id).replace(/[^a-zA-Z0-9_-]/g, '-')}`;
@@ -49,13 +62,67 @@ function getTabId(item) {
 
 function setTabRef(id, element) {
   if (element) {
-    tabRefs.value = { ...tabRefs.value, [id]: element };
+    tabRefs.set(id, element);
     return;
   }
 
-  const nextRefs = { ...tabRefs.value };
-  delete nextRefs[id];
-  tabRefs.value = nextRefs;
+  tabRefs.delete(id);
+}
+
+function clampOffset(value) {
+  return Math.max(0, Math.min(value, maxNavOffset.value));
+}
+
+function updateNavState() {
+  const wrap = navWrapRef.value;
+  const list = navListRef.value;
+  if (!wrap || !list || props.fullWidth) {
+    maxNavOffset.value = 0;
+    hasNavOverflow.value = false;
+    navOffset.value = 0;
+    return;
+  }
+
+  const nextMaxOffset = Math.max(0, list.scrollWidth - wrap.clientWidth);
+  maxNavOffset.value = nextMaxOffset;
+  hasNavOverflow.value = nextMaxOffset > 1;
+  navOffset.value = clampOffset(navOffset.value);
+}
+
+function scrollToOffset(value) {
+  updateNavState();
+  navOffset.value = clampOffset(value);
+}
+
+function scrollNav(direction) {
+  const wrapWidth = navWrapRef.value?.clientWidth ?? 0;
+  const step = Math.max(80, Math.floor(wrapWidth * 0.72));
+  scrollToOffset(navOffset.value + direction * step);
+}
+
+function scrollActiveTabIntoView() {
+  nextTick(() => {
+    updateNavState();
+    if (!hasNavOverflow.value || !activeId.value) return;
+
+    const wrapWidth = navWrapRef.value?.clientWidth ?? 0;
+    const activeTab = tabRefs.get(activeId.value);
+    if (!wrapWidth || !activeTab) return;
+
+    const tabStart = activeTab.offsetLeft;
+    const tabEnd = tabStart + activeTab.offsetWidth;
+    const visibleStart = navOffset.value;
+    const visibleEnd = visibleStart + wrapWidth;
+
+    if (tabStart < visibleStart) {
+      scrollToOffset(tabStart);
+      return;
+    }
+
+    if (tabEnd > visibleEnd) {
+      scrollToOffset(tabEnd - wrapWidth);
+    }
+  });
 }
 
 function selectItem(item) {
@@ -69,7 +136,7 @@ function selectItem(item) {
 function focusItem(item) {
   if (!item) return;
   nextTick(() => {
-    tabRefs.value[item.id]?.focus?.();
+    tabRefs.get(item.id)?.focus?.();
   });
 }
 
@@ -129,37 +196,97 @@ watch(
   },
   { immediate: true }
 );
+
+watch(
+  () => [activeId.value, normalizedItems.value.length, props.fullWidth],
+  () => {
+    scrollActiveTabIntoView();
+  },
+  { flush: 'post' }
+);
+
+onMounted(() => {
+  resizeObserver = new ResizeObserver(() => {
+    updateNavState();
+    scrollActiveTabIntoView();
+  });
+
+  if (navWrapRef.value) resizeObserver.observe(navWrapRef.value);
+  if (navListRef.value) resizeObserver.observe(navListRef.value);
+
+  nextTick(() => {
+    updateNavState();
+    scrollActiveTabIntoView();
+  });
+});
+
+onBeforeUnmount(() => {
+  resizeObserver?.disconnect?.();
+  resizeObserver = null;
+});
 </script>
 
 <template>
   <div :class="classes">
-    <div class="ued-tab-list ued-tabs__list" role="tablist" @keydown="handleKeydown">
+    <div class="ued-tabs__header">
       <button
-        v-for="item in normalizedItems"
-        :id="getTabId(item)"
-        :key="item.id"
-        :ref="(element) => setTabRef(item.id, element)"
-        class="ued-tab ued-tabs__tab"
-        :class="{
-          'is-active': item.id === activeId,
-          'is-disabled': item.disabled,
-        }"
+        v-if="hasNavOverflow"
+        class="ued-tabs__scroll-btn ued-tabs__scroll-btn--prev"
         type="button"
-        role="tab"
-        :disabled="item.disabled"
-        :tabindex="item.id === activeId ? 0 : -1"
-        :title="item.title || item.label"
-        :aria-selected="item.id === activeId"
-        :aria-controls="item.id === activeId ? tabPanelId : undefined"
-        @click="selectItem(item)"
+        aria-label="Scroll tabs left"
+        :disabled="!canScrollPrev"
+        @click="scrollNav(-1)"
       >
-        <slot name="tab" :item="item" :active="item.id === activeId" :disabled="item.disabled">
-          <span v-if="item.icon" class="ued-tabs__tab-icon">{{ item.icon }}</span>
-          <span class="ued-tabs__tab-label">{{ item.label }}</span>
-          <span v-if="item.badge !== undefined && item.badge !== null && item.badge !== ''" class="ued-tabs__tab-badge">
-            {{ item.badge }}
-          </span>
-        </slot>
+        ‹
+      </button>
+
+      <div ref="navWrapRef" class="ued-tabs__nav-scroll">
+        <div
+          ref="navListRef"
+          class="ued-tab-list ued-tabs__list"
+          role="tablist"
+          :style="navListStyle"
+          @keydown="handleKeydown"
+        >
+          <button
+            v-for="item in normalizedItems"
+            :id="getTabId(item)"
+            :key="item.id"
+            :ref="(element) => setTabRef(item.id, element)"
+            class="ued-tab ued-tabs__tab"
+            :class="{
+              'is-active': item.id === activeId,
+              'is-disabled': item.disabled,
+            }"
+            type="button"
+            role="tab"
+            :disabled="item.disabled"
+            :tabindex="item.id === activeId ? 0 : -1"
+            :title="item.title || item.label"
+            :aria-selected="item.id === activeId"
+            :aria-controls="item.id === activeId ? tabPanelId : undefined"
+            @click="selectItem(item)"
+          >
+            <slot name="tab" :item="item" :active="item.id === activeId" :disabled="item.disabled">
+              <span v-if="item.icon" class="ued-tabs__tab-icon">{{ item.icon }}</span>
+              <span class="ued-tabs__tab-label">{{ item.label }}</span>
+              <span v-if="item.badge !== undefined && item.badge !== null && item.badge !== ''" class="ued-tabs__tab-badge">
+                {{ item.badge }}
+              </span>
+            </slot>
+          </button>
+        </div>
+      </div>
+
+      <button
+        v-if="hasNavOverflow"
+        class="ued-tabs__scroll-btn ued-tabs__scroll-btn--next"
+        type="button"
+        aria-label="Scroll tabs right"
+        :disabled="!canScrollNext"
+        @click="scrollNav(1)"
+      >
+        ›
       </button>
     </div>
 
@@ -183,18 +310,83 @@ watch(
   min-height: 0;
 }
 
+.ued-tabs__header {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  min-height: 0;
+}
+
+.ued-tabs__nav-scroll {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
 .ued-tabs__list {
   min-width: 0;
+  width: max-content;
+  flex-wrap: nowrap;
+  transition: transform 0.22s ease;
+  will-change: transform;
+}
+
+.ued-tabs--full-width .ued-tabs__nav-scroll,
+.ued-tabs--full-width .ued-tabs__list {
+  width: 100%;
 }
 
 .ued-tabs--full-width .ued-tabs__list {
   flex-wrap: nowrap;
-  width: 100%;
 }
 
 .ued-tabs--full-width .ued-tabs__tab {
   flex: 1 1 0;
   min-width: 0;
+}
+
+.ued-tabs__scroll-btn {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--ued-border-default);
+  border-radius: var(--ued-radius-sm);
+  background: var(--ued-bg-panel);
+  color: var(--ued-text-secondary);
+  cursor: pointer;
+  transition:
+    background-color 0.14s ease,
+    border-color 0.14s ease,
+    color 0.14s ease,
+    opacity 0.14s ease;
+}
+
+.ued-tabs__scroll-btn:hover:not(:disabled) {
+  background: var(--ued-bg-panel-hover);
+  color: var(--ued-accent);
+  border-color: color-mix(in srgb, var(--ued-accent) 26%, var(--ued-border-default));
+}
+
+.ued-tabs__scroll-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--ued-shadow-focus);
+}
+
+.ued-tabs__scroll-btn:disabled {
+  color: var(--ued-text-disabled);
+  cursor: not-allowed;
+  opacity: 0.52;
+}
+
+.ued-tabs__scroll-btn--prev {
+  margin-right: var(--ued-space-6);
+}
+
+.ued-tabs__scroll-btn--next {
+  margin-left: var(--ued-space-6);
 }
 
 .ued-tabs__tab {
@@ -207,6 +399,11 @@ watch(
   min-height: var(--ued-control-height-sm);
   padding: 0 var(--ued-space-8);
   font-size: var(--ued-text-body-small);
+}
+
+.ued-tabs--sm .ued-tabs__scroll-btn {
+  width: var(--ued-control-height-sm);
+  height: var(--ued-control-height-sm);
 }
 
 .ued-tabs__tab.is-disabled,

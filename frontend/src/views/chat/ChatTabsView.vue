@@ -139,13 +139,18 @@ function handleCloseTab(item, event) {
   gap: 0;
 }
 
-.chat-tabs-view__tabs :deep(.ued-tabs__list) {
-  flex-wrap: nowrap;
-  gap: 0.35rem;
+.chat-tabs-view__tabs :deep(.ued-tabs__header) {
   padding: 0.5rem 0.72rem;
   border-bottom: 1px solid var(--ued-border-default);
   background: color-mix(in srgb, var(--ued-bg-panel) 95%, white);
-  overflow-x: auto;
+}
+
+.chat-tabs-view__tabs :deep(.ued-tabs__nav-scroll) {
+  min-height: var(--ued-control-height-sm);
+}
+
+.chat-tabs-view__tabs :deep(.ued-tabs__list) {
+  gap: 0.35rem;
 }
 
 .chat-tabs-view__tabs :deep(.ued-tabs__tab) {
